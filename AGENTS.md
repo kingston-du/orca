@@ -12,9 +12,37 @@ Optimize for this balance:
 
 The developer wants to write the code themselves. Do **not** behave like an autonomous code generator unless they explicitly ask you to temporarily switch modes.
 
+### Workspace editing boundary
+
+Unless the developer explicitly asks for an app-code change, edit only `PROJECT.md` and `AGENTS.md`. The developer implements app code and configuration; automatically update these two documents after a confirmed milestone or material decision, but do not create commits on the developer's behalf unless asked.
+
 ### Current project state
 
-Implementation has not started. Product planning is complete, and the current milestone is **Phase 0 — Engineering Foundation**. Begin with the current-status block and roadmap in `PROJECT.md`; do not infer completed work from the plan itself.
+Implementation is underway. **Phase 0 — Expo engineering baseline** is complete at local commit `1878f3b`: the app runs in the iOS Simulator and the Home / Camera / Memories shell exists. The working tree now contains unfinished Supabase/Auth work: a native client with correct centralized app-lifecycle refresh but raw AsyncStorage session persistence, an incomplete sign-in screen, and no protected session gate. TypeScript and `expo-doctor` pass; lint has WIP warnings and formatting currently fails on the draft screen. A hosted Supabase project exists and is treated as development, but there are no local migrations, generated database types, database tests, CI, production project, or EAS setup. There is no GitHub remote.
+
+The active milestone is **Phase 1 — Recoverable engineering and backend foundation**. The immediate task is to create a private GitHub remote and push the committed baseline before the first database migration. Then follow the ordered Phase 1 checkpoints in `PROJECT.md`; do not skip directly back to Auth UI.
+
+---
+
+## Plan Ownership and Advice Standard
+
+The developer has explicitly delegated technical architecture, sequencing, security, quality, and release-readiness judgment to the AI. Do not make them repeatedly ask whether a recommendation is current, secure, or industry-standard.
+
+Before assigning or reviewing a meaningful implementation task:
+
+1. Read the current-status block and active phase in `PROJECT.md`.
+2. Inspect the relevant current code/configuration rather than relying on an earlier description.
+3. Identify the next unmet dependency and the applicable phase gate.
+4. Verify version-sensitive behavior against installed versions and current primary documentation.
+5. Choose the simplest design that is production-suitable for Orca's actual scale.
+6. State whether anything is a temporary shortcut, and name the checkpoint that removes it.
+7. Include security, failure, testing, cleanup, and release implications before the developer implements the pattern—not after they discover them.
+
+The AI owns the default recommendation. Ask the developer to choose only when the answer is genuinely a product preference, legal/business identity, irreversible external account decision, or a tradeoff that cannot be resolved from the product contract. When a choice is needed, recommend one default and explain its consequence.
+
+Follow the phase order in `PROJECT.md`. If evidence requires a different architecture or sequence, explain why, update both documents first, and then assign the revised task. Never silently drift from the plan or call a phase complete before its gate passes.
+
+Optimize total delivery time. A tutorial shortcut that later requires an authorization rewrite is not fast; an enterprise abstraction with no current consumer is not optimal.
 
 ---
 
@@ -206,6 +234,8 @@ Target shape:
 ```text
 src/
   app/                 # Expo Router route files and layouts
+    (auth)/            # signed-out routes
+    (app)/             # protected onboarding, tabs, detail, settings
   components/          # Shared presentational components
   features/            # Domain-specific UI + hooks + helpers
     auth/
@@ -216,13 +246,19 @@ src/
     memories/
     reactions/
     comments/
-  lib/                 # Supabase client, generic utilities, config
+    safety/
+    notifications/
+  lib/                 # Typed Supabase client, auth storage, query client, config
   types/               # Shared domain/generated database types
   constants/           # Theme tokens and fixed app constants
 supabase/
+  config.toml
   migrations/          # Version-controlled database schema changes
+  tests/               # pgTAP authorization/invariant tests
   seed.sql              # Optional local/dev seed data
+  functions/            # Only privileged cross-system workflows
 assets/
+e2e/                    # Small critical-flow suite once flows stabilize
 ```
 
 Do not create layers such as repositories, services, factories, dependency injection containers, or elaborate design systems unless the project actually earns that complexity.
@@ -237,10 +273,15 @@ The intended V1 stack is:
 - **Expo Router** for navigation
 - **Supabase Auth** for accounts
 - **Supabase Postgres** for relational app data
-- **Supabase Storage** for photos/videos
+- **Supabase Storage** for private photos
 - **Supabase Realtime only where it materially improves the experience**
-- **Expo development builds / EAS** when native functionality requires them
+- **TanStack Query** when the first real profile/Circle server queries are introduced
+- **Expo development, preview, production-backed beta, and production builds / EAS**
 - **Git + GitHub** for version control
+
+V1 is native iOS/Android and photo-only. Do not add web compatibility, video, a custom camera, or broad device permissions. Use the system camera/photo picker for the first release.
+
+Use local Supabase for schema/tests, the existing hosted project for development, and a separate production project before real historical data or the memory beta. Do not add a staging backend until the team or release process earns it.
 
 Do not add major libraries reflexively.
 
@@ -251,7 +292,7 @@ Before adding a dependency, answer:
 3. Is the library maintained and compatible with the current Expo SDK?
 4. Does its complexity save more time than it costs?
 
-For small amounts of client state, prefer React state/context first. Introduce a server-state caching library only when the app's fetching complexity justifies it.
+Use React state for local UI and one focused Context for Auth. Use TanStack Query for remote rows once introduced; never duplicate query data into a general global store. Do not add a form library or state-management library until repeated code demonstrates a concrete need.
 
 ---
 
@@ -263,11 +304,16 @@ Before giving version-sensitive setup instructions or implementing an unfamiliar
 
 1. Check the current official documentation.
 2. Prefer official Expo, React Native, Supabase, Apple, or Android documentation over old tutorials.
-3. Check current package compatibility rather than guessing versions.
+3. Inspect the versions actually installed and check package compatibility rather than guessing versions.
 4. For Supabase work, scan relevant recent changelog/breaking-change notes.
-5. For CLI commands, use the tool's current `--help` when practical rather than relying on memory.
+5. For CLI commands, use the pinned tool's current `--help` when practical rather than relying on memory.
+6. Verify any deprecation against current source/reference material instead of repeating a stale quickstart.
+
+Treat official quickstarts as teaching references, not automatically as the production target. Cross-check them against the versions actually installed, and distinguish clearly between “works for setup” and “recommended for Orca.” Before recommending a pattern as optimal, account for ownership, cleanup, Fast Refresh/remount behavior, error handling, and Orca's actual platform scope. Do not add web or other platform branches unless the product intends to support them. If a temporary shortcut is appropriate, label it as such before the developer implements it.
 
 For current Supabase projects, verify Data API schema exposure and SQL grants separately from RLS. A correct RLS policy does not itself make a table available through the Data API.
+
+Do not recommend deprecated `processLock`. Do not recommend `npm audit fix --force` or package `latest` in an Expo project; use Expo-compatible installs and assess whether a finding is production-reachable.
 
 Do not blindly copy old blog posts.
 
@@ -283,6 +329,12 @@ Treat privacy as part of the feature, not cleanup work.
 - Never place a Supabase secret/service-role key in the Expo client.
 - Never commit secrets.
 
+### Native session storage
+
+Supabase sessions contain bearer access and refresh tokens. Do not use raw AsyncStorage as Orca's final session store. Use the current maintained Supabase large-session pattern: encrypt the serialized session before storing it in AsyncStorage and keep its random encryption key in Expo SecureStore. Keep that adapter isolated from client construction, pin its dependencies, avoid inventing or casually modifying cryptography, and treat missing keys/corrupt ciphertext as a safe sign-out rather than a crash loop. Do not enable biometric `requireAuthentication` for routine background refresh. Direct SecureStore storage is not assumed safe for the full serialized session because underlying platforms may reject large values. Verify restore, refresh, sign-out, reinstall, kill/relaunch, and foreground/background behavior on physical iOS and Android.
+
+Keep one app-lifecycle refresh owner with cleanup. Omit deprecated `processLock`. Keep one Auth provider/subscription and make the `onAuthStateChange` callback synchronous.
+
 ### Row Level Security
 
 Enable RLS on every app table exposed through the Data API.
@@ -297,33 +349,44 @@ Do not rely on “the UI hides it.” The database must enforce it.
 
 Do not treat `TO authenticated` by itself as authorization. Policies must also verify ownership or circle membership.
 
-Basic profile identity is the deliberate exception: any signed-in Orca user may read display name, username if used, and avatar. Users may write only their own profile. This visibility never grants access to posts or media, and V1 has no separate friendship/follower authorization relationship.
+Profile identity is readable only by the profile owner, users who currently share a Circle, or users who can still see that person's published contribution in one of their Circles, subject to blocking. This preserves attribution when a former member's post remains shared history without enabling global enumeration. Users may write only permitted fields on their own profile. V1 has no global user directory, username search, friendship, or follower relationship; secure invite tokens handle Circle joining.
+
+Treat this as the final V1 policy and stage it with schema dependencies: self-only in the profiles migration, shared-Circle after memberships exist, historical-attribution after posts exist, and block predicates only after blocks exist. Never make an earlier migration or test reference a later table.
 
 ### Storage
 
-Photo/video Storage policies must mirror database visibility rules.
+Photo Storage policies must mirror database visibility rules.
 
 Do not make the media bucket public merely because it is easier.
 
-Use one private `post-media` bucket with object paths shaped as `{circle_id}/{author_id}/{post_id}/media.{extension}`. Uploads must verify that the caller is the author segment and belongs to the Circle segment; reads must verify Circle membership. Do not enable upsert/replacement permissions unless the feature actually requires them.
+Use one private `post-media` bucket with immutable object paths shaped as `{circle_id}/{author_id}/{post_id}/media.jpg`. Post creation is **reserve pending row → upload exact object → trusted verify/finalize published row**. Uploads must verify the caller is the author segment, belongs to the Circle, and owns the exact matching pending post. Allow the narrow pending-author SELECT required by current Storage `INSERT … RETURNING`, but no other pending read. Published reads allow the author or current Circle visibility under the final block rules; a former author's owner fallback must not grant the old Circle feed/reactions/comments. Do not grant client Storage update/upsert. Delete through the Storage API as part of a controlled post lifecycle; never delete `storage.objects` rows directly with SQL.
 
-Use a separate private `avatars` bucket. Signed-in users may read avatar objects, and only the owning user may write or delete their own avatar. Profile-avatar readability must never be reused as a policy for post media.
+Use a separate private `avatars` bucket with immutable versioned paths. Avatar reads mirror self/shared-Circle profile visibility; only the owner may upload/delete their objects. Profile-avatar readability must never be reused as a policy for post media.
 
 ### Orca data invariants
 
-- A post belongs to one real Circle and contains exactly one media item in V1.
+- A post belongs to one real Circle and contains exactly one photo in V1.
+- A post moves through `pending` → `published` or `deleting`; only published posts are readable in feeds.
 - A Moment belongs to one Circle, has no independent audience, and may contain only posts from that Circle.
-- `created_at` is sharing time; `captured_at` is memory time. Home uses the former, while Memories, Moments, and Rewind use the latter.
+- `created_at` is database-set when publish finalizes and means sharing time; `captured_at` is memory time. Home uses the former, while Memories, Moments, and Rewind use the latter.
 - A user may add multiple different reaction types to a post, but only one instance of each type.
 - Comments may have one level of replies. A reply and its top-level parent must belong to the same post.
 - Deleting a comment with replies must remove its body but preserve a tombstone and the other users' replies.
 - The Circle creator is inserted as the first admin. Admins may remove members, and no operation may leave a Circle without an admin.
+- Circle invitations are expiring/revocable, store only a high-entropy token hash, and are redeemed transactionally.
+- Blocking is enforced in database visibility/interaction behavior and caches/notifications, not only filtered in UI.
+- Leaving/removal ends server access to other Circle data immediately. Existing published contributions remain Circle history by default; the former author retains row/media owner access and deletion rights but not the old feed/reactions/comments, and full account deletion removes their content under the deletion policy. Short signed-URL expiry bounds new link use, but already cached/downloaded bytes cannot be remotely revoked; never promise otherwise.
+- Every app-data operation requires an active private account state; suspended/deleting/missing callers deny even with an unexpired JWT.
+- Production V1 is invitation-gated and 18+; current server-validated legal/eligibility acceptance is required before posting or interaction.
+- Moment children, cover, participants, and counts are filtered to posts visible to the viewer; an empty visible subset hides the Moment.
 
 ### Database changes
 
-Use version-controlled migrations.
+Use hand-written, version-controlled imperative migrations. Do not adopt Supabase's alpha declarative schema workflow for V1.
 
-When a schema change is exploratory, iterate carefully; when the shape is accepted, create a clean migration and verify it.
+Before the first app table, establish local Supabase, the hosted development project, generated TypeScript database types, pgTAP tests, and CI. The current hosted project is development; create a separate production project before the memory beta. Apply persistent changes through migrations, test from a clean local reset, then promote development before production.
+
+Client-facing V1 tables and thin callable RPC entry points live in the exposed `public` schema; helpers and operational/moderation state live in an unexposed `private` schema. A client RPC is security-invoker with `PUBLIC`/`anon` execution revoked. If elevated rights are unavoidable, it calls one narrowly granted private security-definer helper that independently derives/validates `auth.uid()`, uses an empty `search_path`, and fully qualifies every object. Every table migration includes constraints, indexes, explicit grants, explicit RLS enablement/policies, and negative authorization tests. Exposed views use invoker security.
 
 Prefer constraints in the database for facts the database must guarantee:
 
@@ -333,6 +396,14 @@ Prefer constraints in the database for facts the database must guarantee:
 - sensible check constraints
 
 Do not rely only on client validation.
+
+### Privileged workflows and recovery
+
+Use Postgres RPCs for short transactional invariants such as Circle creation, invite redemption, and last-admin changes. Use Edge Functions when a service credential, trusted file inspection, or multi-system orchestration is genuinely required, such as publish finalization, complete account/Circle deletion, moderation operations, push sending, or Storage cleanup. Never authorize a requested user ID instead of the verified JWT caller.
+
+Create a private active/suspended/deleting account state before app-data policies. Every authorization helper denies a missing/nonactive caller so deletion or moderation stops an already-issued JWT immediately; revoking sessions or deleting `auth.users` alone does not invalidate an access token that has not expired. Delete Auth identity last after all database and Storage dependencies succeed.
+
+Before real historical data enters production, define and test database plus private-media backup/restore. Supabase database backups do not contain Storage objects; Orca needs an encrypted off-site media copy and a restore drill before claiming memories are permanent.
 
 ---
 
@@ -347,6 +418,8 @@ Whenever introducing a table, teach:
 5. Who can SELECT/INSERT/UPDATE/DELETE it.
 6. Which constraints protect data integrity.
 7. Whether an index is actually needed yet.
+8. How deletion/account cleanup affects it.
+9. Which pgTAP negative cases prove its authorization.
 
 Prefer normalized, understandable relational data over giant JSON blobs.
 
@@ -358,6 +431,7 @@ Do not optimize for hypothetical millions of users before Orca works for 15 frie
 
 Teach professional Git from day one.
 
+- A private GitHub remote is required before the first database migration so code, schema, tests, and generated types have an off-device source of truth.
 - Keep `main` working.
 - Make small, coherent commits.
 - Commit after a meaningful checkpoint, not every keystroke and not once per week.
@@ -365,6 +439,7 @@ Teach professional Git from day one.
 - Review `git diff` before committing.
 - Never commit `.env`, credentials, generated secret files, or large accidental assets.
 - Use branches when a change is risky or spans substantial work; do not create ceremony for tiny solo changes.
+- CI must recreate the app/database from a clean checkout before release work depends on it.
 
 At natural checkpoints, suggest a commit.
 
@@ -377,20 +452,25 @@ Do not pursue 100% test coverage for V1.
 Prioritize tests for logic where a silent bug would matter:
 
 - authorization/RLS behavior
+- SQL grants and Data API reachability
+- private Storage policy agreement with row visibility
 - audience visibility
+- invite expiry/revocation/concurrency
 - moment grouping logic
-- upload metadata creation
+- pending/upload/publish/delete lifecycle and idempotency
 - Circle/admin lifecycle invariants
 - post-to-Moment Circle consistency
 - comment reply parent/post consistency
 - comment deletion/tombstone behavior
 - capture-time versus sharing-time behavior
+- account deletion and data/media cleanup
+- blocking/reporting behavior
 - important pure utility functions
 - regressions discovered during development
 
-For UI, prioritize a few high-value flows over snapshot-heavy testing.
+Use pgTAP and real API/Storage integration tests for authorization and database invariants. Use React Native Testing Library for a few high-value component flows, not snapshot-heavy coverage or new `react-test-renderer` tests. Add a small Maestro E2E suite only after critical flows stabilize.
 
-Every milestone should also have a short manual acceptance checklist.
+Every milestone should also have a short manual acceptance checklist. Camera/picker, encrypted session persistence, permissions, app links, notifications, account switching, install/upgrade, accessibility, and performance require physical-device or production-like build checks where applicable; Expo Go/simulator success is not sufficient.
 
 ---
 
@@ -441,17 +521,18 @@ Build the smallest version that is genuinely fun for the founder's real 12–15-
 
 Prioritize:
 
-1. account + profile
-2. circle membership
-3. Everyone aggregate view
-4. photo posting
-5. home feed
-6. reactions/comments
-7. permanent timeline
-8. Memories browsing
-9. automatic Moments
-10. simple Rewind
-11. video only after the photo loop works reliably, unless video is easy to add without destabilizing the MVP
+1. recoverable engineering, migrations, CI, and secure session foundation
+2. account + profile
+3. Circle membership/invites/admin lifecycle
+4. one-photo publishing
+5. Circle and Everyone feeds
+6. reactions/comments plus blocking/reporting/moderation
+7. private alpha of the immediate loop
+8. capture-time Memories and historical single-photo import
+9. automatic Moments and simple Rewind
+10. production data/backup/account-lifecycle foundation and memory beta
+11. public deletion/support, legal/link verification, and notification release requirements
+12. release candidate, store submission, and operations
 
 Delay unless evidence proves otherwise:
 
@@ -466,8 +547,12 @@ Delay unless evidence proves otherwise:
 - algorithmic feeds
 - elaborate editing/filter tools
 - AI features
+- web application support
+- custom camera UI
+- bulk import
+- video before V1.1 evidence and reliability gates
 
-Treat Phases 0–5 as the **private alpha**: prove the immediate posting and interaction loop with 2–3 friends. Treat Phases 6–8 as the **memory beta**: validate the archive with organic posts and the founder's existing historical photos. Seeded history proves correctness, not organic retention.
+Phase 7 is the **private alpha**: prove the immediate posting/interaction loop with 2–3 trusted friends using disposable development data. Phase 10 is the **memory beta**: validate the archive with the intended 12–15-person group only after a separate production backend and database-plus-media recovery work. Seeded history proves correctness, not organic retention.
 
 ---
 
@@ -496,14 +581,20 @@ Before calling a feature complete, check:
 - empty state makes sense
 - common error path is handled
 - permissions are correct
-- Data API exposure/grants and RLS are both verified where Supabase data is involved
+- Data API exposure, explicit grants, RLS, and Storage policies are independently verified where Supabase data is involved
 - TypeScript passes
 - lint/format checks pass
+- relevant pgTAP/unit/integration tests pass from a clean state
+- generated database types match migrations
 - no obvious duplicate requests or uploads
+- destructive or retried work cannot leave ambiguous partial state
 - important data survives app reload
 - historical photos preserve a credible `captured_at` while `created_at` remains the actual share time
 - behavior is tested on a real device when camera/media/native behavior is involved
+- sign-out/account switching clears user-scoped query, media, signed-URL, draft, and temporary-file state
 - developer can explain the core mechanism in plain English
+
+Also apply the current phase gate in `PROJECT.md`. Rendering once or passing app-only checks cannot complete a backend, security, beta, or release phase.
 
 ---
 
@@ -512,18 +603,23 @@ Before calling a feature complete, check:
 For most implementation questions, respond approximately like this:
 
 ### What we're solving
+
 One short explanation.
 
 ### What you need to understand
+
 1–3 concepts maximum.
 
 ### Your next step
+
 One concrete task for the developer to implement.
 
 ### Hints
+
 Only enough detail to unblock them.
 
 ### Done when
+
 A small acceptance checklist.
 
 Then stop and let the developer work unless they asked for more.
@@ -531,15 +627,19 @@ Then stop and let the developer work unless they asked for more.
 When reviewing code, use:
 
 ### Good
+
 What is correct.
 
 ### Fix
+
 Specific problems, ordered by importance.
 
 ### Why
+
 The transferable lesson.
 
 ### Next edit
+
 The smallest next change.
 
 ---
@@ -568,5 +668,9 @@ When you provide substantial code, annotate the important decisions and ask the 
 - The current-status block at the top of `PROJECT.md` defines the active phase and next checkpoint.
 - This file defines **how the AI should help build it**.
 - The current codebase is the source of truth for what is actually implemented.
+
+After the developer confirms a completed checkpoint or material product/architecture decision, inspect the evidence, update `PROJECT.md` and this file to match, and only then assign the next task. The developer should not need to remind the AI to maintain these files.
+
+Before giving “the next step,” verify it is the next unmet dependency in the active phase. Surface only that checkpoint and its immediate context; the complete plan remains in `PROJECT.md`.
 
 When these disagree, point out the mismatch rather than silently inventing a new direction.
