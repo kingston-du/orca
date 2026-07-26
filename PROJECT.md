@@ -2,7 +2,7 @@
 
 ## 0. Current status
 
-**Last audited:** July 25, 2026
+**Last audited:** July 26, 2026
 
 **Release target:** a production-quality, store-releasable, native iOS and Android V1
 
@@ -20,10 +20,11 @@
 - Production and development variants now resolve to distinct names, URL schemes, iOS bundle identifiers, and Android package identifiers; shared static Expo configuration remains intact.
 - `.env` is ignored and `.env.example` contains only public variable names.
 - A local working baseline exists at commit `1878f3b`.
-- The private GitHub repository is connected as `origin`; local `main` tracks `origin/main` through dependency-cleanup commit `4b60743`.
+- The private GitHub repository is connected as `origin`; local `main` tracks `origin/main` through local-workflow commit `f8c45a5`.
 - The direct dependency manifest has been audited: unused template packages are removed, Expo/Router-required packages remain, and `@supabase/supabase-js` `2.110.8` plus `react-native-url-polyfill` `4.0.0` are exactly pinned at their current published versions.
 - Supabase CLI `2.109.1` is exactly pinned as a project dev dependency, and `supabase/config.toml` initializes the local backend with Postgres 17 and explicit-by-default Data API grants.
 - The Docker-backed local Supabase stack starts successfully, an empty reset reapplies the version-controlled seed input, Mailpit/Studio and backend services are healthy, and a direct query verifies local Postgres `17.6`.
+- The uncommitted security-foundation migration now establishes the unexposed `private` schema and least-privilege schema/object defaults. A clean reset applies it successfully; all 16 pgTAP assertions pass; Security Advisor reports no warnings; and the transactional probe objects leave no residue.
 - A hosted Supabase project has been created and will be treated as the development project.
 - A native Supabase client and centralized foreground/background token-refresh handling have been started.
 
@@ -32,13 +33,13 @@
 - `src/lib/supabase.ts` persists the raw Supabase session in AsyncStorage. This is a temporary development state, not the accepted production design.
 - `src/app/(auth)/sign-in.tsx` is an unfinished UI draft with no Auth operation yet.
 - The root layout does not yet restore the session or protect signed-in/signed-out routes.
-- Supabase CLI initialization is committed and pushed through `31929c8`. The comment-only `supabase/seed.sql` and automatic planning-document updates are the current uncommitted files; the local stack remains running.
+- The reproducible empty local workflow is committed and pushed through `f8c45a5`. The passing security-foundation migration, its 16-test pgTAP suite, and planning-document updates are the current uncommitted work; the local stack remains running.
 - TypeScript and all 20 `expo-doctor` checks pass. The unfinished sign-in screen still produces eight lint warnings and fails the format check, so the current code is recoverable but not yet a quality-clean Phase 1 checkpoint.
 - The July 25 dependency baseline reports 20 total transitive advisories. With dev dependencies omitted, it reports 11 moderate and zero high/critical findings, all routed through Expo configuration/build tooling (`@expo/*`, `xcode`, and `uuid`). npm's proposed automatic resolution would downgrade Expo incompatibly, so these are monitored for an Expo-compatible upstream fix rather than force-fixed.
 
 ### What does not exist yet
 
-- No local Supabase migrations, database tests, or generated database types
+- No committed Supabase migration/database-test checkpoint or generated database types
 - No CI
 - No secure native session adapter
 - No database schema, RLS policies, private Storage buckets, or production Supabase project
@@ -46,7 +47,7 @@
 
 ### Immediate checkpoint
 
-Commit the reproducible empty local-backend checkpoint, then create the first hand-written security-foundation migration. It will establish Orca's private helper schema and explicit privilege defaults before any user table exists.
+Review and commit the verified security-foundation migration, its pgTAP suite, and the matching planning-document updates as one coherent checkpoint. Do not link or push migrations to hosted development until this local source-of-truth checkpoint is committed.
 
 The Expo app still targets the hosted development project through `.env`; local and hosted environments intentionally remain separate until the migration is tested locally and the CLI is deliberately linked for promotion.
 
@@ -1704,12 +1705,23 @@ Version-sensitive implementation must recheck these sources at the time of the t
 
 ## 17. Next action
 
-First make sure the local/hosted environment model and key boundaries are understood; the explanation in the current teaching checkpoint is part of the work, not a detour.
+The security-foundation migration has passed its clean local gate:
 
-Then commit the verified empty-local-stack checkpoint and planning updates as `chore: prove local Supabase workflow`. The next implementation task will create the first migration through:
+- clean reset applied `20260726040517_security_foundation.sql`
+- one pgTAP file and all 16 tests passed
+- Security Advisor reported no warnings
+- test probe objects left no database residue after rollback
+
+Review and commit exactly this coherent checkpoint:
 
 ```bash
-npx supabase migration new security_foundation
+git diff --check
+git add AGENTS.md PROJECT.md \
+  supabase/migrations/20260726040517_security_foundation.sql \
+  supabase/tests/security_foundation_test.sql
+git diff --cached
+git commit -m "chore: add database security foundation"
+git push
 ```
 
-Do not write or apply that migration until its small SQL contract has been explained and reviewed. It will establish only the private helper schema and explicit privilege defaults—no profile, Circle, post, Auth trigger, Storage bucket, or hosted-project change yet.
+Done when `git status` is clean and local `main` is pushed. Return before linking the CLI to hosted development; that is the next separately reviewed checkpoint.
