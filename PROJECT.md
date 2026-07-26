@@ -19,7 +19,8 @@
 - Expo is explicitly limited to iOS and Android, iPad support is disabled for phone-only V1, and direct React Native web configuration, script, and dependencies are removed.
 - `.env` is ignored and `.env.example` contains only public variable names.
 - A local working baseline exists at commit `1878f3b`.
-- The private GitHub repository is connected as `origin`; local `main` tracks `origin/main` at commit `2d92040`.
+- The private GitHub repository is connected as `origin`; local `main` tracks `origin/main` at native-only commit `d709c37`.
+- The direct dependency manifest has been audited: unused template packages are removed, Expo/Router-required packages remain, and `@supabase/supabase-js` `2.110.8` plus `react-native-url-polyfill` `4.0.0` are exactly pinned at their current published versions.
 - A hosted Supabase project has been created and will be treated as the development project.
 - A native Supabase client and centralized foreground/background token-refresh handling have been started.
 
@@ -28,7 +29,7 @@
 - `src/lib/supabase.ts` persists the raw Supabase session in AsyncStorage. This is a temporary development state, not the accepted production design.
 - `src/app/(auth)/sign-in.tsx` is an unfinished UI draft with no Auth operation yet.
 - The root layout does not yet restore the session or protect signed-in/signed-out routes.
-- The unfinished Supabase/Auth work is now committed and pushed; the working tree is clean.
+- The unfinished Supabase/Auth work and native-only checkpoint are committed and pushed. The verified dependency-manifest changes and their automatic planning-document updates are the only current uncommitted files.
 - TypeScript and all 20 `expo-doctor` checks pass. The unfinished sign-in screen still produces eight lint warnings and fails the format check, so the current code is recoverable but not yet a quality-clean Phase 1 checkpoint.
 - The July 25 dependency baseline reports 20 total transitive advisories. With dev dependencies omitted, it reports 11 moderate and zero high/critical findings, all routed through Expo configuration/build tooling (`@expo/*`, `xcode`, and `uuid`). npm's proposed automatic resolution would downgrade Expo incompatibly, so these are monitored for an Expo-compatible upstream fix rather than force-fixed.
 
@@ -42,9 +43,9 @@
 
 ### Immediate checkpoint
 
-Commit the completed native-only checkpoint, then clean the remaining direct dependency manifest: remove proven-unused template dependencies and pin the two non-Expo Supabase client dependencies to the exact installed versions already verified by the lockfile.
+Commit the verified dependency cleanup, then give development and production builds distinct, stable native identities using Expo's current dynamic app-variant pattern. This prevents development builds from replacing the future production app on a device and establishes the identifiers that signing and external services will use.
 
-After dependency cleanup passes Expo compatibility, doctor, typecheck, and an iOS launch, Phase 1 continues through stable native identifiers/configuration, the local Supabase migration workflow, generated types, CI, and secure session persistence—in that order.
+After native identifiers/configuration pass Expo config inspection, compatibility, doctor, typecheck, and an iOS launch, Phase 1 continues through the local Supabase migration workflow, generated types, CI, and secure session persistence—in that order.
 
 ---
 
@@ -937,7 +938,7 @@ Auth, migrations, and private data should not be built on an unpinned, single-de
 - [ ] Give the app stable production iOS bundle and Android package identifiers; add a development suffix/variant so dev and production can coexist.
 - [x] Make Expo explicitly `platforms: ["ios", "android"]`.
 - [x] Remove the web script/config and `react-dom`/`react-native-web` after verifying no native dependency needs them directly.
-- [ ] Pin direct Supabase and URL-polyfill packages exactly; preserve Expo-compatible package versions and lockfile.
+- [x] Pin direct Supabase and URL-polyfill packages exactly; preserve Expo-compatible package versions and lockfile.
 - [ ] Record current production-reachable dependency audit findings, enable repository security/secret alerts where available, and fix through compatible upgrades rather than forced major rewrites.
 - [ ] Fix the stray `.gitignore` entry and keep `.env.example` secret-free.
 - [ ] Run `npm ci`, Expo compatibility, doctor, format, lint, and typecheck cleanly.
@@ -973,7 +974,8 @@ These items do not block 1B/1C work; start external waits early and finish the c
 
 - [ ] Reserve the production support/domain identity needed later for SMTP, legal pages, and verified app links.
 - [ ] Start Apple Developer and Google Play account/identity setup; external verification and current closed-testing rules can create calendar delays.
-- [ ] Audit template dependencies/assets; remove only proven unused packages and placeholders.
+- [x] Audit template dependencies and remove only proven unused packages.
+- [ ] Audit template assets and remove only proven unused placeholders.
 - [ ] Replace the template README and resolve the template license/proprietary-project mismatch.
 
 #### Phase 1 gate
@@ -1699,17 +1701,25 @@ Version-sensitive implementation must recheck these sources at the time of the t
 
 The next task is intentionally small:
 
-Commit the completed native-only checkpoint as `chore: remove web support`, then perform the next implementation task:
+Commit the verified dependency changes as `chore: clean dependency manifest`, then establish development and production app identities using Expo's current app-variant pattern.
 
-> Remove only the audited unused direct template dependencies, then exactly pin the installed Supabase client and URL polyfill.
+Keep static shared configuration in `app.json`. Add `app.config.js` as a thin dynamic overlay that receives Expo's resolved `config`, preserves it, and changes only these values when `process.env.APP_VARIANT === "development"`:
+
+| Setting | Production/default | Development |
+|---|---|---|
+| `name` | `Orca` | `Orca (Dev)` |
+| `scheme` | `orca` | `orca-dev` |
+| `ios.bundleIdentifier` | `com.kingstondu.orca` | `com.kingstondu.orca.dev` |
+| `android.package` | `com.kingstondu.orca` | `com.kingstondu.orca.dev` |
+
+The production/default behavior is deliberate: a missing build variable must not silently create an unidentified variant. Later EAS development configuration will explicitly set `APP_VARIANT=development`.
 
 Done when:
 
-- `@expo/ui`, `expo-device`, `expo-font`, `expo-glass-effect`, `expo-image`, `expo-status-bar`, `expo-symbols`, and `expo-web-browser` are no longer direct dependencies; install them later only when a feature needs them;
-- `expo-constants` and `expo-linking` remain because Expo Router declares them as required peers;
-- `expo-splash-screen` and `expo-system-ui` remain because current app configuration uses them;
-- `@supabase/supabase-js` is exactly `2.110.8` and `react-native-url-polyfill` is exactly `4.0.0`, with no caret;
-- `npx expo install --check`, `npx expo-doctor`, `npm run typecheck`, and an iOS launch pass;
-- the audit is not force-fixed and no transitive dependency is edited directly.
+- `npx expo config --type public` shows the production/default name, scheme, iOS bundle identifier, and Android package;
+- `APP_VARIANT=development npx expo config --type public` shows all four development values;
+- the overlay spreads the existing resolved config and nested `ios`/`android` objects rather than accidentally deleting static settings;
+- no secret or Supabase environment value is embedded in app config;
+- `npx expo install --check`, `npx expo-doctor`, `npm run typecheck`, and an iOS launch still pass.
 
-Then return for review. Do not remove assets, navigation/native peer dependencies, or fix the Auth draft in this checkpoint.
+Then return for review. Do not add EAS, native directories, assets, or Auth changes in this checkpoint.
