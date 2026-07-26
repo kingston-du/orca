@@ -29,6 +29,7 @@
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.0",
     "prettier": "^3.9.6",
+    "supabase": "2.109.1",
     "typescript": "~6.0.3"
   },
   "scripts": {
