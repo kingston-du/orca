@@ -2,7 +2,7 @@
 
 ## 0. Current status
 
-**Last audited:** July 24, 2026
+**Last audited:** July 25, 2026
 
 **Release target:** a production-quality, store-releasable, native iOS and Android V1
 
@@ -15,8 +15,10 @@
 - The app runs in the iOS Simulator.
 - Home, Camera, and Memories placeholder tabs exist.
 - Strict TypeScript and lint/format scripts exist.
+- The local toolchain is pinned to Node `24.14.1` and npm `11.11.0`; clean install, TypeScript, and all 20 `expo-doctor` checks pass.
 - `.env` is ignored and `.env.example` contains only public variable names.
 - A local working baseline exists at commit `1878f3b`.
+- The private GitHub repository is connected as `origin`; local `main` tracks `origin/main` at commit `2d92040`.
 - A hosted Supabase project has been created and will be treated as the development project.
 - A native Supabase client and centralized foreground/background token-refresh handling have been started.
 
@@ -25,13 +27,12 @@
 - `src/lib/supabase.ts` persists the raw Supabase session in AsyncStorage. This is a temporary development state, not the accepted production design.
 - `src/app/(auth)/sign-in.tsx` is an unfinished UI draft with no Auth operation yet.
 - The root layout does not yet restore the session or protect signed-in/signed-out routes.
-- The current working tree has uncommitted app and documentation changes.
-- TypeScript and `expo-doctor` pass. The unfinished sign-in screen currently produces lint warnings and fails the format check, so the current working tree is not yet a clean checkpoint.
+- The unfinished Supabase/Auth work is now committed and pushed; the working tree is clean.
+- TypeScript and all 20 `expo-doctor` checks pass. The unfinished sign-in screen still produces eight lint warnings and fails the format check, so the current code is recoverable but not yet a quality-clean Phase 1 checkpoint.
+- The July 25 dependency baseline reports 20 total transitive advisories. With dev dependencies omitted, it reports 11 moderate and zero high/critical findings, all routed through Expo configuration/build tooling (`@expo/*`, `xcode`, and `uuid`). npm's proposed automatic resolution would downgrade Expo incompatibly, so these are monitored for an Expo-compatible upstream fix rather than force-fixed.
 
 ### What does not exist yet
 
-- No GitHub remote or off-device copy of the repository
-- No pinned Node runtime
 - No local Supabase CLI workflow, migrations, seed, database tests, or generated database types
 - No CI
 - No secure native session adapter
@@ -40,9 +41,9 @@
 
 ### Immediate checkpoint
 
-Create a **private GitHub repository**, add it as `origin`, and push the existing `main` baseline before creating the first migration. Do not commit the unfinished working-tree changes merely to make the push happen; the current committed baseline can be pushed while local work remains uncommitted.
+Commit the completed runtime/documentation checkpoint, then make the project explicitly native-only and phone-first: declare only iOS/Android, disable iPad support, remove Expo web configuration/script, and uninstall the direct `react-dom` and `react-native-web` dependencies through npm.
 
-After that, Phase 1 continues with runtime/dependency cleanup, the local Supabase migration workflow, generated types, CI, and secure session persistence—in that order.
+After native-only cleanup passes Expo compatibility, doctor, typecheck, and an iOS launch, Phase 1 continues through dependency cleanup/pinning, the local Supabase migration workflow, generated types, CI, and secure session persistence—in that order.
 
 ---
 
@@ -928,9 +929,9 @@ Auth, migrations, and private data should not be built on an unpinned, single-de
 
 #### 1A. Repository and runtime
 
-- [ ] Create a private GitHub repository, add `origin`, and push `main`.
+- [x] Create a private GitHub repository, add `origin`, and push `main`.
 - [ ] Enable branch protection or at minimum require passing CI before intentional release merges once CI exists.
-- [ ] Record the SDK 57 platform contract and pin it consistently: Node 22.13+, iOS 16.4+, Android 7+, and Android target API 36; recheck before store submission.
+- [x] Record the SDK 57 platform contract and pin it consistently: Node 22.13+, iOS 16.4+, Android 7+, and Android target API 36; recheck before store submission.
 - [ ] Make V1 officially phone-only, set iOS tablet support accordingly, and keep larger Android/window layouts usable enough not to break.
 - [ ] Give the app stable production iOS bundle and Android package identifiers; add a development suffix/variant so dev and production can coexist.
 - [ ] Make Expo explicitly `platforms: ["ios", "android"]`.
@@ -1697,14 +1698,17 @@ Version-sensitive implementation must recheck these sources at the time of the t
 
 The next task is intentionally small:
 
-> Create the private GitHub repository, connect it as `origin`, and push the existing committed `main` baseline.
+Commit the completed runtime checkpoint as `chore: pin Node toolchain`, then perform the next implementation task:
+
+> Make Orca explicitly native-only and phone-first.
 
 Done when:
 
-- the repository is private;
-- `origin` points to it;
-- local `main` tracks the remote branch;
-- commit `1878f3b` is visible remotely;
-- `.env` and current unfinished working-tree changes were not accidentally committed.
+- `app.json` declares only `ios` and `android` platforms;
+- iOS tablet support is explicitly disabled for the phone-only V1;
+- the `web` app configuration and npm script are removed;
+- `react-dom` and `react-native-web` are removed with npm so both package files stay synchronized;
+- `npx expo install --check`, `npx expo-doctor`, `npm run typecheck`, and an iOS launch pass;
+- the audit is not force-fixed and `uuid` is not added/upgraded directly because it is an Expo transitive dependency.
 
-Then return for review. The next checkpoint will stabilize the runtime/dependency/native-only foundation before the first Supabase migration.
+Then return for review. Do not fix the Auth draft or remove unrelated template packages in this checkpoint.
