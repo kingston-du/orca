@@ -23,6 +23,7 @@
 - The private GitHub repository is connected as `origin`; local `main` tracks `origin/main` through dependency-cleanup commit `4b60743`.
 - The direct dependency manifest has been audited: unused template packages are removed, Expo/Router-required packages remain, and `@supabase/supabase-js` `2.110.8` plus `react-native-url-polyfill` `4.0.0` are exactly pinned at their current published versions.
 - Supabase CLI `2.109.1` is exactly pinned as a project dev dependency, and `supabase/config.toml` initializes the local backend with Postgres 17 and explicit-by-default Data API grants.
+- The Docker-backed local Supabase stack starts successfully, an empty reset reapplies the version-controlled seed input, Mailpit/Studio and backend services are healthy, and a direct query verifies local Postgres `17.6`.
 - A hosted Supabase project has been created and will be treated as the development project.
 - A native Supabase client and centralized foreground/background token-refresh handling have been started.
 
@@ -31,13 +32,13 @@
 - `src/lib/supabase.ts` persists the raw Supabase session in AsyncStorage. This is a temporary development state, not the accepted production design.
 - `src/app/(auth)/sign-in.tsx` is an unfinished UI draft with no Auth operation yet.
 - The root layout does not yet restore the session or protect signed-in/signed-out routes.
-- The native app variants are committed and pushed through `425d16f`. The verified Supabase CLI dependency, generated local configuration, and their automatic planning-document updates are the current uncommitted files.
+- Supabase CLI initialization is committed and pushed through `31929c8`. The comment-only `supabase/seed.sql` and automatic planning-document updates are the current uncommitted files; the local stack remains running.
 - TypeScript and all 20 `expo-doctor` checks pass. The unfinished sign-in screen still produces eight lint warnings and fails the format check, so the current code is recoverable but not yet a quality-clean Phase 1 checkpoint.
 - The July 25 dependency baseline reports 20 total transitive advisories. With dev dependencies omitted, it reports 11 moderate and zero high/critical findings, all routed through Expo configuration/build tooling (`@expo/*`, `xcode`, and `uuid`). npm's proposed automatic resolution would downgrade Expo incompatibly, so these are monitored for an Expo-compatible upstream fix rather than force-fixed.
 
 ### What does not exist yet
 
-- No local Supabase migrations, seed, database tests, running stack, or generated database types
+- No local Supabase migrations, database tests, or generated database types
 - No CI
 - No secure native session adapter
 - No database schema, RLS policies, private Storage buckets, or production Supabase project
@@ -45,9 +46,9 @@
 
 ### Immediate checkpoint
 
-Commit the verified CLI initialization, add an intentionally empty version-controlled seed file, and prove that the Docker-backed local Supabase stack can start, reset, and answer a direct SQL query. This establishes a reproducible empty backend before Orca creates its first table.
+Commit the reproducible empty local-backend checkpoint, then create the first hand-written security-foundation migration. It will establish Orca's private helper schema and explicit privilege defaults before any user table exists.
 
-After the empty local reset is proven, establish the first security-foundation migration, database tests, generated types, and CI before returning to Auth implementation.
+The Expo app still targets the hosted development project through `.env`; local and hosted environments intentionally remain separate until the migration is tested locally and the CLI is deliberately linked for promotion.
 
 ---
 
@@ -949,8 +950,9 @@ Auth, migrations, and private data should not be built on an unpinned, single-de
 
 - [x] Install and pin the Supabase CLI as a dev dependency.
 - [x] Initialize `supabase/config.toml` without linking or changing the hosted project.
-- [ ] Establish version-controlled migrations, `seed.sql`, database tests, and the local Mailpit workflow.
-- [ ] Start/reset local Supabase and prove the empty project is reproducible.
+- [x] Add a version-controlled seed entry point and verify the local Mailpit workflow.
+- [ ] Establish version-controlled migrations and database tests.
+- [x] Start/reset local Supabase and prove the empty project is reproducible with a direct SQL query.
 - [ ] Link the CLI only to the hosted development project; name the environment clearly.
 - [ ] Establish a first foundation migration for required extensions/private helper schema and explicit security defaults.
 - [ ] Add generated `src/types/database.ts` and type the Supabase client.
@@ -1702,31 +1704,12 @@ Version-sensitive implementation must recheck these sources at the time of the t
 
 ## 17. Next action
 
-Commit the verified CLI initialization and planning updates as `chore: initialize local Supabase`, then prove the empty local backend is reproducible.
+First make sure the local/hosted environment model and key boundaries are understood; the explanation in the current teaching checkpoint is part of the work, not a detour.
 
-First create `supabase/seed.sql` containing only:
-
-```sql
--- Reproducible development fixtures will be added with the features that need them.
-```
-
-Then launch Docker Desktop and wait until its engine reports that it is running. From Orca's repository root, run:
+Then commit the verified empty-local-stack checkpoint and planning updates as `chore: prove local Supabase workflow`. The next implementation task will create the first migration through:
 
 ```bash
-npx supabase start
-npx supabase db reset --local
-npx supabase status
-npx supabase db query --local "select current_database() as database, current_setting('server_version') as postgres_version;"
+npx supabase migration new security_foundation
 ```
 
-`start` launches local Postgres, Auth, Storage, Studio, and Mailpit containers. `db reset --local` destroys and rebuilds only the disposable local database from the version-controlled migration/seed inputs; the explicit `--local` prevents ambiguity. The final query verifies the database actually answers rather than relying only on container status.
-
-Done when:
-
-- `supabase start` finishes healthy and local Studio and Mailpit URLs are reported;
-- `supabase db reset --local` succeeds using the comment-only seed file;
-- `supabase status` reports the local services running;
-- the SQL query returns database `postgres` and a Postgres 17 version;
-- no hosted project is linked or changed, and no local credentials are committed or pasted back into chat.
-
-Then return with the success/error output and `git status --short`. Keep the local stack running for the next checkpoint.
+Do not write or apply that migration until its small SQL contract has been explained and reviewed. It will establish only the private helper schema and explicit privilege defaults—no profile, Circle, post, Auth trigger, Storage bucket, or hosted-project change yet.
