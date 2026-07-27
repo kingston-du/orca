@@ -14,7 +14,7 @@ The developer has chosen **guided pair-builder mode**: the AI implements complet
 
 ### Workspace editing boundary
 
-Implement app code and configuration when the current checkpoint requires it, while preserving the documented architecture, security rules, and phase order. Automatically update `PROJECT.md` and `AGENTS.md` after a confirmed milestone or material decision. Do not create commits on the developer's behalf unless asked.
+Implement app code and configuration when the current checkpoint requires it, while preserving the documented architecture, security rules, and phase order. Automatically update `PROJECT.md` and `AGENTS.md` after a confirmed milestone or material decision. The AI may run routine CLI commands and create/push a coherent Git commit when the checkpoint is verified green; report the commit and push afterward. Database migration promotion, destructive operations, external releases, and other consequential remote changes still require their normal explicit review gates.
 
 ### Current project state
 

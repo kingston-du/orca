@@ -8,7 +8,7 @@
 
 **Active implementation phase:** Phase 2 — Accounts, Auth navigation, and profiles. Phase 1's physical-device acceptance is explicitly deferred until before external platform testing.
 
-**Collaboration mode:** Guided pair-builder. The AI implements coherent checkpoints and verifies them; the developer reviews the important flow, security boundaries, and evidence without being required to memorize boilerplate syntax.
+**Collaboration mode:** Guided pair-builder. The AI implements coherent checkpoints, runs routine CLI commands, verifies them, and may create/push a green Git checkpoint while reporting it afterward. The developer reviews the important flow, security boundaries, and evidence without being required to memorize boilerplate syntax. Database promotions, destructive operations, and external releases retain separate review gates.
 
 ### What is complete
 
