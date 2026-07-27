@@ -28,6 +28,7 @@
     "@types/react": "~19.2.2",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.0",
+    "expo-doctor": "1.20.1",
     "prettier": "^3.9.6",
     "supabase": "2.109.1",
     "typescript": "~6.0.3"
@@ -36,10 +37,18 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "lint": "expo lint",
+    "lint": "expo lint --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "format": "prettier --write src app.json package.json tsconfig.json eslint.config.js",
-    "format:check": "prettier --check src app.json package.json tsconfig.json eslint.config.js"
+    "format": "prettier --write src app.json package.json tsconfig.json eslint.config.js .github",
+    "format:check": "prettier --check src app.json package.json tsconfig.json eslint.config.js .github",
+    "doctor": "expo-doctor",
+    "expo:check": "expo install --check",
+    "db:start": "supabase db start",
+    "db:reset": "supabase db reset --local",
+    "db:lint": "supabase db lint --local --schema public --schema private --level warning --fail-on warning",
+    "db:test": "supabase test db --local supabase/tests",
+    "db:types": "supabase gen types --local --schema public > src/types/database.ts",
+    "db:types:check": "supabase gen types --local --schema public | diff -u src/types/database.ts -"
   },
   "private": true
 }
