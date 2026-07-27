@@ -1,4 +1,6 @@
 BEGIN;
+set local search_path = public, extensions;
+set local role postgres;
 -- Examples: https://pgtap.org/documentation.html
 create extension if not exists pgtap with schema extensions;
 -- test setup

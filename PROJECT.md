@@ -20,12 +20,18 @@
 - Production and development variants now resolve to distinct names, URL schemes, iOS bundle identifiers, and Android package identifiers; shared static Expo configuration remains intact.
 - `.env` is ignored and `.env.example` contains only public variable names.
 - A local working baseline exists at commit `1878f3b`.
-- The private GitHub repository is connected as `origin`; local `main` tracks `origin/main` through security-foundation commit `b5ea078`.
+- The private GitHub repository is connected as `origin`; local `main` tracks `origin/main` through documentation commit `7deeb86`, which follows security-foundation commit `b5ea078`.
 - The direct dependency manifest has been audited: unused template packages are removed, Expo/Router-required packages remain, and `@supabase/supabase-js` `2.110.8` plus `react-native-url-polyfill` `4.0.0` are exactly pinned at their current published versions.
 - Supabase CLI `2.109.1` is exactly pinned as a project dev dependency, and `supabase/config.toml` initializes the local backend with Postgres 17 and explicit-by-default Data API grants.
-- The Docker-backed local Supabase stack starts successfully, an empty reset reapplies the version-controlled seed input, Mailpit/Studio and backend services are healthy, and a direct query verifies local Postgres `17.6`. Docker Desktop and the local stack must be started again after a Mac restart; the stack is currently stopped.
+- The Docker-backed local Supabase stack is running; a clean reset applies both version-controlled migrations and the seed input, Mailpit/Studio and backend services are healthy, and a direct query verifies local Postgres `17.6`.
 - Security-foundation commit `b5ea078` establishes the unexposed `private` schema and least-privilege schema/object defaults. A clean reset applies it successfully; all 16 pgTAP assertions pass; Security Advisor reports no warnings; and the transactional probe objects leave no residue.
-- A hosted Supabase project has been created and will be treated as the development project.
+- The pinned CLI is authenticated and linked only to the healthy hosted development project `orca-dev` (`evuqnmvcnqhkzkitszqp`, `ca-central-1`); the ref matches the ignored app `.env`.
+- `npx supabase db push --dry-run` completed successfully against the linked development project and identified only `20260726040517_security_foundation.sql` for promotion. The dry run applied nothing.
+- Migration `20260726040517_security_foundation.sql` is applied to hosted development and local/remote migration history now matches.
+- All 16 equivalent remote security assertions pass, including rollback-only future-object probes, and every probe object is absent afterward.
+- Guarded migration `20260726233832_restrict_rls_auto_enable_execution.sql` is applied to hosted development and recorded in matching local/remote migration history. Its post-push pg-delta catalog-cache warning did not roll back the migration.
+- Hosted Security Advisor now reports no warnings after the guarded migration revoked direct execution of `public.rls_auto_enable()` from `PUBLIC`, `anon`, `authenticated`, and `service_role` without disabling its event trigger.
+- All 16 pgTAP assertions pass both locally and against hosted development; the linked test uses a transaction-local `set role postgres` because CLI 2.109.1's temporary login may assume but does not inherit `postgres` schema privileges. A separate hosted query confirms all six rollback probes are absent.
 - A native Supabase client and centralized foreground/background token-refresh handling have been started.
 
 ### What is currently in progress
@@ -33,7 +39,7 @@
 - `src/lib/supabase.ts` persists the raw Supabase session in AsyncStorage. This is a temporary development state, not the accepted production design.
 - `src/app/(auth)/sign-in.tsx` is an unfinished UI draft with no Auth operation yet.
 - The root layout does not yet restore the session or protect signed-in/signed-out routes.
-- The next backend checkpoint is deliberately linking the CLI to the existing hosted development project without applying migrations yet.
+- The hosted-development linking and security-promotion checkpoint is complete and ready for diff review and a coherent commit. Do not amend either migration already recorded remotely.
 - TypeScript and all 20 `expo-doctor` checks pass. The unfinished sign-in screen still produces eight lint warnings and fails the format check, so the current code is recoverable but not yet a quality-clean Phase 1 checkpoint.
 - The July 25 dependency baseline reports 20 total transitive advisories. With dev dependencies omitted, it reports 11 moderate and zero high/critical findings, all routed through Expo configuration/build tooling (`@expo/*`, `xcode`, and `uuid`). npm's proposed automatic resolution would downgrade Expo incompatibly, so these are monitored for an Expo-compatible upstream fix rather than force-fixed.
 
@@ -47,9 +53,9 @@
 
 ### Immediate checkpoint
 
-Verify the hosted project's identity, authenticate the CLI if necessary, and link this repository only to the hosted **development** project. Linking records the target; it must not apply the migration yet. Review the local-versus-remote migration state before any `db push`.
+The hosted-development linking and initial promotion are complete. The authenticated account identified `orca-dev` as project `evuqnmvcnqhkzkitszqp`; its ref matches `.env`, it is healthy in `ca-central-1`, the CLI marks only that project as linked, and migration `20260726040517` is recorded both locally and remotely.
 
-The Expo app still targets the hosted development project through `.env`; local and hosted environments intentionally remain separate until the migration is tested locally and the CLI is deliberately linked for promotion.
+The hosted-development linking and security-promotion checkpoint is complete: both migrations are promoted, local/remote history matches, clean local reset succeeds, all 16 assertions pass locally and remotely, hosted Security Advisor is warning-free, and every rollback probe is absent. Review the diff and commit this checkpoint. The next distinct checkpoint is generated database types and CI; do not resume Auth UI yet.
 
 ---
 
