@@ -6,7 +6,7 @@
 
 **Release target:** a production-quality, store-releasable, native iOS and Android V1
 
-**Active phase:** Phase 1 — Recoverable engineering and backend foundation
+**Active implementation phase:** Phase 2 — Accounts, Auth navigation, and profiles. Phase 1's physical-device acceptance is explicitly deferred until before external platform testing.
 
 ### What is complete
 
@@ -20,7 +20,7 @@
 - Production and development variants now resolve to distinct names, URL schemes, iOS bundle identifiers, and Android package identifiers; shared static Expo configuration remains intact.
 - `.env` is ignored and `.env.example` contains only public variable names.
 - A local working baseline exists at commit `1878f3b`.
-- The private GitHub repository is connected as `origin`; local `main` tracks `origin/main` through README/repository-safeguards commit `140e781`.
+- The private GitHub repository is connected as `origin`; local `main` tracks `origin/main` through EAS-development configuration commit `18765b7`.
 - The direct dependency manifest has been audited: unused template packages are removed, Expo/Router-required packages remain, and `@supabase/supabase-js` `2.110.8` plus `react-native-url-polyfill` `4.0.0` are exactly pinned at their current published versions.
 - Supabase CLI `2.109.1` is exactly pinned as a project dev dependency, and `supabase/config.toml` initializes the local backend with Postgres 17 and explicit-by-default Data API grants.
 - The Docker-backed local Supabase stack is running; a clean reset applies both version-controlled migrations and the seed input, Mailpit/Studio and backend services are healthy, and a direct query verifies local Postgres `17.6`.
@@ -38,27 +38,28 @@
 - The project README documents setup and explicit local versus linked Supabase workflows. GitHub's dependency graph and Dependabot alerts are enabled; automatic update PRs remain disabled. The current private personal-repository plan does not enforce branch rules, so intentional `main` changes require a reviewed diff and green CI by documented team practice until the repository moves to an enforcement-capable plan.
 - The native Supabase client now uses an isolated Expo Crypto AES-GCM session adapter: ciphertext stays in AsyncStorage, its random AES-256 key stays in Expo SecureStore, and per-key operations are serialized. Missing, legacy, or corrupt data fails closed to signed-out state. Foreground/background token-refresh ownership remains centralized with cleanup.
 - EAS project `@kingstondu/orca` (`dc295559-844a-48f4-924a-e653c31602cd`) has been created under the verified `kingstondu` Expo account and linked through `app.json`.
+- The minimal EAS development profile and public development environment are configured for both platforms and pushed. Android development build `38ec9b82-8472-4e99-9b04-fa8bbdb1b013` finished successfully from commit `18765b7` using the Expo-managed keystore; physical Android acceptance remains deferred.
+- Protected routes now live under `(app)` and signed-out routes under `(auth)`. One Auth provider derives `user` from the restored session, subscribes synchronously to `onAuthStateChange`, exposes local-device sign-out, and drives stable Expo Router `Stack.Protected` guards without a duplicate `getSession()` call.
 
 ### What is currently in progress
 
-- The encrypted session adapter compiles, passes all static checks, and loads in the iOS Simulator; its restore/refresh/sign-out/reinstall and lifecycle behavior still requires development-build testing on physical iOS and Android.
-- The minimal EAS development profile and development environment are being configured. The first environment upload attempt made no changes because EAS CLI 21.2.0 rejected `image` at the shared profile level; it must be specified inside the `ios` and `android` blocks.
+- The encrypted session adapter compiles, passes all static checks, and loads in the iOS Simulator; native encryption/read/remove/corruption/reinstall behavior still requires a development build on a physical iPhone. Full authenticated restore/refresh/sign-out acceptance follows when Phase 2 adds the Auth provider and operations.
+- Apple Developer Program enrollment and the physical-iPhone EAS build are intentionally deferred while Apple's account process is delayed. Simulator-based iOS development may continue, but this temporary acceptance gap must close before the first external iOS tester or TestFlight build. Orca is iOS-first during active development; physical Android acceptance is deferred until before the first Android tester and remains required for Android release readiness.
 - `src/app/(auth)/sign-in.tsx` is an unfinished UI draft with no Auth operation yet.
-- The root layout does not yet restore the session or protect signed-in/signed-out routes.
 - Phase 1B is complete. Do not amend either migration already recorded remotely.
-- TypeScript, formatting, zero-warning lint, dependency compatibility, and all 20 `expo-doctor` checks pass locally and in CI. The sign-in route is intentionally a static shell until secure session persistence exists.
+- TypeScript, formatting, zero-warning lint, dependency compatibility, and all 20 `expo-doctor` checks pass locally. Expo Go on the iOS Simulator confirms that a restored signed-out state reaches the Auth group and cannot display the tabs; the sign-in route remains an intentionally unstyled static shell.
 - The July 25 dependency baseline reports 20 total transitive advisories. With dev dependencies omitted, it reports 11 moderate and zero high/critical findings, all routed through Expo configuration/build tooling (`@expo/*`, `xcode`, and `uuid`). npm's proposed automatic resolution would downgrade Expo incompatibly, so these are monitored for an Expo-compatible upstream fix rather than force-fixed.
 
 ### What does not exist yet
 
 - No app-data tables, RLS policies, private Storage buckets, or production Supabase project
-- No development build, error monitoring, E2E tests, or store-release setup
+- No completed iOS development build, error monitoring, E2E tests, or store-release setup
 
 ### Immediate checkpoint
 
 The hosted-development linking and initial promotion are complete. The authenticated account identified `orca-dev` as project `evuqnmvcnqhkzkitszqp`; its ref matches `.env`, it is healthy in `ca-central-1`, the CLI marks only that project as linked, and migration `20260726040517` is recorded both locally and remotely.
 
-Hosted linking, security promotion, generated public-schema types, typed client construction, CI, explicit workflow documentation, available repository safeguards, and the encrypted-session implementation are complete and pushed through `9405831`. The verified Expo account created and linked exact EAS target `@kingstondu/orca`; finish its corrected platform-specific development profile, upload only the two public development Supabase values, validate and commit the configuration, then create physical iOS and Android development builds. Do not resume Auth UI until native session acceptance passes.
+Hosted linking, security promotion, generated types, CI, repository safeguards, encrypted-session implementation, minimal EAS development configuration, and the first Android cloud build are complete through `18765b7`. The Phase 2 Auth provider and protected route boundary are now implemented and locally verified. Commit this coherent routing/session checkpoint, then introduce the profile/account-state backend foundation before enabling sign-up; the sign-in UI can be styled with real operations only after its server dependencies are defined. Physical platform gates remain deferred as documented.
 
 ---
 
@@ -936,7 +937,7 @@ The committed baseline was clean. The current WIP auth screen is not yet a compl
 
 ---
 
-### Phase 1 — Recoverable engineering and backend foundation — ACTIVE
+### Phase 1 — Recoverable engineering and backend foundation — IMPLEMENTED; DEVICE ACCEPTANCE DEFERRED
 
 #### Why now
 
@@ -979,16 +980,16 @@ Auth, migrations, and private data should not be built on an unpinned, single-de
 - [x] Keep client construction in `supabase.ts`; keep AppState refresh ownership centralized with cleanup.
 - [x] Omit deprecated `processLock`.
 - [x] Configure SecureStore through app config and record `usesNonExemptEncryption: false` for this exempt session-encryption implementation; reassess if the app's cryptography changes before submission.
-- [ ] Add the minimal EAS `development` profile/environment and create development builds for physical iOS and Android; Expo Go is not the security acceptance environment.
-- [ ] Remove the temporary Android predictive-back opt-out and test current edge-to-edge, safe-area, keyboard/inset, and back behavior in the development build.
-- [ ] Verify restore, refresh, local sign-out, reinstall behavior, app kill, and foreground/background on physical iOS and Android.
+- [x] Add the minimal EAS `development` profile/environment and start the Android development build; create the iOS build after Apple Developer enrollment. Expo Go is not the security acceptance environment.
+- [ ] Before the first external iOS tester or TestFlight build, enroll in the Apple Developer Program, install a physical-iPhone development build, and verify encrypted write/read/remove, corrupt-data cleanup, kill/relaunch, reinstall, authenticated restore, refresh, and sign-out.
+- [ ] Before the first Android tester, install a development build on physical Android, remove the temporary predictive-back opt-out, and verify session lifecycle, edge-to-edge, safe-area, keyboard/inset, and back behavior.
 
 #### 1D. Parallel housekeeping and external lead times
 
 These items do not block 1B/1C work; start external waits early and finish the cleanup before the Phase 1 gate.
 
 - [ ] Reserve the production support/domain identity needed later for SMTP, legal pages, and verified app links.
-- [ ] Start Apple Developer and Google Play account/identity setup; external verification and current closed-testing rules can create calendar delays.
+- [ ] Complete the delayed Apple Developer enrollment before the first external iOS tester or TestFlight build; start Google Play identity/setup before the first Android testing track because its external verification and closed-testing rules can create calendar delays.
 - [x] Audit template dependencies and remove only proven unused packages.
 - [ ] Audit template assets and remove only proven unused placeholders.
 - [x] Replace the template README and resolve the template license/proprietary-project mismatch.
@@ -1031,10 +1032,10 @@ A user can create, verify, recover, enter, restore, and leave an account without
 
 - [ ] Add `jest-expo` and React Native Testing Library at current Expo-compatible versions before the first Auth component tests; grow focused tests with each phase.
 - [ ] Add one app-level TanStack Query provider/client for profile and later remote rows; keep Auth session state outside it and clear the client on identity change.
-- [ ] Move protected routes under `(app)` and add `(auth)` routes.
-- [ ] Create one Auth provider with `session`, `user`, `isRestoring`, and explicit sign-out behavior.
-- [ ] Subscribe once to `onAuthStateChange`, keep the callback synchronous, and unsubscribe on cleanup.
-- [ ] Protect `(auth)` and `(app)` with Expo Router `Stack.Protected`.
+- [x] Move protected routes under `(app)` and add `(auth)` routes.
+- [x] Create one Auth provider with `session`, `user`, `isRestoring`, and explicit sign-out behavior.
+- [x] Subscribe once to `onAuthStateChange`, keep the callback synchronous, and unsubscribe on cleanup.
+- [x] Protect `(auth)` and `(app)` with Expo Router `Stack.Protected`.
 - [ ] Build separate sign-in and sign-up screens with local fields, disabled/loading submit, keyboard-safe layout, and useful errors.
 - [ ] Configure native email/password autofill, password-manager semantics, capitalization/keyboard behavior, and safe error copy; never log credentials.
 - [ ] Build verification-code and resend-cooldown flow.
