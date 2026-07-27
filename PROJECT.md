@@ -20,7 +20,7 @@
 - Production and development variants now resolve to distinct names, URL schemes, iOS bundle identifiers, and Android package identifiers; shared static Expo configuration remains intact.
 - `.env` is ignored and `.env.example` contains only public variable names.
 - A local working baseline exists at commit `1878f3b`.
-- The private GitHub repository is connected as `origin`; local `main` tracks `origin/main` through documentation commit `7deeb86`, which follows security-foundation commit `b5ea078`.
+- The private GitHub repository is connected as `origin`; local `main` tracks `origin/main` through generated-types-and-CI commit `cc851f0`.
 - The direct dependency manifest has been audited: unused template packages are removed, Expo/Router-required packages remain, and `@supabase/supabase-js` `2.110.8` plus `react-native-url-polyfill` `4.0.0` are exactly pinned at their current published versions.
 - Supabase CLI `2.109.1` is exactly pinned as a project dev dependency, and `supabase/config.toml` initializes the local backend with Postgres 17 and explicit-by-default Data API grants.
 - The Docker-backed local Supabase stack is running; a clean reset applies both version-controlled migrations and the seed input, Mailpit/Studio and backend services are healthy, and a direct query verifies local Postgres `17.6`.
@@ -31,7 +31,10 @@
 - All 16 equivalent remote security assertions pass, including rollback-only future-object probes, and every probe object is absent afterward.
 - Guarded migration `20260726233832_restrict_rls_auto_enable_execution.sql` is applied to hosted development and recorded in matching local/remote migration history. Its post-push pg-delta catalog-cache warning did not roll back the migration.
 - Hosted Security Advisor now reports no warnings after the guarded migration revoked direct execution of `public.rls_auto_enable()` from `PUBLIC`, `anon`, `authenticated`, and `service_role` without disabling its event trigger.
+- Hosted Performance Advisor also reports no warnings after promotion.
 - All 16 pgTAP assertions pass both locally and against hosted development; the linked test uses a transaction-local `set role postgres` because CLI 2.109.1's temporary login may assume but does not inherit `postgres` schema privileges. A separate hosted query confirms all six rollback probes are absent.
+- Generated public-schema types are committed at `src/types/database.ts`, excluded from Prettier rewriting, checked for exact drift, and used by `createClient<Database>()`.
+- GitHub CI runs separate App quality and Database quality jobs on pushes to `main` and pull requests. Run `30227256433` passes both jobs and proves clean install, formatting, zero-warning lint, TypeScript, Expo compatibility/Doctor, migration replay, database lint, all 16 pgTAP assertions, and generated-type identity.
 - A native Supabase client and centralized foreground/background token-refresh handling have been started.
 
 ### What is currently in progress
@@ -39,14 +42,12 @@
 - `src/lib/supabase.ts` persists the raw Supabase session in AsyncStorage. This is a temporary development state, not the accepted production design.
 - `src/app/(auth)/sign-in.tsx` is an unfinished UI draft with no Auth operation yet.
 - The root layout does not yet restore the session or protect signed-in/signed-out routes.
-- The hosted-development linking and security-promotion checkpoint is complete and ready for diff review and a coherent commit. Do not amend either migration already recorded remotely.
-- TypeScript and all 20 `expo-doctor` checks pass. The unfinished sign-in screen still produces eight lint warnings and fails the format check, so the current code is recoverable but not yet a quality-clean Phase 1 checkpoint.
+- Phase 1B's implementation baseline is green. The remaining Phase 1B work is explicit local/linked command documentation plus repository protections/security settings; do not amend either migration already recorded remotely.
+- TypeScript, formatting, zero-warning lint, dependency compatibility, and all 20 `expo-doctor` checks pass locally and in CI. The sign-in route is intentionally a static shell until secure session persistence exists.
 - The July 25 dependency baseline reports 20 total transitive advisories. With dev dependencies omitted, it reports 11 moderate and zero high/critical findings, all routed through Expo configuration/build tooling (`@expo/*`, `xcode`, and `uuid`). npm's proposed automatic resolution would downgrade Expo incompatibly, so these are monitored for an Expo-compatible upstream fix rather than force-fixed.
 
 ### What does not exist yet
 
-- No generated database types
-- No CI
 - No secure native session adapter
 - No app-data tables, RLS policies, private Storage buckets, or production Supabase project
 - No development build, EAS profiles, error monitoring, E2E tests, or store-release setup
@@ -55,7 +56,7 @@
 
 The hosted-development linking and initial promotion are complete. The authenticated account identified `orca-dev` as project `evuqnmvcnqhkzkitszqp`; its ref matches `.env`, it is healthy in `ca-central-1`, the CLI marks only that project as linked, and migration `20260726040517` is recorded both locally and remotely.
 
-The hosted-development linking and security-promotion checkpoint is complete: both migrations are promoted, local/remote history matches, clean local reset succeeds, all 16 assertions pass locally and remotely, hosted Security Advisor is warning-free, and every rollback probe is absent. Review the diff and commit this checkpoint. The next distinct checkpoint is generated database types and CI; do not resume Auth UI yet.
+Hosted linking, security promotion, generated public-schema types, typed client construction, and the CI baseline are complete and pushed. The first CI run passes both jobs from a clean GitHub runner. Next, finish Phase 1B in one repository-safeguards/documentation batch: document explicit local versus linked database commands, enable available secret/security alerts, and require the green CI jobs on intentional `main` merges if the private-repository plan supports rulesets. Then begin Phase 1C encrypted native session persistence; do not resume Auth UI first.
 
 ---
 
@@ -950,8 +951,8 @@ Auth, migrations, and private data should not be built on an unpinned, single-de
 - [x] Remove the web script/config and `react-dom`/`react-native-web` after verifying no native dependency needs them directly.
 - [x] Pin direct Supabase and URL-polyfill packages exactly; preserve Expo-compatible package versions and lockfile.
 - [ ] Record current production-reachable dependency audit findings, enable repository security/secret alerts where available, and fix through compatible upgrades rather than forced major rewrites.
-- [ ] Fix the stray `.gitignore` entry and keep `.env.example` secret-free.
-- [ ] Run `npm ci`, Expo compatibility, doctor, format, lint, and typecheck cleanly.
+- [x] Fix the stray `.gitignore` entry and keep `.env.example` secret-free.
+- [x] Run `npm ci`, Expo compatibility, doctor, format, lint, and typecheck cleanly.
 
 #### 1B. Supabase source-of-truth workflow
 
@@ -960,12 +961,12 @@ Auth, migrations, and private data should not be built on an unpinned, single-de
 - [x] Add a version-controlled seed entry point and verify the local Mailpit workflow.
 - [x] Establish version-controlled migrations and database tests.
 - [x] Start/reset local Supabase and prove the empty project is reproducible with a direct SQL query.
-- [ ] Link the CLI only to the hosted development project; name the environment clearly.
+- [x] Link the CLI only to the hosted development project; name the environment clearly.
 - [x] Establish a first foundation migration for required extensions/private helper schema and explicit security defaults.
-- [ ] Add generated `src/types/database.ts` and type the Supabase client.
+- [x] Add generated `src/types/database.ts` and type the Supabase client.
 - [ ] Document commands with explicit local/linked intent; never rely on ambiguous CLI defaults.
-- [ ] Add CI for app quality, clean database reset, database lint, pgTAP, and generated-type drift.
-- [ ] Run Supabase Security and Performance Advisors after applying to development.
+- [x] Add CI for app quality, clean database reset, database lint, pgTAP, and generated-type drift.
+- [x] Run Supabase Security and Performance Advisors after applying to development.
 
 #### 1C. Native session security
 
