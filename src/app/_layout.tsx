@@ -1,3 +1,4 @@
+import { focusManager } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { useEffect } from "react";
 import {
@@ -9,6 +10,7 @@ import {
 } from "react-native";
 
 import { AuthProvider, useAuth } from "@/features/auth/auth-provider";
+import { AppQueryProvider } from "@/lib/query-provider";
 import { supabase } from "@/lib/supabase";
 
 function RootNavigator() {
@@ -41,9 +43,21 @@ function RootNavigator() {
   );
 }
 
+function AuthenticatedApp() {
+  const { user } = useAuth();
+
+  return (
+    <AppQueryProvider userId={user?.id ?? null}>
+      <RootNavigator />
+    </AppQueryProvider>
+  );
+}
+
 export default function RootLayout() {
   useEffect(() => {
     function handleAppStateChange(state: AppStateStatus) {
+      focusManager.setFocused(state === "active");
+
       if (state === "active") {
         void supabase.auth.startAutoRefresh();
       } else {
@@ -66,7 +80,7 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <RootNavigator />
+      <AuthenticatedApp />
     </AuthProvider>
   );
 }

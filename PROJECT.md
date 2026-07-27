@@ -42,6 +42,7 @@
 - EAS project `@kingstondu/orca` (`dc295559-844a-48f4-924a-e653c31602cd`) has been created under the verified `kingstondu` Expo account and linked through `app.json`.
 - The minimal EAS development profile and public development environment are configured for both platforms and pushed. Android development build `38ec9b82-8472-4e99-9b04-fa8bbdb1b013` finished successfully from commit `18765b7` using the Expo-managed keystore; physical Android acceptance remains deferred.
 - Protected routes now live under `(app)` and signed-out routes under `(auth)`. One Auth provider derives `user` from the restored session, subscribes synchronously to `onAuthStateChange`, exposes local-device sign-out, and drives stable Expo Router `Stack.Protected` guards without a duplicate `getSession()` call.
+- Expo-compatible Jest and React Native Testing Library are installed and run in CI. One app-level TanStack Query provider owns remote-row caching, follows native foreground focus, and clears cached user data when the authenticated identity changes; its first behavioral component test passes.
 - The account/profile foundation at `2126c66` adds `public.profiles`, private `account_states`, locked-down Auth creation and timestamp triggers, active-account/self-only RLS, explicit Data API/column grants, constraints, and generated types. Migration `20260727041445` is applied to `orca-dev`; local/remote history matches, all 53 remote pgTAP assertions pass, and hosted Security and Performance Advisors report no issues.
 - The legal/18+ onboarding foundation is applied to `orca-dev`. Migration `20260727221157` adds immutable development document configuration, append-only acceptance evidence, current-version authorization, and atomic onboarding. Corrective migration `20260727225836` keeps the exposed RPC as security invoker while delegating only the privileged write to its narrowly granted private helper. Local/remote history matches, all 95 hosted pgTAP assertions pass, and hosted Security and Performance Advisors report no issues.
 
@@ -53,7 +54,7 @@
 - The current legal text is founder-only development copy and must be replaced and reviewed before external testing.
 - Phase 1B is complete. Do not amend any migration already recorded remotely.
 - TypeScript, formatting, zero-warning lint, dependency compatibility, and all 20 `expo-doctor` checks pass locally. Expo Go on the iOS Simulator confirms that a restored signed-out state reaches the Auth group and cannot display the tabs; the sign-in route remains an intentionally unstyled static shell.
-- The July 25 dependency baseline reports 20 total transitive advisories. With dev dependencies omitted, it reports 11 moderate and zero high/critical findings, all routed through Expo configuration/build tooling (`@expo/*`, `xcode`, and `uuid`). npm's proposed automatic resolution would downgrade Expo incompatibly, so these are monitored for an Expo-compatible upstream fix rather than force-fixed.
+- The July 25 runtime dependency baseline reports 11 moderate and zero high/critical findings, all routed through Expo configuration/build tooling (`@expo/*`, `xcode`, and `uuid`). The Jest/RNTL test toolchain adds development-only advisories; npm 11 also includes their optional peer graph in `npm audit --omit=dev`, while `npm ls --omit=dev` confirms those test packages are absent from the production install graph. Do not force-fix either set; monitor for Expo-compatible upstream fixes.
 
 ### What does not exist yet
 
@@ -64,7 +65,7 @@
 
 The hosted-development linking and initial promotion are complete. The authenticated account identified `orca-dev` as project `evuqnmvcnqhkzkitszqp`; its ref matches `.env`, it is healthy in `ca-central-1`, the CLI marks only that project as linked, and migration `20260726040517` is recorded both locally and remotely.
 
-Hosted linking, security promotion, generated types, CI, repository safeguards, encrypted-session implementation, minimal EAS development configuration, the first Android cloud build, the protected Auth route boundary, and hosted account/profile plus legal/18+ onboarding foundations are complete. All five migration histories match, all 95 hosted pgTAP assertions pass, and hosted advisors are clean. The next checkpoint is the app testing/query foundation: add Expo-compatible `jest-expo` and React Native Testing Library plus one app-level TanStack Query client/provider before building sign-in/sign-up behavior. Physical platform gates remain deferred as documented.
+Hosted linking, security promotion, generated types, CI, repository safeguards, encrypted-session implementation, minimal EAS development configuration, the first Android cloud build, the protected Auth route boundary, hosted account/profile plus legal/18+ onboarding foundations, and the app testing/query foundation are complete. All five migration histories match, all 95 hosted pgTAP assertions pass, hosted advisors are clean, and the first component test passes. The next checkpoint is separate sign-in/sign-up behavior with validation, loading/disabled states, safe error mapping, keyboard/autofill semantics, and focused component tests. Physical platform gates remain deferred as documented.
 
 ---
 
@@ -1035,8 +1036,8 @@ A user can create, verify, recover, enter, restore, and leave an account without
 
 #### App checkpoints
 
-- [ ] Add `jest-expo` and React Native Testing Library at current Expo-compatible versions before the first Auth component tests; grow focused tests with each phase.
-- [ ] Add one app-level TanStack Query provider/client for profile and later remote rows; keep Auth session state outside it and clear the client on identity change.
+- [x] Add `jest-expo` and React Native Testing Library at current Expo-compatible versions before the first Auth component tests; grow focused tests with each phase.
+- [x] Add one app-level TanStack Query provider/client for profile and later remote rows; keep Auth session state outside it and clear the client on identity change.
 - [x] Move protected routes under `(app)` and add `(auth)` routes.
 - [x] Create one Auth provider with `session`, `user`, `isRestoring`, and explicit sign-out behavior.
 - [x] Subscribe once to `onAuthStateChange`, keep the callback synchronous, and unsubscribe on cleanup.
