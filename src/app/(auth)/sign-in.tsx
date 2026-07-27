@@ -1,10 +1,6 @@
-import { TextInput, View } from "react-native";
+import { signInWithPassword } from "@/features/auth/auth-actions";
+import { EmailPasswordForm } from "@/features/auth/email-password-form";
 
 export default function SignInScreen() {
-  return (
-    <View>
-      <TextInput placeholder="email" />
-      <TextInput placeholder="password" secureTextEntry />
-    </View>
-  );
+  return <EmailPasswordForm mode="sign-in" onSubmit={signInWithPassword} />;
 }
