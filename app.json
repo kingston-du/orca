@@ -35,6 +35,13 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "platforms": ["ios", "android"]
+    "platforms": ["ios", "android"],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "dc295559-844a-48f4-924a-e653c31602cd"
+      }
+    },
+    "owner": "kingstondu"
   }
 }

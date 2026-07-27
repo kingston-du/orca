@@ -37,10 +37,12 @@
 - GitHub CI runs separate App quality and Database quality jobs on pushes to `main` and pull requests. Run `30227256433` passes both jobs and proves clean install, formatting, zero-warning lint, TypeScript, Expo compatibility/Doctor, migration replay, database lint, all 16 pgTAP assertions, and generated-type identity.
 - The project README documents setup and explicit local versus linked Supabase workflows. GitHub's dependency graph and Dependabot alerts are enabled; automatic update PRs remain disabled. The current private personal-repository plan does not enforce branch rules, so intentional `main` changes require a reviewed diff and green CI by documented team practice until the repository moves to an enforcement-capable plan.
 - The native Supabase client now uses an isolated Expo Crypto AES-GCM session adapter: ciphertext stays in AsyncStorage, its random AES-256 key stays in Expo SecureStore, and per-key operations are serialized. Missing, legacy, or corrupt data fails closed to signed-out state. Foreground/background token-refresh ownership remains centralized with cleanup.
+- EAS project `@kingstondu/orca` (`dc295559-844a-48f4-924a-e653c31602cd`) has been created under the verified `kingstondu` Expo account and linked through `app.json`.
 
 ### What is currently in progress
 
 - The encrypted session adapter compiles, passes all static checks, and loads in the iOS Simulator; its restore/refresh/sign-out/reinstall and lifecycle behavior still requires development-build testing on physical iOS and Android.
+- The minimal EAS development profile and development environment are being configured. The first environment upload attempt made no changes because EAS CLI 21.2.0 rejected `image` at the shared profile level; it must be specified inside the `ios` and `android` blocks.
 - `src/app/(auth)/sign-in.tsx` is an unfinished UI draft with no Auth operation yet.
 - The root layout does not yet restore the session or protect signed-in/signed-out routes.
 - Phase 1B is complete. Do not amend either migration already recorded remotely.
@@ -50,13 +52,13 @@
 ### What does not exist yet
 
 - No app-data tables, RLS policies, private Storage buckets, or production Supabase project
-- No development build, EAS profiles, error monitoring, E2E tests, or store-release setup
+- No development build, error monitoring, E2E tests, or store-release setup
 
 ### Immediate checkpoint
 
 The hosted-development linking and initial promotion are complete. The authenticated account identified `orca-dev` as project `evuqnmvcnqhkzkitszqp`; its ref matches `.env`, it is healthy in `ca-central-1`, the CLI marks only that project as linked, and migration `20260726040517` is recorded both locally and remotely.
 
-Hosted linking, security promotion, generated public-schema types, typed client construction, CI, explicit workflow documentation, and available repository security safeguards are complete and pushed. Phase 1C's encrypted session adapter is implemented and passes formatting, zero-warning lint, TypeScript, Expo compatibility, all 20 Doctor checks, resolved-config inspection, and an iOS Simulator bundle. Next, commit this coherent security checkpoint, then add minimal EAS development profiles and verify native session behavior on physical iOS and Android before resuming Auth UI.
+Hosted linking, security promotion, generated public-schema types, typed client construction, CI, explicit workflow documentation, available repository safeguards, and the encrypted-session implementation are complete and pushed through `9405831`. The verified Expo account created and linked exact EAS target `@kingstondu/orca`; finish its corrected platform-specific development profile, upload only the two public development Supabase values, validate and commit the configuration, then create physical iOS and Android development builds. Do not resume Auth UI until native session acceptance passes.
 
 ---
 
