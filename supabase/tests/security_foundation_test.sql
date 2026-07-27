@@ -28,8 +28,8 @@ select ok(
 );
 
 select ok(
-    not has_schema_privilege('authenticated', 'private', 'usage'),
-    'authenticated cannot use private schema'
+    has_schema_privilege('authenticated', 'private', 'usage'),
+    'authenticated can resolve explicitly granted private policy and RPC helpers'
 );
 
 select ok(
@@ -200,4 +200,3 @@ select ok(
 -- test cleanup
 SELECT * FROM finish();
 ROLLBACK;
-

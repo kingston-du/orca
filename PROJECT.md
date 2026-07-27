@@ -2,7 +2,7 @@
 
 ## 0. Current status
 
-**Last audited:** July 26, 2026
+**Last audited:** July 27, 2026
 
 **Release target:** a production-quality, store-releasable, native iOS and Android V1
 
@@ -22,10 +22,10 @@
 - Production and development variants now resolve to distinct names, URL schemes, iOS bundle identifiers, and Android package identifiers; shared static Expo configuration remains intact.
 - `.env` is ignored and `.env.example` contains only public variable names.
 - A local working baseline exists at commit `1878f3b`.
-- The private GitHub repository is connected as `origin`; local `main` tracks `origin/main` through protected-route commit `8f8feff`.
+- The private GitHub repository is connected as `origin`; local `main` tracks `origin/main` through the documented legal-onboarding checkpoint.
 - The direct dependency manifest has been audited: unused template packages are removed, Expo/Router-required packages remain, and `@supabase/supabase-js` `2.110.8` plus `react-native-url-polyfill` `4.0.0` are exactly pinned at their current published versions.
 - Supabase CLI `2.109.1` is exactly pinned as a project dev dependency, and `supabase/config.toml` initializes the local backend with Postgres 17 and explicit-by-default Data API grants.
-- The Docker-backed local Supabase stack is running; a clean reset applies both version-controlled migrations and the seed input, Mailpit/Studio and backend services are healthy, and a direct query verifies local Postgres `17.6`.
+- The Docker-backed local Supabase stack is running; a clean reset applies all version-controlled migrations and the seed input, Mailpit/Studio and backend services are healthy, and a direct query verifies local Postgres `17.6`.
 - Security-foundation commit `b5ea078` establishes the unexposed `private` schema and least-privilege schema/object defaults. A clean reset applies it successfully; all 16 pgTAP assertions pass; Security Advisor reports no warnings; and the transactional probe objects leave no residue.
 - The pinned CLI is authenticated and linked only to the healthy hosted development project `orca-dev` (`evuqnmvcnqhkzkitszqp`, `ca-central-1`); the ref matches the ignored app `.env`.
 - `npx supabase db push --dry-run` completed successfully against the linked development project and identified only `20260726040517_security_foundation.sql` for promotion. The dry run applied nothing.
@@ -43,27 +43,28 @@
 - The minimal EAS development profile and public development environment are configured for both platforms and pushed. Android development build `38ec9b82-8472-4e99-9b04-fa8bbdb1b013` finished successfully from commit `18765b7` using the Expo-managed keystore; physical Android acceptance remains deferred.
 - Protected routes now live under `(app)` and signed-out routes under `(auth)`. One Auth provider derives `user` from the restored session, subscribes synchronously to `onAuthStateChange`, exposes local-device sign-out, and drives stable Expo Router `Stack.Protected` guards without a duplicate `getSession()` call.
 - The account/profile foundation at `2126c66` adds `public.profiles`, private `account_states`, locked-down Auth creation and timestamp triggers, active-account/self-only RLS, explicit Data API/column grants, constraints, and generated types. Migration `20260727041445` is applied to `orca-dev`; local/remote history matches, all 53 remote pgTAP assertions pass, and hosted Security and Performance Advisors report no issues.
+- The legal/18+ onboarding foundation is applied to `orca-dev`. Migration `20260727221157` adds immutable development document configuration, append-only acceptance evidence, current-version authorization, and atomic onboarding. Corrective migration `20260727225836` keeps the exposed RPC as security invoker while delegating only the privileged write to its narrowly granted private helper. Local/remote history matches, all 95 hosted pgTAP assertions pass, and hosted Security and Performance Advisors report no issues.
 
 ### What is currently in progress
 
 - The encrypted session adapter compiles, passes all static checks, and loads in the iOS Simulator; native encryption/read/remove/corruption/reinstall behavior still requires a development build on a physical iPhone. Full authenticated restore/refresh/sign-out acceptance follows when Phase 2 adds the Auth provider and operations.
 - Apple Developer Program enrollment and the physical-iPhone EAS build are intentionally deferred while Apple's account process is delayed. Simulator-based iOS development may continue, but this temporary acceptance gap must close before the first external iOS tester or TestFlight build. Orca is iOS-first during active development; physical Android acceptance is deferred until before the first Android tester and remains required for Android release readiness.
 - `src/app/(auth)/sign-in.tsx` is an unfinished UI draft with no Auth operation yet.
-- Legal-onboarding commit `ac44a63` adds immutable development document sources and hashes, private active-version configuration, append-only acceptance history, an atomic server-timestamped onboarding RPC, reusable current-acceptance authorization, and CI hash verification. All 95 local database assertions and quality gates pass. Its development text is founder-only and must be replaced before external testing; the migration is not promoted yet.
-- Phase 1B is complete. Do not amend either migration already recorded remotely.
+- The current legal text is founder-only development copy and must be replaced and reviewed before external testing.
+- Phase 1B is complete. Do not amend any migration already recorded remotely.
 - TypeScript, formatting, zero-warning lint, dependency compatibility, and all 20 `expo-doctor` checks pass locally. Expo Go on the iOS Simulator confirms that a restored signed-out state reaches the Auth group and cannot display the tabs; the sign-in route remains an intentionally unstyled static shell.
 - The July 25 dependency baseline reports 20 total transitive advisories. With dev dependencies omitted, it reports 11 moderate and zero high/critical findings, all routed through Expo configuration/build tooling (`@expo/*`, `xcode`, and `uuid`). npm's proposed automatic resolution would downgrade Expo incompatibly, so these are monitored for an Expo-compatible upstream fix rather than force-fixed.
 
 ### What does not exist yet
 
-- No hosted legal/onboarding migration, private Storage buckets, or production Supabase project
+- No private Storage buckets or production Supabase project
 - No completed iOS development build, error monitoring, E2E tests, or store-release setup
 
 ### Immediate checkpoint
 
 The hosted-development linking and initial promotion are complete. The authenticated account identified `orca-dev` as project `evuqnmvcnqhkzkitszqp`; its ref matches `.env`, it is healthy in `ca-central-1`, the CLI marks only that project as linked, and migration `20260726040517` is recorded both locally and remotely.
 
-Hosted linking, security promotion, generated types, CI, repository safeguards, encrypted-session implementation, minimal EAS development configuration, the first Android cloud build, the protected Auth route boundary, and hosted account/profile foundation are complete through `2126c66`; the workflow update is at `857b231`. The legal/18+ onboarding backend is committed and pushed at `ac44a63`, with 95 passing local pgTAP assertions and clean advisors. Run a separately reviewed hosted dry run before promotion; do not enable sign-up yet. Physical platform gates remain deferred as documented.
+Hosted linking, security promotion, generated types, CI, repository safeguards, encrypted-session implementation, minimal EAS development configuration, the first Android cloud build, the protected Auth route boundary, and hosted account/profile plus legal/18+ onboarding foundations are complete. All five migration histories match, all 95 hosted pgTAP assertions pass, and hosted advisors are clean. The next checkpoint is the app testing/query foundation: add Expo-compatible `jest-expo` and React Native Testing Library plus one app-level TanStack Query client/provider before building sign-in/sign-up behavior. Physical platform gates remain deferred as documented.
 
 ---
 

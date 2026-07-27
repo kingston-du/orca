@@ -143,8 +143,8 @@ select ok(
 );
 
 select ok(
-    not has_schema_privilege('authenticated', 'private', 'usage'),
-    'authenticated cannot directly address private helpers or tables'
+    has_schema_privilege('authenticated', 'private', 'usage'),
+    'authenticated can resolve only explicitly granted private helpers'
 );
 
 select ok(
@@ -162,8 +162,13 @@ select ok(
         'service_role',
         'public.complete_onboarding(text,boolean,text,text,text,text,text,text,text,text)',
         'execute'
+    )
+    and not (
+        select prosecdef
+        from pg_proc
+        where oid = 'public.complete_onboarding(text,boolean,text,text,text,text,text,text,text,text)'::regprocedure
     ),
-    'only authenticated can execute the public onboarding RPC'
+    'only authenticated can execute the security-invoker public onboarding RPC'
 );
 
 select ok(
@@ -172,7 +177,7 @@ select ok(
         'private.complete_onboarding(text,boolean,text,text,text,text,text,text,text,text)',
         'execute'
     )
-    and not has_function_privilege(
+    and has_function_privilege(
         'authenticated',
         'private.complete_onboarding(text,boolean,text,text,text,text,text,text,text,text)',
         'execute'
@@ -182,7 +187,7 @@ select ok(
         'private.complete_onboarding(text,boolean,text,text,text,text,text,text,text,text)',
         'execute'
     ),
-    'API roles cannot execute the private onboarding helper'
+    'only authenticated can execute the narrowly granted private onboarding helper'
 );
 
 select ok(
@@ -331,7 +336,7 @@ select throws_ok(
     'the client cannot complete onboarding by updating the profile directly'
 );
 
-select throws_ok(
+select lives_ok(
     $$
         select private.complete_onboarding(
             'Alice',
@@ -346,9 +351,7 @@ select throws_ok(
             'a6e285fb40f2fef3fa6670b8b71046985e4fe0b7588cce6d906316fb368c791a'
         )
     $$,
-    '42501'::char(5),
-    null,
-    'the client cannot bypass the public RPC boundary'
+    'the narrowly granted private helper enforces the same onboarding contract'
 );
 
 set local "request.jwt.claim.sub" =

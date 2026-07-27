@@ -161,12 +161,12 @@ select ok(
 );
 
 select ok(
-    not has_schema_privilege(
+    has_schema_privilege(
         'authenticated',
         'private',
         'usage'
     ),
-    'authenticated cannot directly use the private schema'
+    'authenticated can resolve explicitly granted private helpers'
 );
 
 select ok(
@@ -379,11 +379,9 @@ select throws_ok(
     'display names cannot exceed 50 characters'
 );
 
-select throws_ok(
+select lives_ok(
     $$ select private.is_active_account() $$,
-    '42501'::char(5),
-    null,
-    'authenticated cannot invoke the private helper directly'
+    'authenticated can invoke the narrowly granted active-account helper'
 );
 
 -- Bob: an existing JWT loses access immediately after suspension.
