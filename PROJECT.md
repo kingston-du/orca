@@ -20,7 +20,7 @@
 - Production and development variants now resolve to distinct names, URL schemes, iOS bundle identifiers, and Android package identifiers; shared static Expo configuration remains intact.
 - `.env` is ignored and `.env.example` contains only public variable names.
 - A local working baseline exists at commit `1878f3b`.
-- The private GitHub repository is connected as `origin`; local `main` tracks `origin/main` through generated-types-and-CI commit `cc851f0`.
+- The private GitHub repository is connected as `origin`; local `main` tracks `origin/main` through README/repository-safeguards commit `140e781`.
 - The direct dependency manifest has been audited: unused template packages are removed, Expo/Router-required packages remain, and `@supabase/supabase-js` `2.110.8` plus `react-native-url-polyfill` `4.0.0` are exactly pinned at their current published versions.
 - Supabase CLI `2.109.1` is exactly pinned as a project dev dependency, and `supabase/config.toml` initializes the local backend with Postgres 17 and explicit-by-default Data API grants.
 - The Docker-backed local Supabase stack is running; a clean reset applies both version-controlled migrations and the seed input, Mailpit/Studio and backend services are healthy, and a direct query verifies local Postgres `17.6`.
@@ -35,20 +35,20 @@
 - All 16 pgTAP assertions pass both locally and against hosted development; the linked test uses a transaction-local `set role postgres` because CLI 2.109.1's temporary login may assume but does not inherit `postgres` schema privileges. A separate hosted query confirms all six rollback probes are absent.
 - Generated public-schema types are committed at `src/types/database.ts`, excluded from Prettier rewriting, checked for exact drift, and used by `createClient<Database>()`.
 - GitHub CI runs separate App quality and Database quality jobs on pushes to `main` and pull requests. Run `30227256433` passes both jobs and proves clean install, formatting, zero-warning lint, TypeScript, Expo compatibility/Doctor, migration replay, database lint, all 16 pgTAP assertions, and generated-type identity.
-- A native Supabase client and centralized foreground/background token-refresh handling have been started.
+- The project README documents setup and explicit local versus linked Supabase workflows. GitHub's dependency graph and Dependabot alerts are enabled; automatic update PRs remain disabled. The current private personal-repository plan does not enforce branch rules, so intentional `main` changes require a reviewed diff and green CI by documented team practice until the repository moves to an enforcement-capable plan.
+- The native Supabase client now uses an isolated Expo Crypto AES-GCM session adapter: ciphertext stays in AsyncStorage, its random AES-256 key stays in Expo SecureStore, and per-key operations are serialized. Missing, legacy, or corrupt data fails closed to signed-out state. Foreground/background token-refresh ownership remains centralized with cleanup.
 
 ### What is currently in progress
 
-- `src/lib/supabase.ts` persists the raw Supabase session in AsyncStorage. This is a temporary development state, not the accepted production design.
+- The encrypted session adapter compiles, passes all static checks, and loads in the iOS Simulator; its restore/refresh/sign-out/reinstall and lifecycle behavior still requires development-build testing on physical iOS and Android.
 - `src/app/(auth)/sign-in.tsx` is an unfinished UI draft with no Auth operation yet.
 - The root layout does not yet restore the session or protect signed-in/signed-out routes.
-- Phase 1B's implementation baseline is green. The remaining Phase 1B work is explicit local/linked command documentation plus repository protections/security settings; do not amend either migration already recorded remotely.
+- Phase 1B is complete. Do not amend either migration already recorded remotely.
 - TypeScript, formatting, zero-warning lint, dependency compatibility, and all 20 `expo-doctor` checks pass locally and in CI. The sign-in route is intentionally a static shell until secure session persistence exists.
 - The July 25 dependency baseline reports 20 total transitive advisories. With dev dependencies omitted, it reports 11 moderate and zero high/critical findings, all routed through Expo configuration/build tooling (`@expo/*`, `xcode`, and `uuid`). npm's proposed automatic resolution would downgrade Expo incompatibly, so these are monitored for an Expo-compatible upstream fix rather than force-fixed.
 
 ### What does not exist yet
 
-- No secure native session adapter
 - No app-data tables, RLS policies, private Storage buckets, or production Supabase project
 - No development build, EAS profiles, error monitoring, E2E tests, or store-release setup
 
@@ -56,7 +56,7 @@
 
 The hosted-development linking and initial promotion are complete. The authenticated account identified `orca-dev` as project `evuqnmvcnqhkzkitszqp`; its ref matches `.env`, it is healthy in `ca-central-1`, the CLI marks only that project as linked, and migration `20260726040517` is recorded both locally and remotely.
 
-Hosted linking, security promotion, generated public-schema types, typed client construction, and the CI baseline are complete and pushed. The first CI run passes both jobs from a clean GitHub runner. Next, finish Phase 1B in one repository-safeguards/documentation batch: document explicit local versus linked database commands, enable available secret/security alerts, and require the green CI jobs on intentional `main` merges if the private-repository plan supports rulesets. Then begin Phase 1C encrypted native session persistence; do not resume Auth UI first.
+Hosted linking, security promotion, generated public-schema types, typed client construction, CI, explicit workflow documentation, and available repository security safeguards are complete and pushed. Phase 1C's encrypted session adapter is implemented and passes formatting, zero-warning lint, TypeScript, Expo compatibility, all 20 Doctor checks, resolved-config inspection, and an iOS Simulator bundle. Next, commit this coherent security checkpoint, then add minimal EAS development profiles and verify native session behavior on physical iOS and Android before resuming Auth UI.
 
 ---
 
@@ -943,14 +943,14 @@ Auth, migrations, and private data should not be built on an unpinned, single-de
 #### 1A. Repository and runtime
 
 - [x] Create a private GitHub repository, add `origin`, and push `main`.
-- [ ] Enable branch protection or at minimum require passing CI before intentional release merges once CI exists.
+- [x] Require passing CI before intentional `main` changes by documented practice; GitHub does not enforce branch rules for this private personal repository unless it moves to an eligible organization plan.
 - [x] Record the SDK 57 platform contract and pin it consistently: Node 22.13+, iOS 16.4+, Android 7+, and Android target API 36; recheck before store submission.
 - [x] Make V1 officially phone-only and set iOS tablet support accordingly; larger Android/window behavior remains a Phase 1C development-build check.
 - [x] Give the app stable production iOS bundle and Android package identifiers; add a development suffix/variant so dev and production can coexist.
 - [x] Make Expo explicitly `platforms: ["ios", "android"]`.
 - [x] Remove the web script/config and `react-dom`/`react-native-web` after verifying no native dependency needs them directly.
 - [x] Pin direct Supabase and URL-polyfill packages exactly; preserve Expo-compatible package versions and lockfile.
-- [ ] Record current production-reachable dependency audit findings, enable repository security/secret alerts where available, and fix through compatible upgrades rather than forced major rewrites.
+- [x] Record current production-reachable dependency audit findings and enable the dependency graph plus Dependabot alerts; fix through compatible upgrades rather than forced major rewrites.
 - [x] Fix the stray `.gitignore` entry and keep `.env.example` secret-free.
 - [x] Run `npm ci`, Expo compatibility, doctor, format, lint, and typecheck cleanly.
 
@@ -964,19 +964,19 @@ Auth, migrations, and private data should not be built on an unpinned, single-de
 - [x] Link the CLI only to the hosted development project; name the environment clearly.
 - [x] Establish a first foundation migration for required extensions/private helper schema and explicit security defaults.
 - [x] Add generated `src/types/database.ts` and type the Supabase client.
-- [ ] Document commands with explicit local/linked intent; never rely on ambiguous CLI defaults.
+- [x] Document commands with explicit local/linked intent; never rely on ambiguous CLI defaults.
 - [x] Add CI for app quality, clean database reset, database lint, pgTAP, and generated-type drift.
 - [x] Run Supabase Security and Performance Advisors after applying to development.
 
 #### 1C. Native session security
 
-- [ ] Isolate an encrypted large-session adapter in `src/lib/auth-storage.ts` using the current maintained Supabase/Expo pattern.
-- [ ] Store ciphertext in AsyncStorage and only its random encryption key in SecureStore.
-- [ ] Do not use biometric `requireAuthentication` for routine background token access.
-- [ ] On a missing key, corrupt ciphertext, or storage failure, clear both sides safely and return to signed-out state instead of crash-looping.
-- [ ] Keep client construction in `supabase.ts`; keep AppState refresh ownership centralized with cleanup.
-- [ ] Omit deprecated `processLock`.
-- [ ] Configure SecureStore through app config and record the correct iOS non-exempt-encryption declaration for this implementation.
+- [x] Isolate an encrypted large-session adapter in `src/lib/auth-storage.ts` using current native Expo Crypto AES-GCM and Supabase's storage interface.
+- [x] Store ciphertext in AsyncStorage and only its random encryption key in SecureStore.
+- [x] Do not use biometric `requireAuthentication` for routine background token access.
+- [x] On a missing key, corrupt ciphertext, or storage failure, clear both sides safely and return to signed-out state instead of crash-looping.
+- [x] Keep client construction in `supabase.ts`; keep AppState refresh ownership centralized with cleanup.
+- [x] Omit deprecated `processLock`.
+- [x] Configure SecureStore through app config and record `usesNonExemptEncryption: false` for this exempt session-encryption implementation; reassess if the app's cryptography changes before submission.
 - [ ] Add the minimal EAS `development` profile/environment and create development builds for physical iOS and Android; Expo Go is not the security acceptance environment.
 - [ ] Remove the temporary Android predictive-back opt-out and test current edge-to-edge, safe-area, keyboard/inset, and back behavior in the development build.
 - [ ] Verify restore, refresh, local sign-out, reinstall behavior, app kill, and foreground/background on physical iOS and Android.
@@ -989,7 +989,7 @@ These items do not block 1B/1C work; start external waits early and finish the c
 - [ ] Start Apple Developer and Google Play account/identity setup; external verification and current closed-testing rules can create calendar delays.
 - [x] Audit template dependencies and remove only proven unused packages.
 - [ ] Audit template assets and remove only proven unused placeholders.
-- [ ] Replace the template README and resolve the template license/proprietary-project mismatch.
+- [x] Replace the template README and resolve the template license/proprietary-project mismatch.
 
 #### Phase 1 gate
 
