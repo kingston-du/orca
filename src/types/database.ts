@@ -9,6 +9,30 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      legal_acceptances: {
+        Row: {
+          accepted_at: string
+          content_sha256: string
+          document_kind: string
+          document_version: string
+          user_id: string
+        }
+        Insert: {
+          accepted_at: string
+          content_sha256: string
+          document_kind: string
+          document_version: string
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string
+          content_sha256?: string
+          document_kind?: string
+          document_version?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_path: string | null
@@ -41,7 +65,34 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      complete_onboarding: {
+        Args: {
+          p_adult_eligible: boolean
+          p_adult_sha256: string
+          p_adult_version: string
+          p_display_name: string
+          p_guidelines_sha256: string
+          p_guidelines_version: string
+          p_privacy_sha256: string
+          p_privacy_version: string
+          p_terms_sha256: string
+          p_terms_version: string
+        }
+        Returns: {
+          avatar_path: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          onboarding_completed_at: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       [_ in never]: never

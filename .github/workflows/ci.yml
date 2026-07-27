@@ -35,6 +35,9 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
+      - name: Check immutable legal document hashes
+        run: npm run legal:check
+
       - name: Lint with zero warnings
         run: npm run lint
 

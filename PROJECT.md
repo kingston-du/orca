@@ -42,28 +42,28 @@
 - EAS project `@kingstondu/orca` (`dc295559-844a-48f4-924a-e653c31602cd`) has been created under the verified `kingstondu` Expo account and linked through `app.json`.
 - The minimal EAS development profile and public development environment are configured for both platforms and pushed. Android development build `38ec9b82-8472-4e99-9b04-fa8bbdb1b013` finished successfully from commit `18765b7` using the Expo-managed keystore; physical Android acceptance remains deferred.
 - Protected routes now live under `(app)` and signed-out routes under `(auth)`. One Auth provider derives `user` from the restored session, subscribes synchronously to `onAuthStateChange`, exposes local-device sign-out, and drives stable Expo Router `Stack.Protected` guards without a duplicate `getSession()` call.
-- The local account/profile foundation adds `public.profiles`, private `account_states`, locked-down Auth creation and timestamp triggers, active-account/self-only RLS, explicit Data API/column grants, constraints, and regenerated public database types. Clean replay, schema lint, all 53 pgTAP assertions, local Security and Performance Advisors, type drift, and all app quality gates pass. It has not been applied to hosted development.
+- The account/profile foundation at `2126c66` adds `public.profiles`, private `account_states`, locked-down Auth creation and timestamp triggers, active-account/self-only RLS, explicit Data API/column grants, constraints, and generated types. Migration `20260727041445` is applied to `orca-dev`; local/remote history matches, all 53 remote pgTAP assertions pass, and hosted Security and Performance Advisors report no issues.
 
 ### What is currently in progress
 
 - The encrypted session adapter compiles, passes all static checks, and loads in the iOS Simulator; native encryption/read/remove/corruption/reinstall behavior still requires a development build on a physical iPhone. Full authenticated restore/refresh/sign-out acceptance follows when Phase 2 adds the Auth provider and operations.
 - Apple Developer Program enrollment and the physical-iPhone EAS build are intentionally deferred while Apple's account process is delayed. Simulator-based iOS development may continue, but this temporary acceptance gap must close before the first external iOS tester or TestFlight build. Orca is iOS-first during active development; physical Android acceptance is deferred until before the first Android tester and remains required for Android release readiness.
 - `src/app/(auth)/sign-in.tsx` is an unfinished UI draft with no Auth operation yet.
-- The locally verified account/profile migration is awaiting developer review and a coherent commit before any separately approved hosted dry run or promotion.
+- The local legal/18+ onboarding checkpoint adds immutable development document sources and hashes, private active-version configuration, append-only acceptance history, an atomic server-timestamped onboarding RPC, and reusable current-acceptance authorization. Its development text is founder-only and must be replaced before external testing; the migration is not promoted yet.
 - Phase 1B is complete. Do not amend either migration already recorded remotely.
 - TypeScript, formatting, zero-warning lint, dependency compatibility, and all 20 `expo-doctor` checks pass locally. Expo Go on the iOS Simulator confirms that a restored signed-out state reaches the Auth group and cannot display the tabs; the sign-in route remains an intentionally unstyled static shell.
 - The July 25 dependency baseline reports 20 total transitive advisories. With dev dependencies omitted, it reports 11 moderate and zero high/critical findings, all routed through Expo configuration/build tooling (`@expo/*`, `xcode`, and `uuid`). npm's proposed automatic resolution would downgrade Expo incompatibly, so these are monitored for an Expo-compatible upstream fix rather than force-fixed.
 
 ### What does not exist yet
 
-- No promoted hosted app-data tables, private Storage buckets, or production Supabase project
+- No hosted legal/onboarding migration, private Storage buckets, or production Supabase project
 - No completed iOS development build, error monitoring, E2E tests, or store-release setup
 
 ### Immediate checkpoint
 
 The hosted-development linking and initial promotion are complete. The authenticated account identified `orca-dev` as project `evuqnmvcnqhkzkitszqp`; its ref matches `.env`, it is healthy in `ca-central-1`, the CLI marks only that project as linked, and migration `20260726040517` is recorded both locally and remotely.
 
-Hosted linking, security promotion, generated types, CI, repository safeguards, encrypted-session implementation, minimal EAS development configuration, the first Android cloud build, and the protected Auth route boundary are complete through `8f8feff`. The profile/account-state backend foundation is now implemented and fully verified locally: clean replay, schema lint, 53 pgTAP assertions, local advisors, generated-type identity, and all app gates pass. Review and commit this checkpoint before a separately approved hosted dry run and promotion; do not enable sign-up yet. Physical platform gates remain deferred as documented.
+Hosted linking, security promotion, generated types, CI, repository safeguards, encrypted-session implementation, minimal EAS development configuration, the first Android cloud build, the protected Auth route boundary, and hosted account/profile foundation are complete through `2126c66`; the workflow update is at `857b231`. The legal/18+ onboarding backend is implemented and green locally with 95 total pgTAP assertions and clean advisors. Commit it before a separately approved hosted dry run and promotion; do not enable sign-up yet. Physical platform gates remain deferred as documented.
 
 ---
 
@@ -1023,7 +1023,7 @@ A user can create, verify, recover, enter, restore, and leave an account without
 #### Backend checkpoints
 
 - [x] Add `profiles` plus private `account_states`, creation triggers, explicit grants, RLS/helpers, constraints, indexes, and pgTAP tests together; every later policy begins with active-account denial.
-- [ ] Add versioned `legal_acceptances` plus a narrow server-timestamped acceptance RPC that allows only current document versions/hashes; require adult eligibility and current acceptance before protected creation/interaction operations.
+- [x] Add versioned `legal_acceptances` plus a narrow server-timestamped acceptance RPC that allows only current document versions/hashes; require adult eligibility and current acceptance before protected creation/interaction operations.
 - [ ] Keep immutable Terms/Privacy/Guidelines source versions in the repository, record their version/hash as server configuration, and render/link the exact accepted text; publish the external tester copy before Phase 7.
 - [x] Put the trigger function in a private schema with locked-down definer security.
 - [ ] Enable email confirmation and configure in-app verification-code email templates.

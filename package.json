@@ -41,6 +41,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "lint": "expo lint --max-warnings=0",
+    "legal:check": "shasum -a 256 --check legal/development-2026-07-27/SHA256SUMS",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write src app.json app.config.js eas.json package.json tsconfig.json eslint.config.js .github",
     "format:check": "prettier --check src app.json app.config.js eas.json package.json tsconfig.json eslint.config.js .github",
