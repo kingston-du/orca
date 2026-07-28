@@ -7,7 +7,9 @@ export type {
 } from "@/features/auth/auth-action-factory";
 
 export const {
+  requestPasswordReset,
   resendSignupCode,
+  resetPasswordWithCode,
   signInWithPassword,
   signUpWithPassword,
   verifyEmailCode,

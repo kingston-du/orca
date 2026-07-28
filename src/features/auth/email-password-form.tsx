@@ -175,6 +175,18 @@ export function EmailPasswordForm({
               ) : null}
             </View>
 
+            {mode === "sign-in" ? (
+              <Link href="./forgot-password" asChild>
+                <Pressable
+                  accessibilityRole="link"
+                  disabled={isSubmitting}
+                  style={styles.forgotPasswordLink}
+                >
+                  <Text style={styles.alternateLink}>Forgot password?</Text>
+                </Pressable>
+              </Link>
+            ) : null}
+
             {mode === "sign-up" ? (
               <View style={styles.field}>
                 <Text style={styles.label}>Confirm password</Text>
@@ -292,6 +304,10 @@ const styles = StyleSheet.create({
     color: "#B42318",
     fontSize: 14,
     lineHeight: 20,
+  },
+  forgotPasswordLink: {
+    alignSelf: "flex-end",
+    marginTop: -10,
   },
   input: {
     backgroundColor: "#FFFFFF",

@@ -13,6 +13,7 @@ type AuthContextValue = {
   session: Session | null;
   user: User | null;
   isRestoring: boolean;
+  isPasswordRecovery: boolean;
   signOut: () => Promise<AuthError | null>;
 };
 
@@ -21,12 +22,23 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [isRestoring, setIsRestoring] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
+
+      if (event === "PASSWORD_RECOVERY") {
+        setIsPasswordRecovery(true);
+      } else if (
+        event === "USER_UPDATED" ||
+        event === "SIGNED_OUT" ||
+        event === "INITIAL_SESSION"
+      ) {
+        setIsPasswordRecovery(false);
+      }
 
       if (event === "INITIAL_SESSION") {
         setIsRestoring(false);
@@ -49,6 +61,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         session,
         user: session?.user ?? null,
         isRestoring,
+        isPasswordRecovery,
         signOut,
       }}
     >

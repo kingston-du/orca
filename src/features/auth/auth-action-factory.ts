@@ -13,10 +13,17 @@ export type AuthSubmissionResult =
     }
   | { kind: "error"; message: string };
 
-type AuthAction = "sign-in" | "sign-up" | "verify-email" | "resend-code";
+type AuthAction =
+  "sign-in" | "sign-up" | "verify-email" | "resend-code" | "reset-password";
 type EmailAuthClient = Pick<
   SupabaseClient["auth"],
-  "resend" | "signInWithPassword" | "signUp" | "verifyOtp"
+  | "resend"
+  | "resetPasswordForEmail"
+  | "signInWithPassword"
+  | "signOut"
+  | "signUp"
+  | "updateUser"
+  | "verifyOtp"
 >;
 
 function authErrorMessage(error: AuthError, action: AuthAction) {
@@ -27,6 +34,8 @@ function authErrorMessage(error: AuthError, action: AuthAction) {
       return "Confirm your email before signing in.";
     case "weak_password":
       return "Choose a stronger password and try again.";
+    case "same_password":
+      return "Choose a password you haven’t used for this account.";
     case "over_request_rate_limit":
     case "over_email_send_rate_limit":
       return "Too many attempts. Wait a moment and try again.";
@@ -51,6 +60,10 @@ function authErrorMessage(error: AuthError, action: AuthAction) {
 
       if (action === "resend-code") {
         return "We couldn’t send a new code. Check your connection and try again.";
+      }
+
+      if (action === "reset-password") {
+        return "We couldn’t update your password. Try again.";
       }
 
       return "We couldn’t complete sign-up. Check your details and try again.";
@@ -127,8 +140,67 @@ export function createEmailAuthActions(auth: EmailAuthClient) {
       : { kind: "success", message: "A new code is on its way." };
   }
 
+  async function requestPasswordReset(
+    email: string,
+  ): Promise<AuthSubmissionResult> {
+    const { error } = await auth.resetPasswordForEmail(
+      email.trim().toLowerCase(),
+    );
+
+    if (
+      error?.code === "over_request_rate_limit" ||
+      error?.code === "over_email_send_rate_limit" ||
+      error?.code === "request_timeout"
+    ) {
+      return {
+        kind: "error",
+        message: authErrorMessage(error, "resend-code"),
+      };
+    }
+
+    return {
+      kind: "success",
+      message:
+        "If an account exists for that email, a reset code is on its way.",
+    };
+  }
+
+  async function resetPasswordWithCode(
+    email: string,
+    token: string,
+    password: string,
+  ): Promise<AuthSubmissionResult> {
+    const { error: verificationError } = await auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token,
+      type: "recovery",
+    });
+
+    if (verificationError) {
+      return {
+        kind: "error",
+        message: authErrorMessage(verificationError, "verify-email"),
+      };
+    }
+
+    const { error: updateError } = await auth.updateUser({ password });
+
+    if (updateError) {
+      await auth.signOut({ scope: "local" });
+
+      return {
+        kind: "error",
+        message: authErrorMessage(updateError, "reset-password"),
+      };
+    }
+
+    return { kind: "success", message: "Your password has been updated." };
+  }
+
   return {
+    requestPasswordReset,
     resendSignupCode,
+    resetPasswordWithCode,
     signInWithPassword,
     signUpWithPassword,
     verifyEmailCode,

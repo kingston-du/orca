@@ -10,11 +10,12 @@ import {
 } from "react-native";
 
 import { AuthProvider, useAuth } from "@/features/auth/auth-provider";
+import { getAuthRouteAccess } from "@/features/auth/auth-route-access";
 import { AppQueryProvider } from "@/lib/query-provider";
 import { supabase } from "@/lib/supabase";
 
 function RootNavigator() {
-  const { session, isRestoring } = useAuth();
+  const { session, isPasswordRecovery, isRestoring } = useAuth();
 
   if (isRestoring) {
     return (
@@ -28,15 +29,18 @@ function RootNavigator() {
     );
   }
 
-  const isSignedIn = session !== null;
+  const { canEnterApp, canEnterAuth } = getAuthRouteAccess(
+    session !== null,
+    isPasswordRecovery,
+  );
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={!isSignedIn}>
+      <Stack.Protected guard={canEnterAuth}>
         <Stack.Screen name="(auth)" />
       </Stack.Protected>
 
-      <Stack.Protected guard={isSignedIn}>
+      <Stack.Protected guard={canEnterApp}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
     </Stack>

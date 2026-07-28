@@ -8,18 +8,44 @@ export type AuthFormErrors = Partial<
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export function validateEmail(email: string) {
+  const normalizedEmail = email.trim();
+
+  if (!normalizedEmail) {
+    return "Enter your email address.";
+  }
+
+  if (!EMAIL_PATTERN.test(normalizedEmail)) {
+    return "Enter a valid email address.";
+  }
+}
+
+export function validateNewPassword(password: string, confirmPassword: string) {
+  const errors: Pick<AuthFormErrors, "password" | "confirmPassword"> = {};
+
+  if (!password) {
+    errors.password = "Enter a new password.";
+  } else if (password.length < 8) {
+    errors.password = "Use at least 8 characters.";
+  }
+
+  if (confirmPassword !== password) {
+    errors.confirmPassword = "Passwords do not match.";
+  }
+
+  return errors;
+}
+
 export function validateCredentials(
   mode: AuthFormMode,
   credentials: EmailPasswordCredentials,
   confirmPassword: string,
 ) {
   const errors: AuthFormErrors = {};
-  const email = credentials.email.trim();
+  const emailError = validateEmail(credentials.email);
 
-  if (!email) {
-    errors.email = "Enter your email address.";
-  } else if (!EMAIL_PATTERN.test(email)) {
-    errors.email = "Enter a valid email address.";
+  if (emailError) {
+    errors.email = emailError;
   }
 
   if (!credentials.password) {
