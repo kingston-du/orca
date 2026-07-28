@@ -1,11 +1,12 @@
 # Orca guided build course
 
-These lessons explain each completed engineering checkpoint in plain language. They are written after the code and verification are complete, so every lesson points to real Orca code rather than isolated tutorial examples.
+These lessons are self-contained tutorials for each completed engineering checkpoint. They explain the mental model, runtime flow, important syntax, layer boundaries, failure behavior, tests, and verification using real Orca code. You should not need to reverse-engineer every implementation file before understanding what was built.
 
 ## Lessons
 
 1. [Password recovery and temporary Auth sessions](./01-password-recovery.md)
 2. [Profile-gated onboarding](./02-profile-gated-onboarding.md)
+3. [Settings, local sign-out, and user-state cleanup](./03-settings-signout-and-user-state-cleanup.md)
 
 ## How to use a lesson
 

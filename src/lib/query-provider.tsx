@@ -2,6 +2,7 @@ import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, type PropsWithChildren } from "react";
 
 import { createQueryClient } from "@/lib/query-client";
+import { clearUserScopedState } from "@/lib/user-scoped-state";
 
 type AppQueryProviderProps = PropsWithChildren<{
   userId: string | null;
@@ -22,7 +23,7 @@ export function AppQueryProvider({
       previousUserId.current !== undefined &&
       previousUserId.current !== userId
     ) {
-      client.clear();
+      clearUserScopedState(client);
     }
 
     previousUserId.current = userId;

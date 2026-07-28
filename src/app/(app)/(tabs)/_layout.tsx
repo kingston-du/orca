@@ -21,6 +21,12 @@ export default function TabLayout() {
           title: "Memories",
         }}
       />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+        }}
+      />
     </Tabs>
   );
 }

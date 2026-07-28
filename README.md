@@ -21,4 +21,4 @@ npm ci
 
 ## Guided build course
 
-Read the numbered [Orca guided build lessons](./docs/course/README.md) for concise explanations of each completed checkpoint, its important code, security boundaries, and verification evidence.
+Read the numbered [Orca guided build lessons](./docs/course/README.md) for tutorial-style explanations of each completed checkpoint, including its runtime flow, important code and syntax, security boundaries, tests, and verification evidence.

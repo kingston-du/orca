@@ -6,7 +6,7 @@
 
 **Release target:** a production-quality, store-releasable, native iOS and Android V1
 
-**Active implementation phase:** Phase 2 — Accounts, Auth navigation, and profiles. Phase 1's physical-device acceptance is explicitly deferred until before external platform testing.
+**Active implementation phase:** Phase 3 — Circles, membership, and invitations. Phase 2's simulator implementation is complete; its hosted Auth, legal-copy, accessibility, and physical-device acceptance gates remain explicitly deferred until before external testing.
 
 **Collaboration mode:** Guided pair-builder. The AI implements coherent checkpoints, runs routine CLI commands, verifies them, and may create/push a green Git checkpoint while reporting it afterward. The developer reviews the important flow, security boundaries, and evidence without being required to memorize boilerplate syntax. Database promotions, destructive operations, and external releases retain separate review gates.
 
@@ -15,7 +15,7 @@
 - The product thesis and initial V1 scope are defined.
 - Expo SDK 57, React Native, TypeScript, and Expo Router are installed.
 - The app runs in the iOS Simulator.
-- Home, Camera, and Memories placeholder tabs exist.
+- Home, Camera, Memories, and Settings tabs exist.
 - Strict TypeScript and lint/format scripts exist.
 - The local toolchain is pinned to Node `24.14.1` and npm `11.11.0`; clean install, TypeScript, and all 20 `expo-doctor` checks pass.
 - Expo is explicitly limited to iOS and Android, iPad support is disabled for phone-only V1, and direct React Native web configuration, script, and dependencies are removed.
@@ -42,23 +42,24 @@
 - EAS project `@kingstondu/orca` (`dc295559-844a-48f4-924a-e653c31602cd`) has been created under the verified `kingstondu` Expo account and linked through `app.json`.
 - The minimal EAS development profile and public development environment are configured for both platforms and pushed. Android development build `38ec9b82-8472-4e99-9b04-fa8bbdb1b013` finished successfully from commit `18765b7` using the Expo-managed keystore; physical Android acceptance remains deferred.
 - Protected routes now live under `(app)` and signed-out routes under `(auth)`. One Auth provider derives `user` from the restored session, subscribes synchronously to `onAuthStateChange`, exposes local-device sign-out, and drives stable Expo Router `Stack.Protected` guards without a duplicate `getSession()` call.
-- Expo-compatible Jest and React Native Testing Library are installed and run in CI. One app-level TanStack Query provider owns remote-row caching, follows native foreground focus, and clears cached user data when the authenticated identity changes; its first behavioral component test passes.
+- Expo-compatible Jest and React Native Testing Library are installed and run in CI. One app-level TanStack Query provider owns remote-row caching, follows native foreground focus, and delegates cleanup through one user-scoped-state boundary whenever the authenticated identity changes.
 - Separate sign-in and sign-up routes now use one tested email/password form with local validation, normalized email submission, loading/double-submit protection, generic enumeration-safe server errors, keyboard-safe layout, accessibility announcements, and native email/password-manager semantics. The form's Expo Go visual acceptance is complete.
 - Unconfirmed sign-up now routes to a six-digit email-code screen. Verification uses Auth OTP type `email`, resend uses type `signup`, non-digits are filtered, duplicate requests are blocked, missing route state fails safely back to sign-up, and both the UI and local Auth enforce a 60-second resend cooldown. Local Mailpit delivered the version-controlled Orca template, its code verified through the real local Auth API, and a session was returned. Sixteen app tests and a production-style iOS export bundle pass.
 - Password recovery now uses a generic enumeration-safe email response followed by an in-app six-digit recovery code and confirmed new password. Recovery OTP verification creates a temporary session that remains locked to Auth routes until `USER_UPDATED`; a failed password update removes that local session. The real local flow delivered the version-controlled Mailpit template, updated the password, accepted the replacement password, and rejected the old one. Twenty-seven focused app tests pass.
 - Authenticated users now load their self-only profile and current legal-acceptance references through TanStack Query. Incomplete or stale accounts are restricted to onboarding; only a completed profile with all four exact current document fingerprints can enter the tabs. The onboarding form requires a validated display name, 18+ confirmation, and explicit acceptance of each committed development document, then calls the existing atomic RPC and updates the query cache. A real local Data API flow completed one disposable account and returned exactly four self-visible acceptance rows.
-- `docs/course/` now records each completed checkpoint as a concise lesson covering the flow, important code, security boundary, and verification evidence. Password recovery and profile-gated onboarding are the first two lessons; future coherent checkpoints must add or update a numbered lesson.
+- Settings now shows the authenticated user's profile name and Auth email and offers explicit local-device sign-out with duplicate-request protection, safe errors, and accessible loading behavior. Supabase Auth remains the single session owner; `SIGNED_OUT` drives protected routing, and the identity transition clears all currently existing user-scoped client state through one extension point. Orca currently has only TanStack Query in that inventory; media caches, drafts, and temporary files must join the same boundary when introduced.
+- `docs/course/` records each completed checkpoint as a self-contained tutorial covering the mental model, runtime flow, important code and syntax, state/security ownership, focused tests, and verification evidence. Password recovery, profile-gated onboarding, and Settings/sign-out are the first three lessons; future coherent checkpoints must add or update a numbered lesson detailed enough to learn from without first reverse-engineering every implementation file.
 - The account/profile foundation at `2126c66` adds `public.profiles`, private `account_states`, locked-down Auth creation and timestamp triggers, active-account/self-only RLS, explicit Data API/column grants, constraints, and generated types. Migration `20260727041445` is applied to `orca-dev`; local/remote history matches, all 53 remote pgTAP assertions pass, and hosted Security and Performance Advisors report no issues.
 - The legal/18+ onboarding foundation is applied to `orca-dev`. Migration `20260727221157` adds immutable development document configuration, append-only acceptance evidence, current-version authorization, and atomic onboarding. Corrective migration `20260727225836` keeps the exposed RPC as security invoker while delegating only the privileged write to its narrowly granted private helper. Local/remote history matches, all 95 hosted pgTAP assertions pass, and hosted Security and Performance Advisors report no issues.
 
 ### What is currently in progress
 
-- The encrypted session adapter compiles, passes all static checks, and loads in the iOS Simulator; native encryption/read/remove/corruption/reinstall behavior still requires a development build on a physical iPhone. Full authenticated restore/refresh/sign-out acceptance follows when Phase 2 adds the Auth provider and operations.
+- The encrypted session adapter compiles, passes all static checks, and loads in the iOS Simulator; native encryption/read/remove/corruption/reinstall plus force-kill restore/refresh/sign-out behavior still requires a development build on a physical iPhone.
 - Apple Developer Program enrollment and the physical-iPhone EAS build are intentionally deferred while Apple's account process is delayed. Simulator-based iOS development may continue, but this temporary acceptance gap must close before the first external iOS tester or TestFlight build. Orca is iOS-first during active development; physical Android acceptance is deferred until before the first Android tester and remains required for Android release readiness.
 - Hosted Auth confirmation, password, redirect, rate-limit, bot-protection, and email-template settings still require an explicit dashboard review. Local Auth now requires eight-character passwords, email confirmation, six-digit codes, and a 60-second resend interval. Supabase's June 2026 Free-plan restriction means this newly created hosted project cannot customize Auth templates while using the default SMTP sender; custom SMTP remains a pre-external-tester gate, not a blocker for local/simulator implementation.
 - The current legal text is founder-only development copy and must be replaced and reviewed before external testing.
 - Phase 1B is complete. Do not amend any migration already recorded remotely.
-- TypeScript, formatting, zero-warning lint, dependency compatibility, all 37 app tests, and all 20 `expo-doctor` checks pass locally. The protected route boundary and Auth entry form have been accepted in Expo Go; the verification, recovery, and onboarding screens still need quick visual passes after entering their flows.
+- TypeScript, formatting, zero-warning lint, dependency compatibility, all 44 app tests, and all 20 `expo-doctor` checks pass locally. The protected route boundary and Auth entry form have been accepted in Expo Go; the verification, recovery, onboarding, and Settings/sign-out screens still need quick visual passes after entering their flows.
 - The July 25 runtime dependency baseline reports 11 moderate and zero high/critical findings, all routed through Expo configuration/build tooling (`@expo/*`, `xcode`, and `uuid`). The Jest/RNTL test toolchain adds development-only advisories; npm 11 also includes their optional peer graph in `npm audit --omit=dev`, while `npm ls --omit=dev` confirms those test packages are absent from the production install graph. Do not force-fix either set; monitor for Expo-compatible upstream fixes.
 
 ### What does not exist yet
@@ -70,7 +71,7 @@
 
 The hosted-development linking and initial promotion are complete. The authenticated account identified `orca-dev` as project `evuqnmvcnqhkzkitszqp`; its ref matches `.env`, it is healthy in `ca-central-1`, the CLI marks only that project as linked, and migration `20260726040517` is recorded both locally and remotely.
 
-Hosted linking, security promotion, generated types, CI, repository safeguards, encrypted-session implementation, minimal EAS development configuration, the first Android cloud build, the protected Auth route boundary, hosted account/profile plus legal/18+ onboarding foundations, the app testing/query foundation, tested sign-in/sign-up behavior, local email confirmation/recovery, and profile-gated legal/18+ onboarding are complete. All five migration histories match, all 95 hosted pgTAP assertions pass, hosted advisors are clean, and all 37 app tests pass. The next checkpoint adds the Settings/Account shell, usable sign-out, and complete user-scoped cache cleanup. Hosted Auth configuration, custom SMTP/template promotion, and bot protection remain explicit gates before any external sign-up. Physical platform gates remain deferred as documented.
+Hosted linking, security promotion, generated types, CI, repository safeguards, encrypted-session implementation, minimal EAS development configuration, the first Android cloud build, and the simulator-based Phase 2 account/Auth/profile implementation are complete. Settings provides local-device sign-out and one complete cleanup boundary for every user-scoped client store that exists today. All five migration histories match, all 95 hosted pgTAP assertions pass, hosted advisors are clean, and all 44 app tests pass. The next implementation checkpoint begins Phase 3 with the Circle, membership, and invitation database foundation plus its authorization tests. Hosted Auth configuration, custom SMTP/template promotion, bot protection, final legal copy, and physical/platform acceptance remain explicit gates before external testing.
 
 ---
 
@@ -1052,8 +1053,8 @@ A user can create, verify, recover, enter, restore, and leave an account without
 - [x] Build verification-code and resend-cooldown flow.
 - [x] Build forgot/reset-password flow before calling Auth complete.
 - [x] Build onboarding for 18+ self-attestation, current legal-document acceptance, and required display name. Use initials until the named Phase 4 avatar Storage workflow exists.
-- [ ] Add Settings/Account shell with sign out from this device; “all devices” is a separate explicit action if added.
-- [ ] On sign-out/account switch, clear queries, media caches, drafts, and temporary files.
+- [x] Add Settings/Account shell with sign out from this device; “all devices” is a separate explicit action if added.
+- [x] On sign-out/account switch, clear every user-scoped client store currently present through one cleanup boundary. TanStack Query is the only current store; media caches, drafts, and temporary files must register there when their features introduce them.
 - [ ] Spot-check keyboard/insets, largest text, screen-reader labels/roles, form errors, focus movement, and loading announcements on both platforms.
 
 #### Tests
@@ -1726,8 +1727,8 @@ Version-sensitive implementation must recheck these sources at the time of the t
 
 ## 17. Next action
 
-Start a new chat for the hosted-development linking checkpoint. The new chat should first inspect the repository and verify the exact hosted project identity before running the pinned CLI's `link` flow. Linking and applying migrations are separate review points; do not run `db push` during the linking checkpoint.
+Begin Phase 3 with the Circle, membership, and invitation database foundation. Design the three related tables, transactional creator-as-admin path, nonrecursive membership authorization helpers, grants/RLS, constraints, indexes, and negative pgTAP cases as one coherent local checkpoint. Do not promote a migration to hosted development until its clean local reset, lint, generated-type review, and authorization suite are green and the exact remote target is reverified.
 
 Starter prompt:
 
-> Read `AGENTS.md` and `PROJECT.md`, inspect the current repository, and continue the documented hosted-development linking checkpoint. Verify the exact target before linking, and do not apply migrations yet.
+> Read `AGENTS.md` and `PROJECT.md`, inspect the current repository, and continue the documented Phase 3 Circle/membership database-foundation checkpoint. Work locally first and do not promote migrations yet.
