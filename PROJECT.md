@@ -22,7 +22,7 @@
 - Production and development variants now resolve to distinct names, URL schemes, iOS bundle identifiers, and Android package identifiers; shared static Expo configuration remains intact.
 - `.env` is ignored and `.env.example` contains only public variable names.
 - A local working baseline exists at commit `1878f3b`.
-- The private GitHub repository is connected as `origin`; local `main` tracks `origin/main` through the documented legal-onboarding checkpoint.
+- The private GitHub repository is connected as `origin`; local `main` tracks `origin/main`, and verified coherent checkpoints are pushed after review.
 - The direct dependency manifest has been audited: unused template packages are removed, Expo/Router-required packages remain, and `@supabase/supabase-js` `2.110.8` plus `react-native-url-polyfill` `4.0.0` are exactly pinned at their current published versions.
 - Supabase CLI `2.109.1` is exactly pinned as a project dev dependency, and `supabase/config.toml` initializes the local backend with Postgres 17 and explicit-by-default Data API grants.
 - The Docker-backed local Supabase stack is running; a clean reset applies all version-controlled migrations and the seed input, Mailpit/Studio and backend services are healthy, and a direct query verifies local Postgres `17.6`.
@@ -48,7 +48,8 @@
 - Password recovery now uses a generic enumeration-safe email response followed by an in-app six-digit recovery code and confirmed new password. Recovery OTP verification creates a temporary session that remains locked to Auth routes until `USER_UPDATED`; a failed password update removes that local session. The real local flow delivered the version-controlled Mailpit template, updated the password, accepted the replacement password, and rejected the old one. Twenty-seven focused app tests pass.
 - Authenticated users now load their self-only profile and current legal-acceptance references through TanStack Query. Incomplete or stale accounts are restricted to onboarding; only a completed profile with all four exact current document fingerprints can enter the tabs. The onboarding form requires a validated display name, 18+ confirmation, and explicit acceptance of each committed development document, then calls the existing atomic RPC and updates the query cache. A real local Data API flow completed one disposable account and returned exactly four self-visible acceptance rows.
 - Settings now shows the authenticated user's profile name and Auth email and offers explicit local-device sign-out with duplicate-request protection, safe errors, and accessible loading behavior. Supabase Auth remains the single session owner; `SIGNED_OUT` drives protected routing, and the identity transition clears all currently existing user-scoped client state through one extension point. Orca currently has only TanStack Query in that inventory; media caches, drafts, and temporary files must join the same boundary when introduced.
-- `docs/course/` records each completed checkpoint as a self-contained tutorial covering the mental model, runtime flow, important code and syntax, state/security ownership, focused tests, and verification evidence. Password recovery, profile-gated onboarding, and Settings/sign-out are the first three lessons; future coherent checkpoints must add or update a numbered lesson detailed enough to learn from without first reverse-engineering every implementation file.
+- The local Phase 3 foundation adds `circles`, `circle_members`, and hash-only `circle_invites`; atomic `create_circle`; nonrecursive membership/admin helpers; member/admin read policies; shared-Circle profile visibility; explicit least-privilege grants; and generated client types. A clean replay, zero-warning database lint, clean local Security/Performance Advisors, 62 new pgTAP assertions, and a real local Auth/Data API creator-versus-outsider flow pass. Migration `20260728233731` has not been promoted to hosted development.
+- `docs/course/` records each completed checkpoint as a self-contained tutorial covering the mental model, runtime flow, important code and syntax, state/security ownership, focused tests, and verification evidence. Password recovery, profile-gated onboarding, Settings/sign-out, and the Circle database foundation are the first four lessons; future coherent checkpoints must add or update a numbered lesson detailed enough to learn from without first reverse-engineering every implementation file.
 - The account/profile foundation at `2126c66` adds `public.profiles`, private `account_states`, locked-down Auth creation and timestamp triggers, active-account/self-only RLS, explicit Data API/column grants, constraints, and generated types. Migration `20260727041445` is applied to `orca-dev`; local/remote history matches, all 53 remote pgTAP assertions pass, and hosted Security and Performance Advisors report no issues.
 - The legal/18+ onboarding foundation is applied to `orca-dev`. Migration `20260727221157` adds immutable development document configuration, append-only acceptance evidence, current-version authorization, and atomic onboarding. Corrective migration `20260727225836` keeps the exposed RPC as security invoker while delegating only the privileged write to its narrowly granted private helper. Local/remote history matches, all 95 hosted pgTAP assertions pass, and hosted Security and Performance Advisors report no issues.
 
@@ -58,6 +59,7 @@
 - Apple Developer Program enrollment and the physical-iPhone EAS build are intentionally deferred while Apple's account process is delayed. Simulator-based iOS development may continue, but this temporary acceptance gap must close before the first external iOS tester or TestFlight build. Orca is iOS-first during active development; physical Android acceptance is deferred until before the first Android tester and remains required for Android release readiness.
 - Hosted Auth confirmation, password, redirect, rate-limit, bot-protection, and email-template settings still require an explicit dashboard review. Local Auth now requires eight-character passwords, email confirmation, six-digit codes, and a 60-second resend interval. Supabase's June 2026 Free-plan restriction means this newly created hosted project cannot customize Auth templates while using the default SMTP sender; custom SMTP remains a pre-external-tester gate, not a blocker for local/simulator implementation.
 - The current legal text is founder-only development copy and must be replaced and reviewed before external testing.
+- Local migration history is one migration ahead of hosted development: `20260728233731_add_circle_membership_foundation.sql` is verified locally but awaits exact-target review and an explicit promotion gate. The five previously applied hosted migrations remain unchanged with 95 remote assertions and clean hosted advisors.
 - Phase 1B is complete. Do not amend any migration already recorded remotely.
 - TypeScript, formatting, zero-warning lint, dependency compatibility, all 44 app tests, and all 20 `expo-doctor` checks pass locally. The protected route boundary and Auth entry form have been accepted in Expo Go; the verification, recovery, onboarding, and Settings/sign-out screens still need quick visual passes after entering their flows.
 - The July 25 runtime dependency baseline reports 11 moderate and zero high/critical findings, all routed through Expo configuration/build tooling (`@expo/*`, `xcode`, and `uuid`). The Jest/RNTL test toolchain adds development-only advisories; npm 11 also includes their optional peer graph in `npm audit --omit=dev`, while `npm ls --omit=dev` confirms those test packages are absent from the production install graph. Do not force-fix either set; monitor for Expo-compatible upstream fixes.
@@ -71,7 +73,7 @@
 
 The hosted-development linking and initial promotion are complete. The authenticated account identified `orca-dev` as project `evuqnmvcnqhkzkitszqp`; its ref matches `.env`, it is healthy in `ca-central-1`, the CLI marks only that project as linked, and migration `20260726040517` is recorded both locally and remotely.
 
-Hosted linking, security promotion, generated types, CI, repository safeguards, encrypted-session implementation, minimal EAS development configuration, the first Android cloud build, and the simulator-based Phase 2 account/Auth/profile implementation are complete. Settings provides local-device sign-out and one complete cleanup boundary for every user-scoped client store that exists today. All five migration histories match, all 95 hosted pgTAP assertions pass, hosted advisors are clean, and all 44 app tests pass. The next implementation checkpoint begins Phase 3 with the Circle, membership, and invitation database foundation plus its authorization tests. Hosted Auth configuration, custom SMTP/template promotion, bot protection, final legal copy, and physical/platform acceptance remain explicit gates before external testing.
+Hosted linking, the first five migrations, CI/repository safeguards, and the simulator-based Phase 2 implementation are complete. The local Phase 3 Circle/membership foundation is also complete: all six local migrations replay, all 157 local pgTAP assertions and 44 app tests pass, local lint/advisors are clean, generated types match, and the real local Data API denies a forged outsider. The next checkpoint reverifies the exact linked development target, dry-runs only migration `20260728233731`, and promotes it only after explicit review; invite lifecycle and membership mutations follow afterward. Hosted Auth/SMTP/bot protection, final legal copy, and physical/platform acceptance remain explicit pre-external-testing gates.
 
 ---
 
@@ -1084,12 +1086,14 @@ Friends can form a private Circle, invite/join, view members, and administer mem
 
 #### Backend checkpoints
 
-- [ ] Add `circles`, `circle_members`, and `circle_invites` with constraints, reverse indexes, grants, RLS, and tests.
-- [ ] Create Circle + creator-as-admin in one transaction.
-- [ ] Use nonrecursive private membership helpers for RLS where necessary.
-- [ ] Expand profile reads from self-only to current shared-Circle users and add the narrow validated roster RPC that returns only member ID, display name, and role even when full profiles are blocked later.
+- [x] Add `circles`, `circle_members`, and `circle_invites` with constraints, reverse indexes, grants, RLS, and tests.
+- [x] Create Circle + creator-as-admin in one transaction.
+- [x] Use nonrecursive private membership helpers for RLS where necessary.
+- [x] Expand profile reads from self-only to current shared-Circle users.
+- [ ] Add the narrow validated roster RPC that returns only member ID, display name, and role even when full profiles are blocked later.
 - [ ] Add transactional invite creation, preview/redemption, expiry, usage, and revocation.
-- [ ] Store only invite hashes; redact raw tokens.
+- [x] Store only invite hashes and deny client reads of the hash column.
+- [ ] Generate raw invite tokens only in the trusted creation path and redact them from logs/errors.
 - [ ] Add admin promotion/removal and member-leave operations with consistent Circle-row locking.
 - [ ] Prevent every path that could leave a Circle with zero admins.
 - [ ] Define account-deletion succession now: transfer/administer, or delete a sole-member Circle.
@@ -1727,8 +1731,8 @@ Version-sensitive implementation must recheck these sources at the time of the t
 
 ## 17. Next action
 
-Begin Phase 3 with the Circle, membership, and invitation database foundation. Design the three related tables, transactional creator-as-admin path, nonrecursive membership authorization helpers, grants/RLS, constraints, indexes, and negative pgTAP cases as one coherent local checkpoint. Do not promote a migration to hosted development until its clean local reset, lint, generated-type review, and authorization suite are green and the exact remote target is reverified.
+Reverify that the pinned CLI is linked only to hosted development project `orca-dev` (`evuqnmvcnqhkzkitszqp`), then run a migration dry-run. It must identify only `20260728233731_add_circle_membership_foundation.sql`. Review that exact target and plan before the separate explicit promotion action; after promotion, rerun the 157 equivalent remote assertions and both hosted advisors. Do not begin invite lifecycle writes against a hosted schema that has not passed this gate.
 
 Starter prompt:
 
-> Read `AGENTS.md` and `PROJECT.md`, inspect the current repository, and continue the documented Phase 3 Circle/membership database-foundation checkpoint. Work locally first and do not promote migrations yet.
+> Read `AGENTS.md` and `PROJECT.md`, inspect the current repository, and continue the documented hosted-development promotion checkpoint for migration `20260728233731`. Verify the exact target and dry-run first; do not apply it without the explicit promotion gate.

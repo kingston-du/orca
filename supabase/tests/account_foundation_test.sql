@@ -53,14 +53,15 @@ select ok(
     'account_states has defense-in-depth RLS enabled'
 );
 
-select policies_are(
-    'public',
-    'profiles',
-    array[
-        'profiles_select_self',
-        'profiles_update_self'
-    ]::name[],
-    'profiles has only the expected Phase 2 policies'
+select ok(
+    exists (
+        select 1
+        from pg_policies
+        where schemaname = 'public'
+          and tablename = 'profiles'
+          and policyname = 'profiles_update_self'
+    ),
+    'profiles retains its protected self-update policy'
 );
 
 -- Explicit Data API privileges
