@@ -17,3 +17,8 @@ Install the exact locked dependencies:
 
 ```bash
 npm ci
+```
+
+## Guided build course
+
+Read the numbered [Orca guided build lessons](./docs/course/README.md) for concise explanations of each completed checkpoint, its important code, security boundaries, and verification evidence.

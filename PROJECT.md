@@ -2,7 +2,7 @@
 
 ## 0. Current status
 
-**Last audited:** July 27, 2026
+**Last audited:** July 28, 2026
 
 **Release target:** a production-quality, store-releasable, native iOS and Android V1
 
@@ -46,6 +46,8 @@
 - Separate sign-in and sign-up routes now use one tested email/password form with local validation, normalized email submission, loading/double-submit protection, generic enumeration-safe server errors, keyboard-safe layout, accessibility announcements, and native email/password-manager semantics. The form's Expo Go visual acceptance is complete.
 - Unconfirmed sign-up now routes to a six-digit email-code screen. Verification uses Auth OTP type `email`, resend uses type `signup`, non-digits are filtered, duplicate requests are blocked, missing route state fails safely back to sign-up, and both the UI and local Auth enforce a 60-second resend cooldown. Local Mailpit delivered the version-controlled Orca template, its code verified through the real local Auth API, and a session was returned. Sixteen app tests and a production-style iOS export bundle pass.
 - Password recovery now uses a generic enumeration-safe email response followed by an in-app six-digit recovery code and confirmed new password. Recovery OTP verification creates a temporary session that remains locked to Auth routes until `USER_UPDATED`; a failed password update removes that local session. The real local flow delivered the version-controlled Mailpit template, updated the password, accepted the replacement password, and rejected the old one. Twenty-seven focused app tests pass.
+- Authenticated users now load their self-only profile and current legal-acceptance references through TanStack Query. Incomplete or stale accounts are restricted to onboarding; only a completed profile with all four exact current document fingerprints can enter the tabs. The onboarding form requires a validated display name, 18+ confirmation, and explicit acceptance of each committed development document, then calls the existing atomic RPC and updates the query cache. A real local Data API flow completed one disposable account and returned exactly four self-visible acceptance rows.
+- `docs/course/` now records each completed checkpoint as a concise lesson covering the flow, important code, security boundary, and verification evidence. Password recovery and profile-gated onboarding are the first two lessons; future coherent checkpoints must add or update a numbered lesson.
 - The account/profile foundation at `2126c66` adds `public.profiles`, private `account_states`, locked-down Auth creation and timestamp triggers, active-account/self-only RLS, explicit Data API/column grants, constraints, and generated types. Migration `20260727041445` is applied to `orca-dev`; local/remote history matches, all 53 remote pgTAP assertions pass, and hosted Security and Performance Advisors report no issues.
 - The legal/18+ onboarding foundation is applied to `orca-dev`. Migration `20260727221157` adds immutable development document configuration, append-only acceptance evidence, current-version authorization, and atomic onboarding. Corrective migration `20260727225836` keeps the exposed RPC as security invoker while delegating only the privileged write to its narrowly granted private helper. Local/remote history matches, all 95 hosted pgTAP assertions pass, and hosted Security and Performance Advisors report no issues.
 
@@ -56,7 +58,7 @@
 - Hosted Auth confirmation, password, redirect, rate-limit, bot-protection, and email-template settings still require an explicit dashboard review. Local Auth now requires eight-character passwords, email confirmation, six-digit codes, and a 60-second resend interval. Supabase's June 2026 Free-plan restriction means this newly created hosted project cannot customize Auth templates while using the default SMTP sender; custom SMTP remains a pre-external-tester gate, not a blocker for local/simulator implementation.
 - The current legal text is founder-only development copy and must be replaced and reviewed before external testing.
 - Phase 1B is complete. Do not amend any migration already recorded remotely.
-- TypeScript, formatting, zero-warning lint, dependency compatibility, all 27 app tests, and all 20 `expo-doctor` checks pass locally. The protected route boundary and Auth entry form have been accepted in Expo Go; the verification and recovery screens still need quick visual passes after entering their flows.
+- TypeScript, formatting, zero-warning lint, dependency compatibility, all 37 app tests, and all 20 `expo-doctor` checks pass locally. The protected route boundary and Auth entry form have been accepted in Expo Go; the verification, recovery, and onboarding screens still need quick visual passes after entering their flows.
 - The July 25 runtime dependency baseline reports 11 moderate and zero high/critical findings, all routed through Expo configuration/build tooling (`@expo/*`, `xcode`, and `uuid`). The Jest/RNTL test toolchain adds development-only advisories; npm 11 also includes their optional peer graph in `npm audit --omit=dev`, while `npm ls --omit=dev` confirms those test packages are absent from the production install graph. Do not force-fix either set; monitor for Expo-compatible upstream fixes.
 
 ### What does not exist yet
@@ -68,7 +70,7 @@
 
 The hosted-development linking and initial promotion are complete. The authenticated account identified `orca-dev` as project `evuqnmvcnqhkzkitszqp`; its ref matches `.env`, it is healthy in `ca-central-1`, the CLI marks only that project as linked, and migration `20260726040517` is recorded both locally and remotely.
 
-Hosted linking, security promotion, generated types, CI, repository safeguards, encrypted-session implementation, minimal EAS development configuration, the first Android cloud build, the protected Auth route boundary, hosted account/profile plus legal/18+ onboarding foundations, the app testing/query foundation, tested sign-in/sign-up behavior, local email confirmation, and local password recovery are complete. All five migration histories match, all 95 hosted pgTAP assertions pass, hosted advisors are clean, and all 27 app tests pass. The next checkpoint connects newly verified users to the existing legal/18+ and required display-name onboarding backend. Hosted Auth configuration, custom SMTP/template promotion, and bot protection remain explicit gates before any external sign-up. Physical platform gates remain deferred as documented.
+Hosted linking, security promotion, generated types, CI, repository safeguards, encrypted-session implementation, minimal EAS development configuration, the first Android cloud build, the protected Auth route boundary, hosted account/profile plus legal/18+ onboarding foundations, the app testing/query foundation, tested sign-in/sign-up behavior, local email confirmation/recovery, and profile-gated legal/18+ onboarding are complete. All five migration histories match, all 95 hosted pgTAP assertions pass, hosted advisors are clean, and all 37 app tests pass. The next checkpoint adds the Settings/Account shell, usable sign-out, and complete user-scoped cache cleanup. Hosted Auth configuration, custom SMTP/template promotion, and bot protection remain explicit gates before any external sign-up. Physical platform gates remain deferred as documented.
 
 ---
 
@@ -1049,7 +1051,7 @@ A user can create, verify, recover, enter, restore, and leave an account without
 - [x] Configure native email/password autofill, password-manager semantics, capitalization/keyboard behavior, and safe error copy; never log credentials.
 - [x] Build verification-code and resend-cooldown flow.
 - [x] Build forgot/reset-password flow before calling Auth complete.
-- [ ] Build onboarding for 18+ self-attestation, current legal-document acceptance, and required display name. Use initials until the named Phase 4 avatar Storage workflow exists.
+- [x] Build onboarding for 18+ self-attestation, current legal-document acceptance, and required display name. Use initials until the named Phase 4 avatar Storage workflow exists.
 - [ ] Add Settings/Account shell with sign out from this device; “all devices” is a separate explicit action if added.
 - [ ] On sign-out/account switch, clear queries, media caches, drafts, and temporary files.
 - [ ] Spot-check keyboard/insets, largest text, screen-reader labels/roles, form errors, focus movement, and loading announcements on both platforms.
