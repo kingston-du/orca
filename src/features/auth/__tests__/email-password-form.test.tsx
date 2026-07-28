@@ -71,4 +71,31 @@ describe("EmailPasswordForm", () => {
       expect(screen.getByText("Sign in")).toBeOnTheScreen();
     });
   });
+
+  test("hands a successful next step back to the route", async () => {
+    const result = {
+      kind: "success" as const,
+      nextStep: {
+        kind: "verify-email" as const,
+        email: "friend@example.com",
+      },
+    };
+    const onSuccess = jest.fn();
+    const onSubmit = jest.fn().mockResolvedValue(result);
+    const user = userEvent.setup();
+    const screen = await render(
+      <EmailPasswordForm
+        mode="sign-up"
+        onSubmit={onSubmit}
+        onSuccess={onSuccess}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Email"), "friend@example.com");
+    await user.type(screen.getByLabelText("Password"), "password123");
+    await user.type(screen.getByLabelText("Confirm password"), "password123");
+    await user.press(screen.getByText("Create account"));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(result));
+  });
 });

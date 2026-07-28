@@ -25,6 +25,9 @@ import {
 
 type EmailPasswordFormProps = {
   mode: AuthFormMode;
+  onSuccess?: (
+    result: Extract<AuthSubmissionResult, { kind: "success" }>,
+  ) => void;
   onSubmit: (
     credentials: EmailPasswordCredentials,
   ) => Promise<AuthSubmissionResult>;
@@ -49,7 +52,11 @@ const COPY = {
   },
 };
 
-export function EmailPasswordForm({ mode, onSubmit }: EmailPasswordFormProps) {
+export function EmailPasswordForm({
+  mode,
+  onSuccess,
+  onSubmit,
+}: EmailPasswordFormProps) {
   const copy = COPY[mode];
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -81,7 +88,12 @@ export function EmailPasswordForm({ mode, onSubmit }: EmailPasswordFormProps) {
     setIsSubmitting(true);
 
     try {
-      setFeedback(await onSubmit(credentials));
+      const result = await onSubmit(credentials);
+      setFeedback(result);
+
+      if (result.kind === "success") {
+        onSuccess?.(result);
+      }
     } catch {
       setFeedback({
         kind: "error",
