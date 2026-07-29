@@ -2,7 +2,7 @@
 
 ## 0. Current status
 
-**Last audited:** July 28, 2026
+**Last audited:** July 29, 2026
 
 **Release target:** a production-quality, store-releasable, native iOS and Android V1
 
@@ -49,8 +49,11 @@
 - Authenticated users now load their self-only profile and current legal-acceptance references through TanStack Query. Incomplete or stale accounts are restricted to onboarding; only a completed profile with all four exact current document fingerprints can enter the tabs. The onboarding form requires a validated display name, 18+ confirmation, and explicit acceptance of each committed development document, then calls the existing atomic RPC and updates the query cache. A real local Data API flow completed one disposable account and returned exactly four self-visible acceptance rows.
 - Settings now shows the authenticated user's profile name and Auth email and offers explicit local-device sign-out with duplicate-request protection, safe errors, and accessible loading behavior. Supabase Auth remains the single session owner; `SIGNED_OUT` drives protected routing, and the identity transition clears all currently existing user-scoped client state through one extension point. Orca currently has only TanStack Query in that inventory; media caches, drafts, and temporary files must join the same boundary when introduced.
 - The Phase 3 foundation adds `circles`, `circle_members`, and hash-only `circle_invites`; atomic `create_circle`; nonrecursive membership/admin helpers; member/admin read policies; shared-Circle profile visibility; explicit least-privilege grants; and generated client types. Migration `20260728233731` is applied to hosted development after an exact-ref check and a dry run naming only that migration. All six histories match, all 157 hosted assertions pass, and hosted Security and Performance Advisors report no issues.
-- Local-only migration `20260729000116` adds the complete roster/invite/member lifecycle slice: a minimal roster projection; one-time raw invite tokens with only SHA-256 hashes stored; authenticated preview, idempotent redemption, and admin revocation; plus promote/demote/remove/leave operations. Every mutation validates the active onboarded caller and locks the Circle row before an invite/member row. A clean seven-migration reset, 49 new and 206 total pgTAP assertions, zero-warning lint/advisors, exact generated types, and real two-connection last-admin/final-invite-use races pass. It is not yet promoted.
-- `docs/course/` records each completed checkpoint as a self-contained tutorial covering the mental model, runtime flow, important code and syntax, state/security ownership, focused tests, and verification evidence. Password recovery, profile-gated onboarding, Settings/sign-out, the Circle database foundation, and the invite/member lifecycle are the first five lessons; future coherent checkpoints must add or update a numbered lesson detailed enough to learn from without first reverse-engineering every implementation file.
+- Local-only migration `20260729000116` adds the complete roster/invite/member lifecycle slice: a minimal roster projection; one-time raw invite tokens with only SHA-256 hashes stored; authenticated preview, idempotent redemption, and admin revocation; plus promote/demote/remove/leave operations. Every mutation validates the active onboarded caller and locks the Circle row before an invite/member row. It is not yet promoted.
+- Local-only migration `20260729064610` adds deterministic account-deletion succession, sole-member Circle cleanup, and an admin-only Circle deletion contract. Account lifecycle, Circle, and invite/member locks use a consistent order; create/redeem revalidate the caller while holding the lifecycle lock; missing and unauthorized Circle deletions return the same denial. In Phase 3, deletion can complete transactionally because no Circle posts/media exist; Phase 4 replaces completion with retryable Storage cleanup.
+- The authenticated app now has a real Circle hub and create, join, and detail routes. It loads server rows through user-scoped TanStack Query keys; supports invite preview/redemption, roster and invitation administration, promote/demote/remove/leave, and irreversible Circle deletion confirmation; removes exited/deleted detail caches; and keeps a new raw invite token only in ephemeral component/mutation state. “Everyone” is intentionally informational until the post feed exists.
+- A clean eight-migration reset, 247 total pgTAP assertions, zero-warning database lint, exact generated types, 50 app tests, formatting, TypeScript, zero-warning lint, Expo compatibility, Expo Doctor 20/20, legal fingerprints, and an iOS export bundle pass. Neither local migration was applied to hosted development.
+- `docs/course/` records each completed checkpoint as a self-contained tutorial covering the mental model, runtime flow, important code and syntax, state/security ownership, focused tests, and verification evidence. Lesson 6 expands the format with end-to-end diagrams, an Alice/Bob walkthrough, lock/concurrency reasoning, a debugging lab, and a review checklist for the Circle app and safe lifecycle checkpoint; future coherent checkpoints must remain detailed enough to learn from without first reverse-engineering every implementation file.
 - The account/profile foundation at `2126c66` adds `public.profiles`, private `account_states`, locked-down Auth creation and timestamp triggers, active-account/self-only RLS, explicit Data API/column grants, constraints, and generated types. Migration `20260727041445` is applied to `orca-dev`; local/remote history matches, all 53 remote pgTAP assertions pass, and hosted Security and Performance Advisors report no issues.
 - The legal/18+ onboarding foundation is applied to `orca-dev`. Migration `20260727221157` adds immutable development document configuration, append-only acceptance evidence, current-version authorization, and atomic onboarding. Corrective migration `20260727225836` keeps the exposed RPC as security invoker while delegating only the privileged write to its narrowly granted private helper. Local/remote history matches, all 95 hosted pgTAP assertions pass, and hosted Security and Performance Advisors report no issues.
 
@@ -60,9 +63,9 @@
 - Apple Developer Program enrollment and the physical-iPhone EAS build are intentionally deferred while Apple's account process is delayed. Simulator-based iOS development may continue, but this temporary acceptance gap must close before the first external iOS tester or TestFlight build. Orca is iOS-first during active development; physical Android acceptance is deferred until before the first Android tester and remains required for Android release readiness.
 - Hosted Auth confirmation, password, redirect, rate-limit, bot-protection, and email-template settings still require an explicit dashboard review. Local Auth now requires eight-character passwords, email confirmation, six-digit codes, and a 60-second resend interval. Supabase's June 2026 Free-plan restriction means this newly created hosted project cannot customize Auth templates while using the default SMTP sender; custom SMTP remains a pre-external-tester gate, not a blocker for local/simulator implementation.
 - The current legal text is founder-only development copy and must be replaced and reviewed before external testing.
-- Hosted development has six migrations with matching history, 157 passing remote assertions, and clean hosted Security and Performance Advisors. Local migration `20260729000116_add_circle_invites_and_membership_lifecycle.sql` is one migration ahead and awaits its own exact-target dry run and explicit promotion gate.
+- Hosted development has six migrations with matching history, 157 passing remote assertions, and clean hosted Security and Performance Advisors. A fresh exact-target check matched the linked CLI ref and ignored app URL to healthy `orca-dev` (`evuqnmvcnqhkzkitszqp`, `ca-central-1`); the dry run named exactly local migrations `20260729000116_add_circle_invites_and_membership_lifecycle.sql` then `20260729064610_add_account_deletion_and_circle_delete_contract.sql`. It applied nothing; both await the explicit promotion gate.
 - Phase 1B is complete. Do not amend any migration already recorded remotely.
-- TypeScript, formatting, zero-warning lint, dependency compatibility, all 44 app tests, and all 20 `expo-doctor` checks pass locally. The protected route boundary and Auth entry form have been accepted in Expo Go; the verification, recovery, onboarding, and Settings/sign-out screens still need quick visual passes after entering their flows.
+- TypeScript, formatting, zero-warning lint, dependency compatibility, all 50 app tests, an iOS export bundle, and all 20 `expo-doctor` checks pass locally. The protected route boundary and Auth entry form have been accepted in Expo Go; the verification, recovery, onboarding, Settings/sign-out, and Circle screens still need quick visual passes after entering their flows.
 - The July 28 dependency review records the two GitHub alerts surfaced after push: one high `brace-expansion` denial-of-service advisory through Jest/glob test tooling and one moderate `uuid` advisory through Expo's `xcode` build tooling. npm 11 installs the optional Jest/RNTL peer graph even under a clean `--omit=dev` install, but these paths are build/test tooling rather than code imported by Orca's mobile runtime, and neither has a compatible nonbreaking fix in the pinned Expo SDK 57 graph. Do not force-fix, downgrade Expo/Jest, or install `uuid` directly; monitor compatible upstream releases and do not feed untrusted glob patterns to local/CI tooling.
 
 ### What does not exist yet
@@ -74,7 +77,7 @@
 
 The hosted-development linking and initial promotion are complete. The authenticated account identified `orca-dev` as project `evuqnmvcnqhkzkitszqp`; its ref matches `.env`, it is healthy in `ca-central-1`, the CLI marks only that project as linked, and migration `20260726040517` is recorded both locally and remotely.
 
-Hosted linking and the first six migrations, CI/repository safeguards, and the simulator-based Phase 2 implementation are complete. The local Phase 3 invite/member lifecycle is now complete and passes a clean replay, 206 database assertions, and actual two-connection race probes. Its migration is local-only; the next gate verifies the exact linked development target and dry-runs only `20260729000116` before any promotion. Hosted Auth/SMTP/bot protection, final legal copy, and physical/platform acceptance remain explicit pre-external-testing gates.
+Hosted linking and the first six migrations, CI/repository safeguards, and the simulator-based Phase 2 implementation are complete. The local Phase 3 Circle backend and app are implemented through account succession and the pre-media deletion contract. Exact-target verification and the ordered two-migration dry run pass without applying anything. The next gate is explicit approval to promote those exact migrations, then 247 hosted assertions and both advisors. Invitation-gated production signup remains the last Phase 3 product dependency. Hosted Auth/SMTP/bot protection, final legal copy, visual passes, and physical/platform acceptance remain explicit pre-external-testing gates.
 
 ---
 
@@ -1097,19 +1100,19 @@ Friends can form a private Circle, invite/join, view members, and administer mem
 - [x] Generate raw invite tokens only in the trusted creation path and redact them from logs/errors.
 - [x] Add admin promotion/removal and member-leave operations with consistent Circle-row locking.
 - [x] Prevent every current invite/member/admin RPC path from leaving a Circle with zero admins; account deletion remains the separate path below.
-- [ ] Define account-deletion succession now: transfer/administer, or delete a sole-member Circle.
-- [ ] Add an admin-only delete request/state contract now; an empty Circle can complete transactionally, while the full media cleanup worker is implemented with posts in Phase 4.
+- [x] Define account-deletion succession now: transfer/administer, or delete a sole-member Circle.
+- [x] Add an admin-only delete request/state contract now; a Circle with no posts/media can complete transactionally, while the full media cleanup worker is implemented with posts in Phase 4.
 
 #### App checkpoints
 
-- [ ] Empty signed-in state offers Create Circle or Join Circle.
-- [ ] Create Circle form asks only for a name.
-- [ ] Join supports code entry first; custom-scheme invite link may prefill the code.
+- [x] Empty signed-in state offers Create Circle or Join Circle.
+- [x] Create Circle form asks only for a name.
+- [x] Join supports code entry first; custom-scheme invite link may prefill the code.
 - [ ] Carry a validated invite through production sign-up/verification and redeem it only after the verified account exists. Enforce the gate at the current supported Auth hook/trusted backend boundary so a custom client cannot bypass it by calling `signUp` directly. Production V1 is invitation-gated; development may keep an explicitly environment-bound bootstrap path for the first test account.
-- [ ] Circle switcher lists actual memberships and Everyone.
-- [ ] Member/admin screen supports invite, revoke, promote, remove, leave, and clear confirmations.
-- [ ] Allow an admin to delete an empty Circle with explicit irreversible confirmation.
-- [ ] Do not add public user search or a friendship graph.
+- [x] Circle switcher lists actual memberships and an intentionally informational Everyone row until Phase 5 adds its feed.
+- [x] Member/admin screen supports invite, revoke, promote, remove, leave, and clear confirmations.
+- [x] Allow an admin to delete a Circle with no posts/media using explicit irreversible confirmation.
+- [x] Do not add public user search or a friendship graph.
 
 #### Tests
 
@@ -1732,8 +1735,8 @@ Version-sensitive implementation must recheck these sources at the time of the t
 
 ## 17. Next action
 
-Reverify that the pinned CLI is linked only to hosted development project `orca-dev` (`evuqnmvcnqhkzkitszqp`), then dry-run migration promotion. It must name only `20260729000116_add_circle_invites_and_membership_lifecycle.sql`. Review that exact target and plan before the separate explicit promotion action; after promotion, rerun all 206 remote assertions and both hosted advisors.
+With explicit approval, promote exactly `20260729000116_add_circle_invites_and_membership_lifecycle.sql` followed by `20260729064610_add_account_deletion_and_circle_delete_contract.sql` to the already verified linked development project `orca-dev` (`evuqnmvcnqhkzkitszqp`). Then rerun all 247 assertions remotely, confirm local/remote history, and run both hosted advisors. After that evidence is green, implement invitation-gated production signup, the remaining Phase 3 product dependency.
 
 Starter prompt:
 
-> Read `AGENTS.md` and `PROJECT.md`, inspect the repository, and continue the documented hosted-development promotion checkpoint for migration `20260729000116`. Verify the exact target and dry-run first; do not apply it without the explicit promotion gate.
+> Read `AGENTS.md` and `PROJECT.md`, inspect the repository, and continue the documented explicit hosted-development promotion gate for the two already dry-run Phase 3 migrations. Apply only after direct approval, then run the documented remote verification.

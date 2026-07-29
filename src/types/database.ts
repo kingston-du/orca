@@ -249,6 +249,13 @@ export type Database = {
         Args: { p_circle_id: string; p_user_id: string }
         Returns: undefined
       }
+      request_circle_deletion: {
+        Args: { p_circle_id: string }
+        Returns: {
+          circle_id: string
+          completed: boolean
+        }[]
+      }
       revoke_circle_invite: {
         Args: { p_circle_id: string; p_invite_id: string }
         Returns: undefined

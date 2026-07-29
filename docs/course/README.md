@@ -9,6 +9,7 @@ These lessons are self-contained tutorials for each completed engineering checkp
 3. [Settings, local sign-out, and user-state cleanup](./03-settings-signout-and-user-state-cleanup.md)
 4. [Circle membership database foundation](./04-circle-membership-database-foundation.md)
 5. [Circle invites and membership lifecycle](./05-circle-invites-and-membership-lifecycle.md)
+6. [The Circle app and safe lifecycle changes](./06-circle-app-and-safe-lifecycle.md)
 
 ## How to use a lesson
 

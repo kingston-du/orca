@@ -1,17 +1,19 @@
-import { Text, View, StyleSheet } from "react-native";
+import { router } from "expo-router";
 
-export default function Index() {
+import { useAuth } from "@/features/auth/auth-provider";
+import { CircleHubScreen } from "@/features/circles/circle-hub-screen";
+
+export default function HomeRoute() {
+  const { user } = useAuth();
+
   return (
-    <View style={styles.container}>
-      <Text>Home</Text>
-    </View>
+    <CircleHubScreen
+      onCreateCircle={() => router.push("/circles/create")}
+      onJoinCircle={() => router.push("/circles/join")}
+      onOpenCircle={(circleId) =>
+        router.push({ pathname: "/circles/[circleId]", params: { circleId } })
+      }
+      userId={user?.id}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});

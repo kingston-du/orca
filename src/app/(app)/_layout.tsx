@@ -82,6 +82,18 @@ export default function AppLayout() {
 
       <Stack.Protected guard={canEnterTabs}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="circles/create"
+          options={{ headerShown: true, title: "Create Circle" }}
+        />
+        <Stack.Screen
+          name="circles/join"
+          options={{ headerShown: true, title: "Join Circle" }}
+        />
+        <Stack.Screen
+          name="circles/[circleId]"
+          options={{ headerShown: true, title: "Circle" }}
+        />
       </Stack.Protected>
     </Stack>
   );
