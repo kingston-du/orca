@@ -22,13 +22,28 @@ describe("validateCredentials", () => {
     expect(
       validateCredentials(
         "sign-up",
-        { email: "friend@example.com", password: "short" },
+        { email: "friend@example.com", password: "short", inviteCode: "" },
         "different",
       ),
     ).toEqual({
       password: "Use at least 8 characters.",
       confirmPassword: "Passwords do not match.",
+      inviteCode: "Enter the 64-character invitation code from your friend.",
     });
+  });
+
+  test("accepts a trimmed uppercase invitation code after normalization", () => {
+    expect(
+      validateCredentials(
+        "sign-up",
+        {
+          email: "friend@example.com",
+          password: "password123",
+          inviteCode: `  ${"A".repeat(64)}  `,
+        },
+        "password123",
+      ),
+    ).toEqual({});
   });
 
   test("validates recovery email without requiring a password", () => {

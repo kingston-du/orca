@@ -94,8 +94,34 @@ describe("EmailPasswordForm", () => {
     await user.type(screen.getByLabelText("Email"), "friend@example.com");
     await user.type(screen.getByLabelText("Password"), "password123");
     await user.type(screen.getByLabelText("Confirm password"), "password123");
+    await user.type(screen.getByLabelText("Invitation code"), "a".repeat(64));
     await user.press(screen.getByText("Create account"));
 
     await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(result));
+    expect(onSubmit).toHaveBeenCalledWith({
+      email: "friend@example.com",
+      password: "password123",
+      inviteCode: "a".repeat(64),
+    });
+  });
+
+  test("does not submit a sign-up without an invitation code", async () => {
+    const onSubmit = jest.fn();
+    const user = userEvent.setup();
+    const screen = await render(
+      <EmailPasswordForm mode="sign-up" onSubmit={onSubmit} />,
+    );
+
+    await user.type(screen.getByLabelText("Email"), "friend@example.com");
+    await user.type(screen.getByLabelText("Password"), "password123");
+    await user.type(screen.getByLabelText("Confirm password"), "password123");
+    await user.press(screen.getByText("Create account"));
+
+    expect(
+      screen.getByText(
+        "Enter the 64-character invitation code from your friend.",
+      ),
+    ).toBeOnTheScreen();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });

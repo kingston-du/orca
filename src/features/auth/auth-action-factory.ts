@@ -3,6 +3,7 @@ import type { AuthError, SupabaseClient } from "@supabase/supabase-js";
 export type EmailPasswordCredentials = {
   email: string;
   password: string;
+  inviteCode?: string;
 };
 
 export type AuthSubmissionResult =
@@ -15,6 +16,9 @@ export type AuthSubmissionResult =
 
 type AuthAction =
   "sign-in" | "sign-up" | "verify-email" | "resend-code" | "reset-password";
+
+const INVITE_CODE_PATTERN = /^[0-9a-f]{64}$/;
+
 type EmailAuthClient = Pick<
   SupabaseClient["auth"],
   | "resend"
@@ -66,7 +70,7 @@ function authErrorMessage(error: AuthError, action: AuthAction) {
         return "We couldn’t update your password. Try again.";
       }
 
-      return "We couldn’t complete sign-up. Check your details and try again.";
+      return "We couldn’t create that account. Check the invitation code and try again.";
   }
 }
 
@@ -75,6 +79,10 @@ function normalizedCredentials(credentials: EmailPasswordCredentials) {
     email: credentials.email.trim().toLowerCase(),
     password: credentials.password,
   };
+}
+
+function normalizedInviteCode(value: string | undefined) {
+  return value?.trim().toLowerCase() ?? "";
 }
 
 export function createEmailAuthActions(auth: EmailAuthClient) {
@@ -93,9 +101,23 @@ export function createEmailAuthActions(auth: EmailAuthClient) {
   async function signUpWithPassword(
     credentials: EmailPasswordCredentials,
   ): Promise<AuthSubmissionResult> {
-    const { data, error } = await auth.signUp(
-      normalizedCredentials(credentials),
-    );
+    const inviteCode = normalizedInviteCode(credentials.inviteCode);
+
+    if (!INVITE_CODE_PATTERN.test(inviteCode)) {
+      return {
+        kind: "error",
+        message: "Enter the 64-character invitation code from your friend.",
+      };
+    }
+
+    const { data, error } = await auth.signUp({
+      ...normalizedCredentials(credentials),
+      options: {
+        data: {
+          orca_invite_token: inviteCode,
+        },
+      },
+    });
 
     if (error) {
       return { kind: "error", message: authErrorMessage(error, "sign-up") };

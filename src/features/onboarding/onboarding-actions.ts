@@ -12,9 +12,31 @@ type OnboardingRpcClient = {
   }>;
 };
 
+type SignupInviteRpcClient = {
+  replaceAndClaimOwnSignupInvite: (args: { p_token: string }) => PromiseLike<{
+    data: { circle_id: string; circle_name: string; joined: boolean }[] | null;
+    error: { code?: string; message: string } | null;
+  }>;
+};
+
 export type OnboardingResult =
   | { kind: "success"; profile: Tables<"profiles"> }
   | { kind: "error"; message: string };
+
+export type SignupInviteClaimResult =
+  | {
+      kind: "success";
+      circleId: string;
+      circleName: string;
+      joined: boolean;
+    }
+  | { kind: "error"; message: string };
+
+const INVITE_CODE_PATTERN = /^[0-9a-f]{64}$/;
+
+function normalizeInviteCode(value: string) {
+  return value.trim().toLowerCase();
+}
 
 export function createOnboardingActions(client: OnboardingRpcClient) {
   async function completeOnboarding(
@@ -68,4 +90,48 @@ export function createOnboardingActions(client: OnboardingRpcClient) {
   }
 
   return { completeOnboarding };
+}
+
+export function createSignupInviteActions(client: SignupInviteRpcClient) {
+  async function replaceAndClaimOwnSignupInvite(
+    code: string,
+  ): Promise<SignupInviteClaimResult> {
+    const token = normalizeInviteCode(code);
+
+    if (!INVITE_CODE_PATTERN.test(token)) {
+      return {
+        kind: "error",
+        message: "Enter the 64-character invitation code from your friend.",
+      };
+    }
+
+    const { data, error } = await client.replaceAndClaimOwnSignupInvite({
+      p_token: token,
+    });
+    const result = data?.[0];
+
+    if (error || !result) {
+      if (error?.code === "42501") {
+        return {
+          kind: "error",
+          message: "Confirm your email, then try a fresh invitation code.",
+        };
+      }
+
+      return {
+        kind: "error",
+        message:
+          "That invitation is invalid, expired, revoked, or already full.",
+      };
+    }
+
+    return {
+      kind: "success",
+      circleId: result.circle_id,
+      circleName: result.circle_name,
+      joined: result.joined,
+    };
+  }
+
+  return { replaceAndClaimOwnSignupInvite };
 }

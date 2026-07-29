@@ -1,4 +1,7 @@
-import { createOnboardingActions } from "@/features/onboarding/onboarding-actions";
+import {
+  createOnboardingActions,
+  createSignupInviteActions,
+} from "@/features/onboarding/onboarding-actions";
 
 const profile = {
   avatar_path: null,
@@ -54,6 +57,35 @@ describe("onboarding actions", () => {
       kind: "error",
       message:
         "The onboarding requirements changed. Reload Orca and try again.",
+    });
+  });
+
+  test("normalizes a fresh invitation code before replacing the admission", async () => {
+    const replaceAndClaimOwnSignupInvite = jest.fn().mockResolvedValue({
+      data: [
+        {
+          circle_id: "22222222-2222-4222-8222-222222222222",
+          circle_name: "Tuesday Crew",
+          joined: true,
+        },
+      ],
+      error: null,
+    });
+    const actions = createSignupInviteActions({
+      replaceAndClaimOwnSignupInvite,
+    });
+
+    await expect(
+      actions.replaceAndClaimOwnSignupInvite(` ${"A".repeat(64)} `),
+    ).resolves.toEqual({
+      kind: "success",
+      circleId: "22222222-2222-4222-8222-222222222222",
+      circleName: "Tuesday Crew",
+      joined: true,
+    });
+
+    expect(replaceAndClaimOwnSignupInvite).toHaveBeenCalledWith({
+      p_token: "a".repeat(64),
     });
   });
 });

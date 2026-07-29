@@ -18,6 +18,7 @@ import type {
   EmailPasswordCredentials,
 } from "@/features/auth/auth-actions";
 import {
+  normalizeInviteCode,
   validateCredentials,
   type AuthFormErrors,
   type AuthFormMode,
@@ -61,6 +62,7 @@ export function EmailPasswordForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [errors, setErrors] = useState<AuthFormErrors>({});
   const [feedback, setFeedback] = useState<AuthSubmissionResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,7 +76,10 @@ export function EmailPasswordForm({
       return;
     }
 
-    const credentials = { email, password };
+    const credentials =
+      mode === "sign-up"
+        ? { email, password, inviteCode }
+        : { email, password };
     const nextErrors = validateCredentials(mode, credentials, confirmPassword);
 
     setErrors(nextErrors);
@@ -188,31 +193,61 @@ export function EmailPasswordForm({
             ) : null}
 
             {mode === "sign-up" ? (
-              <View style={styles.field}>
-                <Text style={styles.label}>Confirm password</Text>
-                <TextInput
-                  accessibilityLabel="Confirm password"
-                  autoCapitalize="none"
-                  autoComplete="new-password"
-                  editable={!isDisabled}
-                  onChangeText={setConfirmPassword}
-                  onSubmitEditing={() => void handleSubmit()}
-                  passwordRules="minlength: 8;"
-                  returnKeyType="go"
-                  secureTextEntry
-                  style={[
-                    styles.input,
-                    errors.confirmPassword && styles.inputError,
-                  ]}
-                  textContentType="newPassword"
-                  value={confirmPassword}
-                />
-                {errors.confirmPassword ? (
-                  <Text accessibilityRole="alert" style={styles.fieldError}>
-                    {errors.confirmPassword}
-                  </Text>
-                ) : null}
-              </View>
+              <>
+                <View style={styles.field}>
+                  <Text style={styles.label}>Confirm password</Text>
+                  <TextInput
+                    accessibilityLabel="Confirm password"
+                    autoCapitalize="none"
+                    autoComplete="new-password"
+                    editable={!isDisabled}
+                    onChangeText={setConfirmPassword}
+                    passwordRules="minlength: 8;"
+                    returnKeyType="next"
+                    secureTextEntry
+                    style={[
+                      styles.input,
+                      errors.confirmPassword && styles.inputError,
+                    ]}
+                    textContentType="newPassword"
+                    value={confirmPassword}
+                  />
+                  {errors.confirmPassword ? (
+                    <Text accessibilityRole="alert" style={styles.fieldError}>
+                      {errors.confirmPassword}
+                    </Text>
+                  ) : null}
+                </View>
+
+                <View style={styles.field}>
+                  <Text style={styles.label}>Invitation code</Text>
+                  <TextInput
+                    accessibilityHint="A 64-character private code from a Circle admin"
+                    accessibilityLabel="Invitation code"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!isDisabled}
+                    maxLength={64}
+                    onChangeText={(value) =>
+                      setInviteCode(normalizeInviteCode(value))
+                    }
+                    onSubmitEditing={() => void handleSubmit()}
+                    placeholder="64-character code"
+                    placeholderTextColor="#7B8794"
+                    returnKeyType="go"
+                    style={[
+                      styles.input,
+                      errors.inviteCode && styles.inputError,
+                    ]}
+                    value={inviteCode}
+                  />
+                  {errors.inviteCode ? (
+                    <Text accessibilityRole="alert" style={styles.fieldError}>
+                      {errors.inviteCode}
+                    </Text>
+                  ) : null}
+                </View>
+              </>
             ) : null}
 
             {feedback?.message ? (

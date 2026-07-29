@@ -165,6 +165,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      before_user_created_invitation_gate: {
+        Args: { event: Json }
+        Returns: Json
+      }
       complete_onboarding: {
         Args: {
           p_adult_eligible: boolean
@@ -220,6 +224,15 @@ export type Database = {
           token: string
         }[]
       }
+      get_own_signup_gate_status: {
+        Args: never
+        Returns: {
+          circle_id: string
+          circle_name: string
+          invitation_claimed: boolean
+          invitation_required: boolean
+        }[]
+      }
       leave_circle: { Args: { p_circle_id: string }; Returns: undefined }
       list_circle_members: {
         Args: { p_circle_id: string }
@@ -248,6 +261,14 @@ export type Database = {
       remove_circle_member: {
         Args: { p_circle_id: string; p_user_id: string }
         Returns: undefined
+      }
+      replace_and_claim_own_signup_invite: {
+        Args: { p_token: string }
+        Returns: {
+          circle_id: string
+          circle_name: string
+          joined: boolean
+        }[]
       }
       request_circle_deletion: {
         Args: { p_circle_id: string }
