@@ -8,6 +8,7 @@ These lessons are self-contained tutorials for each completed engineering checkp
 2. [Profile-gated onboarding](./02-profile-gated-onboarding.md)
 3. [Settings, local sign-out, and user-state cleanup](./03-settings-signout-and-user-state-cleanup.md)
 4. [Circle membership database foundation](./04-circle-membership-database-foundation.md)
+5. [Circle invites and membership lifecycle](./05-circle-invites-and-membership-lifecycle.md)
 
 ## How to use a lesson
 

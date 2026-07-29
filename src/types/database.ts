@@ -210,6 +210,64 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      create_circle_invite: {
+        Args: { p_circle_id: string; p_expires_at: string; p_max_uses: number }
+        Returns: {
+          circle_id: string
+          expires_at: string
+          id: string
+          max_uses: number
+          token: string
+        }[]
+      }
+      leave_circle: { Args: { p_circle_id: string }; Returns: undefined }
+      list_circle_members: {
+        Args: { p_circle_id: string }
+        Returns: {
+          display_name: string
+          role: string
+          user_id: string
+        }[]
+      }
+      preview_circle_invite: {
+        Args: { p_token: string }
+        Returns: {
+          circle_id: string
+          circle_name: string
+          expires_at: string
+          is_usable: boolean
+        }[]
+      }
+      redeem_circle_invite: {
+        Args: { p_token: string }
+        Returns: {
+          circle_id: string
+          joined: boolean
+        }[]
+      }
+      remove_circle_member: {
+        Args: { p_circle_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      revoke_circle_invite: {
+        Args: { p_circle_id: string; p_invite_id: string }
+        Returns: undefined
+      }
+      set_circle_member_role: {
+        Args: { p_circle_id: string; p_role: string; p_user_id: string }
+        Returns: {
+          circle_id: string
+          joined_at: string
+          role: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "circle_members"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       [_ in never]: never
