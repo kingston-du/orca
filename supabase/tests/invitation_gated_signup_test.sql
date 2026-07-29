@@ -5,6 +5,10 @@ set local role postgres;
 
 create extension if not exists pgtap with schema extensions;
 
+-- Build the founder/admin fixtures in an explicit transaction-only bootstrap
+-- mode, then switch to invitation_required below for every gate assertion.
+update private.signup_gate_config set mode = 'development_open' where singleton;
+
 select plan(38);
 
 select ok(

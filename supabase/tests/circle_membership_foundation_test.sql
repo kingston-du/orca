@@ -5,6 +5,10 @@ set local role postgres;
 
 create extension if not exists pgtap with schema extensions;
 
+-- Test fixtures create Auth users directly. Declare the same bootstrap mode
+-- explicitly so this transaction behaves identically with or without a seed.
+update private.signup_gate_config set mode = 'development_open' where singleton;
+
 select plan(62);
 
 -- Schema, constraints, policies, indexes, and API surface.

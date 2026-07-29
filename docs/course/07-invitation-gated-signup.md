@@ -4,9 +4,9 @@
 
 Orca’s production signup path is now invitation-gated in the **local database and app**. A new person must supply a private invitation code, confirm their email, and hold a claimed admission before they can complete onboarding. The code is a short-lived bearer capability: it enters Auth briefly, is converted into a hash-backed server record, and is scrubbed before the Auth user transaction commits.
 
-This is the ninth migration, [`20260729072231_add_invitation_gated_signup.sql`](../../supabase/migrations/20260729072231_add_invitation_gated_signup.sql). It is **local only and has not been promoted to hosted development**. The local `config.toml` enables the Auth hook; configuring the equivalent hosted Auth hook is a separate deployment step after the migration promotion. Do not assume a database migration configures a hosted Auth service setting.
+This is the ninth migration, [`20260729072231_add_invitation_gated_signup.sql`](../../supabase/migrations/20260729072231_add_invitation_gated_signup.sql). It is now applied to hosted development, and the equivalent hosted Before User Created hook is enabled for the reviewed Postgres function. The migration and the Auth-service setting were promoted and verified separately because a database migration does not configure a hosted Auth hook by itself.
 
-The earlier Circle migration promotion remains separate evidence: the then-current hosted database passed **247/247 pgTAP assertions**. It does not test this ninth local-only migration.
+After promotion, local and hosted histories match across all nine migrations and both environments pass **285/285 pgTAP assertions**.
 
 ## Start here: one code, three different forms
 
@@ -247,7 +247,9 @@ See [`supabase/seed.sql`](../../supabase/seed.sql). The seed is not pushed by `s
 
 ## Evidence and how to review it
 
-[`invitation_gated_signup_test.sql`](../../supabase/tests/invitation_gated_signup_test.sql) adds **38 pgTAP assertions**, bringing the clean local suite to **285 passing assertions**. It covers function grants/RLS, hook rejection, raw-token scrubbing, account/profile creation, reservation capacity, second-signup rejection without a partial Auth row, confirmation claim, revocation recovery, onboarding denial until a claim, and `development_open` behavior.
+[`invitation_gated_signup_test.sql`](../../supabase/tests/invitation_gated_signup_test.sql) adds **38 pgTAP assertions**, bringing both clean local and hosted suites to **285 passing assertions**. It covers function grants/RLS, hook rejection, raw-token scrubbing, account/profile creation, reservation capacity, second-signup rejection without a partial Auth row, confirmation claim, revocation recovery, onboarding denial until a claim, and `development_open` behavior. Older fixture files now choose transaction-only bootstrap mode explicitly instead of depending on the local seed; the mode change rolls back with each test.
+
+The hosted Auth endpoint was also called without an invite after enabling the hook. It returned the intended generic `403`, and a direct database query confirmed the probe email left zero `auth.users` rows. Both hosted advisors reported no issues.
 
 The app tests cover normalized invite submission, malformed-code client short-circuiting, the form field/error behavior, fresh-code recovery, and duplicate recovery protection. The app suite was **56 tests** if unchanged at the final verification run.
 
