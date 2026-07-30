@@ -5,7 +5,7 @@ set local role postgres;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(62);
+select plan(66);
 
 -- Schema, constraints, policies, indexes, and API surface.
 
@@ -201,6 +201,60 @@ select is((select count(*) from public.circles where id = (select id from create
 select is((select count(*) from public.circle_members where circle_id = (select id from created_circle)), 2::bigint, 'member sees their Circle roster');
 select is((select count(*) from public.profiles where id = '71000000-0000-4000-8000-000000000001'::uuid), 1::bigint, 'member sees a shared-Circle profile');
 select is((select count(*) from public.circle_invites where circle_id = (select id from created_circle)), 0::bigint, 'ordinary members cannot read invite metadata');
+
+-- A real member can belong to several private Circles. The app's hub query is
+-- an active-Circle SELECT, so prove it returns every Circle this caller belongs
+-- to without turning membership in one Circle into general discovery.
+create temporary table second_created_circle as
+select * from public.create_circle('Book club');
+
+set local role postgres;
+insert into public.circles (id, name, created_by)
+values (
+    '71000000-0000-4000-8000-000000000101'::uuid,
+    'Other group',
+    '71000000-0000-4000-8000-000000000003'::uuid
+);
+insert into public.circle_members (circle_id, user_id, role)
+values (
+    '71000000-0000-4000-8000-000000000101'::uuid,
+    '71000000-0000-4000-8000-000000000003'::uuid,
+    'admin'
+);
+
+set local role authenticated;
+set local "request.jwt.claim.sub" = '71000000-0000-4000-8000-000000000002';
+select results_eq(
+    $$
+        select circle.name
+        from public.circles circle
+        where circle.state = 'active'
+        order by circle.name
+    $$,
+    $$ values ('Book club'::text), ('Weekend plans'::text) $$,
+    'the active Circle hub query returns both Circles for one current member'
+);
+select results_eq(
+    $$
+        select circle.name, member.role
+        from public.circle_members member
+        join public.circles circle on circle.id = member.circle_id
+        where member.user_id = '71000000-0000-4000-8000-000000000002'::uuid
+        order by circle.name
+    $$,
+    $$ values ('Book club'::text, 'admin'::text), ('Weekend plans'::text, 'member'::text) $$,
+    'the member has the expected independent roles in both Circles'
+);
+select is(
+    (select count(*) from public.circle_members where circle_id = (select id from second_created_circle)),
+    1::bigint,
+    'the member can read the roster for their second Circle'
+);
+select ok(
+    (select count(*) from public.circles where id = '71000000-0000-4000-8000-000000000101'::uuid) = 0
+    and (select count(*) from public.circle_members where circle_id = '71000000-0000-4000-8000-000000000101'::uuid) = 0,
+    'membership in two Circles does not reveal an unrelated Circle or its roster'
+);
 
 set local "request.jwt.claim.sub" = '71000000-0000-4000-8000-000000000001';
 select is((select count(*) from public.circle_invites where circle_id = (select id from created_circle)), 1::bigint, 'admin sees safe invite metadata');

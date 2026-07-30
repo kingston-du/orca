@@ -6,7 +6,7 @@
 
 **Release target:** a production-quality, store-releasable, native iOS and Android V1
 
-**Active implementation phase:** Phase 3 — Circles, membership, and invitations. Phase 2's simulator implementation is complete; its hosted Auth, legal-copy, accessibility, and physical-device acceptance gates remain explicitly deferred until before external testing.
+**Active implementation phase:** Phase 4 — One-photo posting vertical slice. Phase 3's private Circle membership/invitation gate is complete. Phase 2's hosted Auth, legal-copy, accessibility, and physical-device acceptance gates remain explicitly deferred until before external testing.
 
 **Collaboration mode:** Guided pair-builder. The AI implements coherent checkpoints, runs routine CLI commands, verifies them, and may create/push a green Git checkpoint while reporting it afterward. The developer reviews the important flow, security boundaries, and evidence without being required to memorize boilerplate syntax. Database promotions, destructive operations, and external releases retain separate review gates.
 
@@ -56,7 +56,8 @@
 - Hosted migration `20260729072231` implemented invitation-gated signup, but the July 29 product decision supersedes that model: account creation remains permanently open so any new organizer can start a separate friend group. Corrective migration `20260730044326` removes the signup gate/recovery without rewriting applied history. The obsolete hosted Before User Created hook is deleted. Circle membership—not Auth signup—remains invitation-gated.
 - A clean ten-migration reset and hosted promotion prove the correction: all 259 pgTAP assertions pass locally and remotely, database lint reports zero warnings, generated types are exact, and hosted advisors have no warning/error findings. Two real code-free local Auth API signups each created one profile/account-state row and zero Circle memberships. The app has no signup-invite or recovery branch, all 50 app tests pass, and default Circle invitations support up to 10 joins over seven days. Formatting, TypeScript, zero-warning lint, Expo compatibility, Expo Doctor 20/20, legal fingerprints, and an iOS export bundle pass.
 - Accounts can belong to multiple Circles. `circle_members` uses `(circle_id, user_id)` as its primary key, so the same `user_id` may appear once in each of many Circles while duplicate membership in one Circle is impossible. The reverse `(user_id, circle_id)` index efficiently loads the user's Circle switcher.
-- `docs/course/` records each completed checkpoint as a self-contained tutorial covering the mental model, runtime flow, important code and syntax, state/security ownership, focused tests, and verification evidence. Lessons 6–8 expand the format with end-to-end stories and diagrams, lock/concurrency reasoning, real debugging findings, concise glossaries, and review checklists; Lesson 7 is clearly marked as superseded architecture and Lesson 8 teaches the current open-account/invite-only-Circle boundary.
+- Phase 3 is complete. Safe custom-scheme invite links prefill only one validated code and never preview or redeem automatically. A real disposable local Auth/Data API account completed onboarding and returned exactly two Circle memberships; focused component coverage renders both and routes the chosen ID; pgTAP proves the same caller cannot see an unrelated Circle or roster. The closing gate passes with 263 database assertions and 55 app tests.
+- `docs/course/` records each completed checkpoint as a self-contained tutorial covering the mental model, runtime flow, important code and syntax, state/security ownership, focused tests, and verification evidence. Lessons 6–9 expand the format with end-to-end stories and diagrams, lock/concurrency reasoning, real debugging findings, concise glossaries, and review checklists; Lesson 7 is clearly marked as superseded architecture, Lesson 8 teaches the current open-account/invite-only-Circle boundary, and Lesson 9 closes Phase 3.
 - The account/profile foundation at `2126c66` adds `public.profiles`, private `account_states`, locked-down Auth creation and timestamp triggers, active-account/self-only RLS, explicit Data API/column grants, constraints, and generated types. Migration `20260727041445` is applied to `orca-dev`; local/remote history matches, all 53 remote pgTAP assertions pass, and hosted Security and Performance Advisors report no issues.
 - The legal/18+ onboarding foundation is applied to `orca-dev`. Migration `20260727221157` adds immutable development document configuration, append-only acceptance evidence, current-version authorization, and atomic onboarding. Corrective migration `20260727225836` keeps the exposed RPC as security invoker while delegating only the privileged write to its narrowly granted private helper. Local/remote history matches, all 95 hosted pgTAP assertions pass, and hosted Security and Performance Advisors report no issues.
 
@@ -66,9 +67,9 @@
 - Apple Developer Program enrollment and the physical-iPhone EAS build are intentionally deferred while Apple's account process is delayed. Simulator-based iOS development may continue, but this temporary acceptance gap must close before the first external iOS tester or TestFlight build. Orca is iOS-first during active development; physical Android acceptance is deferred until before the first Android tester and remains required for Android release readiness.
 - Hosted Auth confirmation, password, redirect, rate-limit, bot-protection, and email-template settings still require an explicit dashboard review. Local Auth now requires eight-character passwords, email confirmation, six-digit codes, and a 60-second resend interval. Supabase's June 2026 Free-plan restriction means this newly created hosted project cannot customize Auth templates while using the default SMTP sender; custom SMTP remains a pre-external-tester gate, not a blocker for local/simulator implementation.
 - The current legal text is founder-only development copy and must be replaced and reviewed before external testing.
-- Hosted development has all ten migrations with matching history and 259 passing remote assertions. The obsolete signup hook and signup-gate database objects are absent; Security and Performance Advisors report no warning/error findings. The remaining Phase 3 gate is simulator acceptance, not backend promotion.
+- Hosted development has all ten migrations with matching history and 259 passing remote assertions. The obsolete signup hook and signup-gate database objects are absent; Security and Performance Advisors report no warning/error findings. Phase 3 required no further backend promotion.
 - Phase 1B is complete. Do not amend any migration already recorded remotely.
-- TypeScript, formatting, zero-warning lint, dependency compatibility, all 50 app tests, an iOS export bundle, and all 20 `expo-doctor` checks pass locally. The protected route boundary and original Auth entry form have been accepted in Expo Go; open signup plus verification, recovery, onboarding, Settings/sign-out, and overlapping-Circle screens still need a quick visual pass.
+- TypeScript, formatting, zero-warning lint, dependency compatibility, all 55 app tests, an iOS export bundle, and all 20 `expo-doctor` checks pass locally. The protected route boundary, Auth entry form, open-signup form, and Phase 3 local sign-in path have simulator evidence. Verification, recovery, onboarding, and Settings/sign-out still need quick visual passes before external testing; physical-device acceptance remains separately deferred.
 - Expo's current SDK 57 compatibility set is installed (`expo` 57.0.9, React Native 0.86.2, and matching Router/native/test patches). npm 11 reports 11 moderate and 34 high advisory nodes because Expo Router and React Native expose optional Jest/RNTL peer edges even under `--omit=dev`; the high paths resolve through Jest/glob coverage tooling rather than code imported into the iOS bundle, and there are zero critical findings. The existing `uuid` finding remains Expo `xcode` build tooling. Do not force-fix, downgrade Expo/Jest, or install `uuid` directly; monitor compatible upstream releases and do not feed untrusted glob patterns to local/CI tooling.
 
 ### What does not exist yet
@@ -80,7 +81,7 @@
 
 The hosted-development linking and initial promotion are complete. The authenticated account identified `orca-dev` as project `evuqnmvcnqhkzkitszqp`; its ref matches `.env`, it is healthy in `ca-central-1`, the CLI marks only that project as linked, and migration `20260726040517` is recorded both locally and remotely.
 
-Hosted linking, CI/repository safeguards, the simulator-based Phase 2 implementation, and the Circle lifecycle are complete. The Phase 3 corrective open-signup checkpoint is locally and remotely green: anyone may create and onboard an account, any onboarded account may create a Circle, one account may join multiple Circles, and only joining an existing Circle requires a bounded invite. The default group-chat code supports up to 10 joins over seven days. Signup recovery is removed because invite expiry/revocation no longer affects account creation.
+Hosted linking, CI/repository safeguards, the simulator-based Phase 2 implementation, and Phase 3 are complete. Anyone may create and onboard an account, any onboarded account may create multiple Circles, one account may join multiple Circles, and only joining an existing Circle requires a bounded invite. The default group-chat code supports up to 10 joins over seven days. Safe invite links prefill without automatic membership, overlapping memberships render independently, and unrelated Circle data remains server-denied.
 
 ---
 
@@ -1130,6 +1131,8 @@ Friends can form a private Circle, invite/join, view members, and administer mem
 
 Three test users can create/join/administer two overlapping Circles, while a fourth nonmember retrieves no rows by forging IDs.
 
+**Complete July 30, 2026.** The database authorization suite models overlapping memberships and unrelated-user denial, real two-connection probes verify invite/admin race behavior, the app suite renders and opens two independent memberships, and a disposable local Auth/Data API account returned exactly two Circles after onboarding.
+
 Suggested commit: `feat: add secure Circle membership and invites`
 
 ---
@@ -1738,8 +1741,8 @@ Version-sensitive implementation must recheck these sources at the time of the t
 
 ## 17. Next action
 
-Run the short simulator acceptance pass for open signup, email verification/onboarding, and one user participating in two Circles. If it passes, close Phase 3 and begin Phase 4's private one-photo posting vertical slice.
+Begin Phase 4's native media foundation: verify the current Expo SDK 57-compatible picker/manipulation packages and permission configuration, then add only the dependencies/config required for Orca's one-photo iOS-first flow. Do not create the Storage schema or posting migration until that native boundary is reviewed and green.
 
 Starter prompt:
 
-> Read `AGENTS.md` and `PROJECT.md`, inspect the repository, and continue the documented Phase 3 simulator acceptance checkpoint. Verify open signup and overlapping Circle membership, then begin Phase 4 if green.
+> Read `AGENTS.md` and `PROJECT.md`, inspect the repository, and begin the documented Phase 4 native media foundation. Verify exact SDK-compatible dependencies and permissions before changing the posting backend.

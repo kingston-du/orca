@@ -12,6 +12,7 @@ These lessons are self-contained tutorials for each completed engineering checkp
 6. [The Circle app and safe lifecycle changes](./06-circle-app-and-safe-lifecycle.md)
 7. [Superseded study: invitation-gated signup](./07-invitation-gated-signup.md)
 8. [Open accounts and invite-only Circles](./08-open-accounts-and-invite-only-circles.md)
+9. [Closing Phase 3: safe links and overlapping Circles](./09-phase-3-acceptance.md)
 
 ## How to use a lesson
 

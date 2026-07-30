@@ -42,6 +42,33 @@ describe("JoinCircleScreen", () => {
     expect(mockPreviewInvite.mutateAsync).toHaveBeenCalledWith("short");
   });
 
+  test("prefills a valid link code without checking or redeeming it", async () => {
+    const token = "a".repeat(64);
+    const screen = await render(
+      <JoinCircleScreen
+        initialCode={` ${token.toUpperCase()} `}
+        onJoined={jest.fn()}
+        userId="user-1"
+      />,
+    );
+
+    expect(screen.getByLabelText("Invite code")).toHaveProp("value", token);
+    expect(mockPreviewInvite.mutateAsync).not.toHaveBeenCalled();
+    expect(mockRedeemInvite.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  test("filters malformed initial link code", async () => {
+    const screen = await render(
+      <JoinCircleScreen
+        initialCode="not-an-invite"
+        onJoined={jest.fn()}
+        userId="user-1"
+      />,
+    );
+
+    expect(screen.getByLabelText("Invite code")).toHaveProp("value", "");
+  });
+
   test("shows a validated Circle and redeems the same normalized code", async () => {
     const token = "a".repeat(64);
     (mockPreviewInvite as { data?: unknown }).data = {

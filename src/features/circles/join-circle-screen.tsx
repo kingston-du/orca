@@ -12,16 +12,26 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { normalizeInviteCode } from "./circle-actions";
+import { isValidInviteCode, normalizeInviteCode } from "./circle-actions";
 import { useCircleMutations } from "./circle-queries";
 
 type JoinCircleScreenProps = {
+  initialCode?: string;
   userId: string | undefined;
   onJoined: (circleId: string) => void;
 };
 
-export function JoinCircleScreen({ userId, onJoined }: JoinCircleScreenProps) {
-  const [code, setCode] = useState("");
+function getInitialCode(initialCode: string | undefined) {
+  const normalizedCode = normalizeInviteCode(initialCode ?? "");
+  return isValidInviteCode(normalizedCode) ? normalizedCode : "";
+}
+
+export function JoinCircleScreen({
+  initialCode,
+  userId,
+  onJoined,
+}: JoinCircleScreenProps) {
+  const [code, setCode] = useState(() => getInitialCode(initialCode));
   const [error, setError] = useState<string | null>(null);
   const inFlight = useRef(false);
   const { previewInvite, redeemInvite } = useCircleMutations(userId);
