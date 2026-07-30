@@ -13,6 +13,7 @@ These lessons are self-contained tutorials for each completed engineering checkp
 7. [Superseded study: invitation-gated signup](./07-invitation-gated-signup.md)
 8. [Open accounts and invite-only Circles](./08-open-accounts-and-invite-only-circles.md)
 9. [Closing Phase 3: safe links and overlapping Circles](./09-phase-3-acceptance.md)
+10. [The native photo-selection boundary](./10-native-photo-selection.md)
 
 ## How to use a lesson
 

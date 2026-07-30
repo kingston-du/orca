@@ -57,7 +57,8 @@
 - A clean ten-migration reset and hosted promotion prove the correction: all 259 pgTAP assertions pass locally and remotely, database lint reports zero warnings, generated types are exact, and hosted advisors have no warning/error findings. Two real code-free local Auth API signups each created one profile/account-state row and zero Circle memberships. The app has no signup-invite or recovery branch, all 50 app tests pass, and default Circle invitations support up to 10 joins over seven days. Formatting, TypeScript, zero-warning lint, Expo compatibility, Expo Doctor 20/20, legal fingerprints, and an iOS export bundle pass.
 - Accounts can belong to multiple Circles. `circle_members` uses `(circle_id, user_id)` as its primary key, so the same `user_id` may appear once in each of many Circles while duplicate membership in one Circle is impossible. The reverse `(user_id, circle_id)` index efficiently loads the user's Circle switcher.
 - Phase 3 is complete. Safe custom-scheme invite links prefill only one validated code and never preview or redeem automatically. A real disposable local Auth/Data API account completed onboarding and returned exactly two Circle memberships; focused component coverage renders both and routes the chosen ID; pgTAP proves the same caller cannot see an unrelated Circle or roster. The closing gate passes with 263 database assertions and 55 app tests.
-- `docs/course/` records each completed checkpoint as a self-contained tutorial covering the mental model, runtime flow, important code and syntax, state/security ownership, focused tests, and verification evidence. Lessons 6–9 expand the format with end-to-end stories and diagrams, lock/concurrency reasoning, real debugging findings, concise glossaries, and review checklists; Lesson 7 is clearly marked as superseded architecture, Lesson 8 teaches the current open-account/invite-only-Circle boundary, and Lesson 9 closes Phase 3.
+- Phase 4's native photo-selection boundary is implemented. Expo SDK 57-compatible ImagePicker/ImageManipulator packages are pinned; native media configuration includes only purposeful camera/chosen-photo access and explicitly removes microphone and broad Android media/storage/location permissions. The Camera tab uses system UI, requests camera permission only after a tap, never requests broad library access, handles cancellation/unavailable camera/permanent denial/Android activity restoration, and retains only a minimal in-memory preview. Nothing uploads or persists yet.
+- `docs/course/` records each completed checkpoint as a self-contained tutorial covering the mental model, runtime flow, important code and syntax, state/security ownership, focused tests, and verification evidence. Lessons 6–10 expand the format with end-to-end stories and diagrams, lock/concurrency reasoning, real debugging findings, concise glossaries, and review checklists; Lesson 7 is clearly marked as superseded architecture, Lesson 8 teaches the current open-account/invite-only-Circle boundary, Lesson 9 closes Phase 3, and Lesson 10 begins the native media pipeline.
 - The account/profile foundation at `2126c66` adds `public.profiles`, private `account_states`, locked-down Auth creation and timestamp triggers, active-account/self-only RLS, explicit Data API/column grants, constraints, and generated types. Migration `20260727041445` is applied to `orca-dev`; local/remote history matches, all 53 remote pgTAP assertions pass, and hosted Security and Performance Advisors report no issues.
 - The legal/18+ onboarding foundation is applied to `orca-dev`. Migration `20260727221157` adds immutable development document configuration, append-only acceptance evidence, current-version authorization, and atomic onboarding. Corrective migration `20260727225836` keeps the exposed RPC as security invoker while delegating only the privileged write to its narrowly granted private helper. Local/remote history matches, all 95 hosted pgTAP assertions pass, and hosted Security and Performance Advisors report no issues.
 
@@ -69,7 +70,7 @@
 - The current legal text is founder-only development copy and must be replaced and reviewed before external testing.
 - Hosted development has all ten migrations with matching history and 259 passing remote assertions. The obsolete signup hook and signup-gate database objects are absent; Security and Performance Advisors report no warning/error findings. Phase 3 required no further backend promotion.
 - Phase 1B is complete. Do not amend any migration already recorded remotely.
-- TypeScript, formatting, zero-warning lint, dependency compatibility, all 55 app tests, an iOS export bundle, and all 20 `expo-doctor` checks pass locally. The protected route boundary, Auth entry form, open-signup form, and Phase 3 local sign-in path have simulator evidence. Verification, recovery, onboarding, and Settings/sign-out still need quick visual passes before external testing; physical-device acceptance remains separately deferred.
+- TypeScript, formatting, zero-warning lint, dependency compatibility, all 65 app tests, an iOS export bundle, and all 20 `expo-doctor` checks pass locally. The protected route boundary, Auth entry form, open-signup form, and Phase 3 local sign-in path have simulator evidence. Verification, recovery, onboarding, Settings/sign-out, and the new native picker still need their applicable visual/device passes before external testing; physical-device acceptance remains separately deferred.
 - Expo's current SDK 57 compatibility set is installed (`expo` 57.0.9, React Native 0.86.2, and matching Router/native/test patches). npm 11 reports 11 moderate and 34 high advisory nodes because Expo Router and React Native expose optional Jest/RNTL peer edges even under `--omit=dev`; the high paths resolve through Jest/glob coverage tooling rather than code imported into the iOS bundle, and there are zero critical findings. The existing `uuid` finding remains Expo `xcode` build tooling. Do not force-fix, downgrade Expo/Jest, or install `uuid` directly; monitor compatible upstream releases and do not feed untrusted glob patterns to local/CI tooling.
 
 ### What does not exist yet
@@ -1146,9 +1147,9 @@ This is Orca's first end-to-end product action and its highest-risk mobile/data 
 #### Build foundation
 
 - [ ] Rebuild the Phase 1 EAS development clients after adding media config/plugins; native media testing remains authoritative only there.
-- [ ] Install compatible ImagePicker, ImageManipulator, file/binary, and image-display packages only as needed.
-- [ ] Configure photo-only permissions, explicitly disable ImagePicker microphone permission, block unwanted transitive Android permissions, and request no location, contacts, microphone, or broad Android library access.
-- [ ] Inspect the generated iOS/Android permission manifests now and repeat at release.
+- [x] Install SDK-compatible ImagePicker and ImageManipulator. Add direct file/binary and private image-display dependencies only when their first code paths require them.
+- [x] Configure photo-only permissions, explicitly disable ImagePicker microphone permission, block unwanted transitive Android permissions, and request no location, contacts, microphone, or broad Android library access.
+- [x] Inspect the generated iOS/Android permission manifests now and repeat in the rebuilt development clients and at release.
 
 #### Backend checkpoints
 
@@ -1167,8 +1168,8 @@ This is Orca's first end-to-end product action and its highest-risk mobile/data 
 
 #### App checkpoints
 
-- [ ] Camera tab offers Take Photo and Choose Photo using the system UI.
-- [ ] Handle permission denial, cancellation, Android activity restoration, and unavailable camera.
+- [x] Camera tab offers Take Photo and Choose Photo using the system UI.
+- [x] Handle permission denial, cancellation, Android activity restoration, and unavailable camera.
 - [ ] Normalize orientation, dimensions, format, quality, byte size, and strip location/unused metadata.
 - [ ] Preserve credible `captured_at`, source, and UTC offset; allow correction for historical selections.
 - [ ] For selected history, extract only capture date/offset from that selected asset's metadata when available, immediately discard all other metadata, use MediaLibrary data only if already/explicitly authorized, and otherwise ask the user and mark the value `user` or `fallback`.
@@ -1741,8 +1742,8 @@ Version-sensitive implementation must recheck these sources at the time of the t
 
 ## 17. Next action
 
-Begin Phase 4's native media foundation: verify the current Expo SDK 57-compatible picker/manipulation packages and permission configuration, then add only the dependencies/config required for Orca's one-photo iOS-first flow. Do not create the Storage schema or posting migration until that native boundary is reviewed and green.
+Implement Phase 4 image normalization before any Storage migration: turn camera, screenshot, rotated, large, and older picker inputs into the same bounded JPEG contract; verify orientation, dimensions, bytes, and metadata behavior with focused fixtures/device evidence. Then design pending posts and the private `post-media` bucket against that proven client contract.
 
 Starter prompt:
 
-> Read `AGENTS.md` and `PROJECT.md`, inspect the repository, and begin the documented Phase 4 native media foundation. Verify exact SDK-compatible dependencies and permissions before changing the posting backend.
+> Read `AGENTS.md` and `PROJECT.md`, inspect the repository, and continue the documented Phase 4 image-normalization checkpoint. Prove the bounded JPEG/privacy contract before changing the posting backend.

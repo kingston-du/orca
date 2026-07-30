@@ -7,6 +7,16 @@ module.exports = ({ config }) => ({
   plugins: [
     ...(config.plugins ?? []),
     ["expo-secure-store", { configureAndroidBackup: true }],
+    [
+      "expo-image-picker",
+      {
+        photosPermission:
+          "Orca lets you choose one photo to share privately with a Circle.",
+        cameraPermission:
+          "Orca uses the camera only when you take a photo to share privately with a Circle.",
+        microphonePermission: false,
+      },
+    ],
   ],
   ios: {
     ...config.ios,
@@ -21,5 +31,15 @@ module.exports = ({ config }) => ({
   android: {
     ...config.android,
     package: IS_DEV ? "com.kingstondu.orca.dev" : "com.kingstondu.orca",
+    blockedPermissions: [
+      ...(config.android?.blockedPermissions ?? []),
+      "android.permission.RECORD_AUDIO",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+      "android.permission.READ_MEDIA_IMAGES",
+      "android.permission.READ_MEDIA_VIDEO",
+      "android.permission.READ_MEDIA_AUDIO",
+      "android.permission.ACCESS_MEDIA_LOCATION",
+    ],
   },
 });
