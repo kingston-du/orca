@@ -111,6 +111,8 @@ Open signup does **not** mean open data. These layers remain separate:
 
 RLS remains enabled on `circles`, `circle_members`, and `circle_invites`. Their policies use membership/admin checks. A random signed-in account therefore cannot enumerate or read another group's rows.
 
+One account can belong to multiple Circles. The membership primary key is the pair `(circle_id, user_id)`, not `user_id` alone. That means Maya can have one membership row for “College Friends” and another for “Family”; only a second copy of Maya's membership in the same Circle is rejected. The reverse `(user_id, circle_id)` index makes loading Maya's full Circle list efficient.
+
 This is the security principle to remember:
 
 > Creating an identity is not the same as receiving authorization to private data.
@@ -154,7 +156,7 @@ Existing Circle suites continue to test RLS, grants, invite expiry/revocation/ca
 
 A real request through the local Supabase Auth HTTP endpoint also returned `200` for code-free signup with email confirmation pending. Two probe identities each received exactly one profile and one private account-state row, and received zero Circle memberships. This checks the full Auth-service-to-trigger boundary rather than relying only on direct SQL fixtures.
 
-Hosted development still requires an explicit promotion gate: disable the now-obsolete Auth hook, apply only the corrective migration, then verify open signup and the hosted database suite. Until that happens, hosted behavior is intentionally treated as not yet corrected.
+Hosted development is corrected. The obsolete Auth hook was deleted before promotion, only `20260730044326_restore_open_account_signup.sql` was applied, all ten migration versions match, and all **259 hosted assertions** pass. Direct schema checks confirm the signup tables/functions are absent and the multi-Circle membership key remains `(circle_id, user_id)`. Hosted Security and Performance Advisors have no warning/error findings; their remaining entries are expected INFO notices for deliberately unexposed private tables and one fresh legal index.
 
 ## Check your understanding
 
