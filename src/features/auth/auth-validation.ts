@@ -3,15 +3,10 @@ import type { EmailPasswordCredentials } from "@/features/auth/auth-actions";
 export type AuthFormMode = "sign-in" | "sign-up";
 
 export type AuthFormErrors = Partial<
-  Record<"email" | "password" | "confirmPassword" | "inviteCode", string>
+  Record<"email" | "password" | "confirmPassword", string>
 >;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const INVITE_CODE_PATTERN = /^[0-9a-f]{64}$/;
-
-export function normalizeInviteCode(value: string) {
-  return value.trim().toLowerCase();
-}
 
 export function validateEmail(email: string) {
   const normalizedEmail = email.trim();
@@ -61,14 +56,6 @@ export function validateCredentials(
 
   if (mode === "sign-up" && confirmPassword !== credentials.password) {
     errors.confirmPassword = "Passwords do not match.";
-  }
-
-  if (
-    mode === "sign-up" &&
-    !INVITE_CODE_PATTERN.test(normalizeInviteCode(credentials.inviteCode ?? ""))
-  ) {
-    errors.inviteCode =
-      "Enter the 64-character invitation code from your friend.";
   }
 
   return errors;

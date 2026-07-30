@@ -10,7 +10,8 @@ These lessons are self-contained tutorials for each completed engineering checkp
 4. [Circle membership database foundation](./04-circle-membership-database-foundation.md)
 5. [Circle invites and membership lifecycle](./05-circle-invites-and-membership-lifecycle.md)
 6. [The Circle app and safe lifecycle changes](./06-circle-app-and-safe-lifecycle.md)
-7. [Invitation-gated signup without leaking the invitation](./07-invitation-gated-signup.md)
+7. [Superseded study: invitation-gated signup](./07-invitation-gated-signup.md)
+8. [Open accounts and invite-only Circles](./08-open-accounts-and-invite-only-circles.md)
 
 ## How to use a lesson
 

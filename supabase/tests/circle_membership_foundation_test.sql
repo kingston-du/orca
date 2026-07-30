@@ -5,10 +5,6 @@ set local role postgres;
 
 create extension if not exists pgtap with schema extensions;
 
--- Test fixtures create Auth users directly. Declare the same bootstrap mode
--- explicitly so this transaction behaves identically with or without a seed.
-update private.signup_gate_config set mode = 'development_open' where singleton;
-
 select plan(62);
 
 -- Schema, constraints, policies, indexes, and API surface.
@@ -30,15 +26,15 @@ select ok(
 select policies_are(
     'public',
     'circles',
-    array['circles_auth_hook_read', 'circles_select_member']::name[],
-    'circles has member reads plus the narrow Auth-hook read policy'
+    array['circles_select_member']::name[],
+    'circles has only the member-read policy'
 );
 select policies_are('public', 'circle_members', array['circle_members_select_member']::name[], 'circle_members has only the member-read policy');
 select policies_are(
     'public',
     'circle_invites',
-    array['circle_invites_auth_hook_read', 'circle_invites_select_admin']::name[],
-    'circle_invites has admin reads plus the narrow Auth-hook read policy'
+    array['circle_invites_select_admin']::name[],
+    'circle_invites has only the admin-read policy'
 );
 select policies_are('public', 'profiles', array['profiles_select_visible', 'profiles_update_self']::name[], 'profiles has the expected shared-visibility and self-update policies');
 

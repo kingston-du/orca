@@ -1,5 +1,7 @@
 # Lesson 7 — Invitation-gated signup without leaking the invitation
 
+> **Superseded architecture (July 29, 2026):** This lesson records a working design that Orca intentionally removed. Account signup is permanently open; invitations now control only entry to an existing Circle. Read [Lesson 8](./08-open-accounts-and-invite-only-circles.md) for the current architecture. This historical lesson remains useful for learning triggers and transactional reservations, but its described product flow is not active Orca behavior.
+
 ## Outcome
 
 Orca’s production signup path is now invitation-gated in the **local database and app**. A new person must supply a private invitation code, confirm their email, and hold a claimed admission before they can complete onboarding. The code is a short-lived bearer capability: it enters Auth briefly, is converted into a hash-backed server record, and is scrubbed before the Auth user transaction commits.

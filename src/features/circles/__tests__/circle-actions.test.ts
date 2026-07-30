@@ -75,7 +75,7 @@ describe("Circle actions", () => {
     expect(client.previewInvite).not.toHaveBeenCalled();
   });
 
-  test("creates a default one-use invitation that expires in seven days", async () => {
+  test("creates a 10-person group invitation that expires in seven days", async () => {
     jest.useFakeTimers().setSystemTime(new Date("2026-07-28T12:00:00.000Z"));
     const client = makeClient();
     client.createInvite.mockResolvedValue({
@@ -84,7 +84,7 @@ describe("Circle actions", () => {
           circle_id: circle.id,
           expires_at: "2026-08-04T12:00:00.000Z",
           id: "33333333-3333-4333-8333-333333333333",
-          max_uses: 1,
+          max_uses: 10,
           token: "a".repeat(64),
         },
       ],
@@ -97,7 +97,7 @@ describe("Circle actions", () => {
     expect(client.createInvite).toHaveBeenCalledWith({
       p_circle_id: circle.id,
       p_expires_at: "2026-08-04T12:00:00.000Z",
-      p_max_uses: 1,
+      p_max_uses: 10,
     });
     jest.useRealTimers();
   });

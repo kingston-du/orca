@@ -106,13 +106,13 @@ export function CircleDetailScreen({
 
         {createdInvite ? (
           <View
-            accessibilityLabel="New one-time invitation"
+            accessibilityLabel="New group invitation"
             style={styles.tokenCard}
           >
-            <Text style={styles.tokenTitle}>Share this code once</Text>
+            <Text style={styles.tokenTitle}>Share this in the group chat</Text>
             <Text style={styles.tokenBody}>
-              It works for one person for seven days. It will not be shown again
-              after you dismiss this card.
+              Up to 10 friends can use it over seven days. It will not be shown
+              again after you dismiss this card.
             </Text>
             <Text selectable style={styles.token}>
               {createdInvite.token}
@@ -182,7 +182,7 @@ export function CircleDetailScreen({
               {mutations.createDefaultInvite.isPending ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.primaryLabel}>Make one-time invite</Text>
+                <Text style={styles.primaryLabel}>Make group invite</Text>
               )}
             </Pressable>
             {invites.length === 0 ? (
@@ -197,7 +197,7 @@ export function CircleDetailScreen({
                       {invite.revoked_at
                         ? "Revoked invitation"
                         : invite.use_count >= invite.max_uses
-                          ? "Used invitation"
+                          ? "Full invitation"
                           : "Active invitation"}
                     </Text>
                     <Text style={styles.inviteBody}>

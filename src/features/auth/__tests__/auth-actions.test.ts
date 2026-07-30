@@ -78,7 +78,6 @@ describe("Auth actions", () => {
       signUpWithPassword({
         email: "friend@example.com",
         password: "password123",
-        inviteCode: "A".repeat(64),
       }),
     ).resolves.toEqual({
       kind: "success",
@@ -91,23 +90,7 @@ describe("Auth actions", () => {
     expect(mockSignUp).toHaveBeenCalledWith({
       email: "friend@example.com",
       password: "password123",
-      options: { data: { orca_invite_token: "a".repeat(64) } },
     });
-  });
-
-  test("keeps malformed invitation codes out of the Auth request", async () => {
-    await expect(
-      signUpWithPassword({
-        email: "friend@example.com",
-        password: "password123",
-        inviteCode: "not-an-invitation-code",
-      }),
-    ).resolves.toEqual({
-      kind: "error",
-      message: "Enter the 64-character invitation code from your friend.",
-    });
-
-    expect(mockSignUp).not.toHaveBeenCalled();
   });
 
   test("verifies signup codes as email OTPs", async () => {

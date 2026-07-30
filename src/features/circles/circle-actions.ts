@@ -171,7 +171,7 @@ export function createCircleActions(client: CircleRpcClient) {
     const { data, error } = await client.createInvite({
       p_circle_id: circleId,
       p_expires_at: expiresAt,
-      p_max_uses: 1,
+      p_max_uses: 10,
     });
     const invite = data?.[0];
 
