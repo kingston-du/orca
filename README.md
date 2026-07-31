@@ -4,7 +4,7 @@
 
 Orca is a private, friend-first iOS photo app. Capture or choose one photo, share the Moment with friends, swipe through their Moments, react, and quietly build personal and shared history.
 
-The repository is under founder-only development. Checkpoint 1A contains the local friend-first account, username, friendship, block, navigation, privacy-shield, and People foundation. Moment publication, hosted cutover, physical-device acceptance, production legal text, and external beta remain gated.
+The repository is under founder-only development. Phase 1 contains the friend-first account, username, friendship, block, navigation, privacy-shield, and People foundation, running on both the local stack and the hosted-development project. Moment publication, hosted six-digit OTP email delivery, physical-device acceptance, production legal text, and external beta remain gated.
 
 ## Product boundaries
 

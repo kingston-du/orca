@@ -34,7 +34,7 @@ Before meaningful work:
 2. Read `PROJECT.md` Sections 1–2 (observed/redesign status), the active checkpoint in Section 27, and the exact next action in Section 31.
 3. Read every `PROJECT.md` section governing the affected domain, including access, lifecycle, cleanup, testing, and release gates.
 4. Inspect current source/tests/migrations/config/Git status. Do not rely on filenames, a prior chat summary, or target documentation as proof of implementation.
-5. Consult the one-time [friend-first repository inventory](docs/audits/2026-07-31-friend-first-repository-inventory.md) only to classify pre-rebaseline code.
+5. Consult the one-time [friend-first repository inventory](docs/audits/2026-07-31-friend-first-repository-inventory.md) only to classify pre-rebaseline code. The [in-place rebaseline audit](docs/audits/2026-07-31-orca-dev-in-place-rebaseline-inventory.md) records what the approved destructive hosted reset removed; there is no rollback backend.
 6. Read relevant active course lessons for context; archived Circle lessons are historical evidence, never current product direction.
 
 Truth precedence:
@@ -53,7 +53,7 @@ At session start:
 - Record branch, HEAD, remotes, worktree status, relevant environment/link state without printing secrets, and the latest completed checkpoint/evidence.
 - Preserve all user changes and intentional untracked `RefactoringUI.pdf`.
 - Identify the first unmet dependency and approval gate from `PROJECT.md`; do not skip ahead to attractive UI.
-- Confirm whether the active checkpoint is approved. Checkpoint 1A is implemented with green automated local gates on `codex/friend-first-rebaseline`; its endpoint-dependent simulator flow is assigned to 1B. Checkpoint 1B is not authorized until the founder gives the precise approval in Section 31.
+- Confirm whether the active checkpoint is approved. Phase 1 is complete on `codex/friend-first-rebaseline`: Checkpoint 1A is implemented with green automated local gates, and Checkpoint 1B promoted the canonical history in place to the reused hosted-development project with green hosted gates. Two 1B gates remain open — hosted six-digit OTP email delivery, blocked by the free tier's default email provider, and the physical-iPhone smoke that depends on it. Phase 2 is not authorized until the founder gives the precise approval in Section 31.
 - If a checkpoint is partially implemented, continue it through debugging, verification, documentation, and one coherent Git checkpoint rather than starting a second feature.
 - If repository evidence differs from the status document, treat code as reality, diagnose the drift, and update status before or with the scoped fix.
 

@@ -4,17 +4,36 @@ import { randomUUID } from "node:crypto";
 
 import { createClient } from "@supabase/supabase-js";
 
-const status = JSON.parse(
-  execFileSync("./node_modules/.bin/supabase", ["status", "--output", "json"], {
-    encoding: "utf8",
-  }),
-);
-const apiUrl = status.API_URL;
-const publishableKey = status.PUBLISHABLE_KEY;
-const serviceKey = status.SERVICE_ROLE_KEY;
+// The same suite proves the local stack and a promoted hosted environment.
+// Hosted credentials arrive through the environment so no endpoint or secret is
+// ever committed; with none set, the local running stack is the default target.
+const target = process.env.ORCA_TEST_API_URL
+  ? {
+      apiUrl: process.env.ORCA_TEST_API_URL,
+      publishableKey: process.env.ORCA_TEST_PUBLISHABLE_KEY,
+      serviceKey: process.env.ORCA_TEST_SERVICE_ROLE_KEY,
+      label: "hosted",
+    }
+  : (() => {
+      const status = JSON.parse(
+        execFileSync(
+          "./node_modules/.bin/supabase",
+          ["status", "--output", "json"],
+          { encoding: "utf8" },
+        ),
+      );
+      return {
+        apiUrl: status.API_URL,
+        publishableKey: status.PUBLISHABLE_KEY,
+        serviceKey: status.SERVICE_ROLE_KEY,
+        label: "local",
+      };
+    })();
+
+const { apiUrl, publishableKey, serviceKey, label } = target;
 assert.ok(
   apiUrl && publishableKey && serviceKey,
-  "local Supabase API must be running",
+  `${label} Supabase API URL, publishable key, and service role key must all be available`,
 );
 
 const admin = createClient(apiUrl, serviceKey, {
@@ -155,7 +174,9 @@ try {
   assert.ifError(hidden.error);
   assert.equal(hidden.data.length, 0);
 
-  console.log("Real Auth/Data API friend-foundation checks passed.");
+  console.log(
+    `Real Auth/Data API friend-foundation checks passed against the ${label} environment.`,
+  );
 } finally {
   await Promise.all(users.map((id) => admin.auth.admin.deleteUser(id)));
 }

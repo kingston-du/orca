@@ -2,7 +2,7 @@
 
 Status date: 2026-07-31
 
-Implementation state: Checkpoint 1A implemented locally; hosted cutover not authorized
+Implementation state: Phase 1 complete — Checkpoint 1A implemented locally and Checkpoint 1B promoted in place to the reused hosted-development project; hosted six-digit OTP email delivery is blocked pending a founder SMTP/plan decision
 
 Product target: production-quality private iOS beta for approximately 100 users
 
@@ -20,13 +20,18 @@ The Circle-era repository was audited at commit `c1ee45d0afd1b15810895543378d3bc
 - The local backend is a clean two-migration friend-first foundation: canonical profiles/usernames, account/legal eligibility, exact lookup, canonical friendship requests/generations, command receipts, and directional blocks with narrow RPCs, explicit grants, and RLS.
 - The primary app shell is Home, Camera, People. My Profile owns the Settings entry; incomplete, stale-legal, suspended, and deleting accounts are routed to their permitted control surfaces. People supports exact lookup plus request, accept, reject, cancel, and unfriend.
 - Local Supabase, handwritten migrations, generated types, 73 pgTAP assertions, a real two-user Auth/Data API test, native-manifest assertions, app tests, and CI exist. The current verification record is in Lesson 16.
+- The hosted-development project was rebaselined in place to the canonical two-migration history. Its promoted history matches local exactly, its Data API exposes `public` only, `graphql_public` is no longer reachable, remote schema lint is clean, obsolete Circle relations return 404, and the same real two-user Auth/Data API suite passes against the hosted endpoint. The app's `.env` already targets this project with a publishable key. The verification record is in Lesson 17.
 
-These checks validate Checkpoint 1A only. Moments, media publication, feeds, complete profile/invite/safety surfaces, and release infrastructure remain planned.
+These checks validate Checkpoints 1A and 1B. Moments, media publication, feeds, complete profile/invite/safety surfaces, and release infrastructure remain planned.
 
 ### Preserved foundations requiring later extension
 
 - Camera normalization is reusable, but the picker currently omits EXIF and falls back to the device's current time. That cannot support the 24-hour Recent rule.
 - The EAS setup has a development profile only. Physical-iPhone media acceptance, push configuration, universal links, preview/production profiles, and release operations are absent.
+
+### Known hosted drift
+
+The hosted project runs Supabase's free tier with the default email provider, which refuses custom Auth email templates. The versioned `[auth]` block in `supabase/config.toml` therefore could not be promoted: hosted still has `otp_length = 8` and Supabase's default `{{ .ConfirmationURL }}` link templates, while Orca's app and local stack use six-digit `{{ .Token }}` codes. Signup email verification against the hosted endpoint will not match the app UI until a custom SMTP provider or a paid plan is authorized. `supabase config push` applied the `[api]` section successfully; only the Auth update was rejected. This drift is recorded rather than worked around with a dashboard tweak, and one `config push` promotes the whole block once the provider decision is made.
 
 ### Replaced locally with a recoverable boundary
 
@@ -46,11 +51,11 @@ No database rebaseline, migration-history replacement, hosted project creation/c
 
 ### Obsolete
 
-Circles, Circle invitations, Circle administration/deletion, the Memories tab, a future Everyone feed, and invitation-gated account signup are not part of the new contract and have been removed from active source/schema. The old hosted-development project still contains the first ten historical migrations, is now locally unlinked, and was not mutated. No production Supabase project or external beta exists. The intentional untracked `RefactoringUI.pdf` remains untracked.
+Circles, Circle invitations, Circle administration/deletion, the Memories tab, a future Everyone feed, and invitation-gated account signup are not part of the new contract and have been removed from active source/schema. Under Checkpoint 1B the founder directed reuse of the existing hosted-development project and explicitly waived the rollback environment; its ten Circle-era migrations, its single development test account, and its database contents were destroyed by an approved in-place linked reset and are not recoverable. No rollback backend exists. No production Supabase project or external beta exists. The intentional untracked `RefactoringUI.pdf` remains untracked.
 
 ## 2. Redesign status
 
-Checkpoint 1A was explicitly approved and implemented locally. Later checkpoints remain planned and require the approvals stated in their phase and in Section 31. No hosted resource was changed.
+Checkpoint 1A was explicitly approved and implemented locally. Checkpoint 1B was explicitly approved with a founder-directed change of method — reuse the existing hosted-development project and waive rollback — and is implemented apart from the Auth-email gate recorded in Section 1. Later checkpoints remain planned and require the approvals stated in their phase and in Section 31.
 
 Truth rules:
 
@@ -835,7 +840,7 @@ Instrument latency, stage, bytes, status, environment, and error category only�
 Environments:
 
 1. **Local** Supabase + simulator/development client for deterministic replay and tests.
-2. **Hosted development** disposable friend-first project for real Auth/Storage/Function/device integration. Create fresh during rebaseline rather than mutate the Circle project.
+2. **Hosted development** disposable friend-first project for real Auth/Storage/Function/device integration. Section 23 originally required creating a fresh project rather than mutating the Circle project; under Checkpoint 1B the founder instead directed in-place reuse of the existing project and waived rollback, and that is what was executed.
 3. **Production** separate project before external historical data/beta, with production keys, Auth OTP/email configuration, universal invite links, push environment, monitoring, backups, and release build.
 
 No staging backend until team/release evidence earns it. Android compatibility is preserved where free, but iOS gates V1.
@@ -856,9 +861,11 @@ Local/CI tests invoke the worker directly with fake clocks and repeated/crash st
 
 ### Decision
 
-Build a clean canonical friend-first migration history locally, then create a **fresh parallel hosted-development Supabase project** and promote into it. Keep the old linked Circle project untouched as rollback/reference through cutover. Do not extend the old project with layers of DROP/corrective migrations, and do not default to destructive `db reset --linked`.
+**Superseded in execution.** The original decision below was to build a clean canonical friend-first migration history locally, then create a **fresh parallel hosted-development Supabase project** and promote into it, keeping the old linked Circle project untouched as rollback. Checkpoint 1A followed it exactly.
 
-Why:
+For Checkpoint 1B the founder explicitly directed the documented Section 23 fallback instead: reuse the already-connected hosted-development project, accept a destructive in-place `db reset --linked`, and waive the rollback environment because the project's contents were scratch. That was executed on 2026-07-31 after a verified read-only inventory ([audit](docs/audits/2026-07-31-orca-dev-in-place-rebaseline-inventory.md)). The reasoning below still governs _why the history is canonical_; only the hosting method changed. The prohibition on DROP/corrective migration layers and on `migration repair` remains fully in force.
+
+Original reasoning, retained because it still justifies the canonical history:
 
 - 5 of 10 promoted migrations and nearly all app-domain policy are Circle-specific; the final four posting migrations are local-only and replaceable.
 - Carrying obsolete tables, functions, policies, hooks, types, buckets, and cleanup paths forever increases authorization risk and cognitive cost.
@@ -879,16 +886,20 @@ Why:
 
 No remote project creation, database reset/push, function deployment, environment endpoint change, or release occurs in 1A.
 
-### Exact remote sequence — Checkpoint 1B, separate approvals
+### Exact remote sequence — Checkpoint 1B, as executed
 
-1. Obtain explicit approval for any project/billing action; create a fresh hosted-development project in the correct organization/region with supported Postgres.
-2. Configure open signup, six-digit OTP templates/rate/expiry, Auth URL allowlists, `public`-only Data API exposure, extension choices, and other settings actually earned by the foundation. No obsolete signup hook, GraphQL/Realtime surface, bucket, Vault secret, Cron job, or Edge Function exists yet.
-3. Link a clean verification worktree/branch to the new project; capture empty baseline/migration state.
-4. Dry-run/review the exact migration/config plan. Obtain separate promotion approval.
-5. Push canonical migrations and run hosted grants/RLS/Data API/Auth tests plus Security/Performance Advisors and obsolete-object absence checks. Later checkpoints separately approve and create only their earned buckets, Vault/Cron, and functions.
-6. With cutover approval, update development-only environment secrets/endpoints together, rebuild the development client if native configuration changed, and run account/onboarding/friend/manual regression.
-7. Keep the old project and prior development client configuration available for rollback until the new checkpoint is accepted. Rollback is endpoint reversion to the untouched old code/backend pair, not mixing old app with new schema.
-8. Only under a later destructive approval, after retention/evidence requirements are satisfied, delete the obsolete old development project.
+The founder approved reuse of the existing project and waived rollback, so the fallback path in the closing paragraph of this section was taken. Executed 2026-07-31:
+
+1. Relink the working copy to the existing hosted-development project and verify `.env` targets that same project with a publishable key.
+2. Capture a verified read-only inventory of promoted migration history, table row counts, `auth.users`, buckets, and functions, and record the accepted destruction in [the rebaseline audit](docs/audits/2026-07-31-orca-dev-in-place-rebaseline-inventory.md).
+3. Confirm remote and local migration histories share no version, so `migration repair` is neither possible nor attempted.
+4. Run destructive `supabase db reset --linked` against the canonical two-migration history.
+5. Verify promoted history equals local exactly, obsolete Circle relations return 404, and `supabase db lint --linked` is clean across `public` and `private`.
+6. Run the real two-user Auth/Data API suite against the hosted endpoint via `ORCA_TEST_API_URL`.
+7. Push versioned `supabase/config.toml`. The `[api]` section applied and `graphql_public` is no longer reachable; the `[auth]` section was rejected by the free tier's default email provider and is recorded as known drift in Section 1.
+8. No bucket, Vault secret, Cron job, or Edge Function was created; later checkpoints earn those separately.
+
+Remaining for the founder: authorize a custom SMTP provider or a paid plan so the six-digit OTP templates can be promoted, then rebuild the development client and run the physical-iPhone smoke.
 
 If a parallel project is impossible, an in-place linked reset is the fallback only after an explicit destructive approval, verified export/inventory, known rollback, all clients stopped, and acceptance that the old project history/data/config will be destroyed. Never use `migration repair` to make incompatible states appear aligned.
 
@@ -986,14 +997,15 @@ Every checkpoint uses the same evidence record: outcome; dependency reason; exac
 - **Evidence:** clean two-migration replay; warning-free schema lint/type agreement; 73 pgTAP assertions; real local two-user Auth/Data API flow; 18 Jest suites / 66 tests; 5 bounded-JPEG tests; TypeScript/lint/format/legal hashes; Expo dependency agreement; Expo Doctor 20/20; native-manifest assertion. The booted simulator showed the safe account-load failure state against the intentionally unlinked old endpoint.
 - **Deferred:** the full two-account simulator flow moves to 1B because no app endpoint may be cut over under 1A; 1B already requires the equivalent hosted two-user and physical-client smoke. Also deferred: hosted project creation/promotion, invite links/avatar/FOF polish, all Moment features, and the real self-deletion action/status flow owned by 9A. No placeholder deletion control and no external testing before that gate.
 
-### Checkpoint 1B — Parallel hosted-development cutover
+### Checkpoint 1B — In-place hosted-development rebaseline (**implemented; hosted automated gates green; Auth-email and device gates deferred**)
 
-- **Outcome:** clean friend-first hosted development matches local history and a rebuilt development client uses it; old project remains rollback.
-- **Why/dependencies:** required before continued real-device/API integration; depends on 1A green.
-- **Scope/files/resources:** separate project/config, promotion, hosted tests/advisors, development environment endpoint, rebuilt client if needed.
-- **Security/failure:** empty project inventory, least privilege, no signup hook, environment separation, old endpoint rollback. No production resource.
-- **Evidence:** hosted migration/history/grants/RLS/Data API/Auth two-user flow, advisor and obsolete-object absence; physical development-client smoke including app-switcher shield/no old-user frame on foreground and friend-first camera permission/readiness copy.
-- **Course/DoD/Git:** Lesson 17; record redacted project/config evidence and accepted rollback. Separate approvals for creation/billing, migration/config promotion, and endpoint cutover; no function/bucket/scheduler deployment belongs here.
+- **Outcome:** the reused hosted-development project matches the canonical local history exactly and serves the app's configured endpoint. The founder waived the parallel project and rollback; see the revised Section 23 decision.
+- **Why/dependencies:** required before continued real-device/API integration; depended on 1A green.
+- **Scope/files/resources:** relink, verified read-only inventory audit, destructive linked reset, canonical promotion, hosted lint/Data API/Auth verification, `[api]` config promotion, and an endpoint-parameterized API suite.
+- **Security/failure:** inventory captured before destruction; no `migration repair`; publishable key only in `.env`; hosted secret never committed; `anon` retains no app-table grants; `public`-only Data API with `graphql_public` unreachable. No production resource, bucket, Vault secret, Cron job, or Edge Function.
+- **Evidence:** promoted history equals local (`20260731184401`, `20260731184403`); `circles`/`circle_members`/`circle_invites`/`posts` all 404; `supabase db lint --linked` clean on `public` and `private`; real hosted two-user Auth/Data API suite passed covering anon denial, onboarding, exact lookup, request/accept, post-friend visibility, forged-insert denial, and block suppression; `graphql_public` reachability moved 200 → 406. Local gates re-run green: clean two-migration replay, warning-free lint, 73 pgTAP assertions, no generated-type drift, 18 Jest suites / 66 tests, 5 bounded-JPEG tests, TypeScript, zero-warning lint, formatting, legal hashes, native-manifest assertion, Expo dependency agreement, Expo Doctor 20/20.
+- **Deferred:** hosted six-digit OTP email templates and `otp_length = 6` are blocked by the free tier's default email provider and need a founder SMTP/plan decision; the physical development-client smoke — app-switcher shield, no old-user frame on foreground, friend-first camera permission/readiness copy, and the real signup/onboarding/friend regression — needs that email path plus a rebuilt client on a physical iPhone. Security/Performance Advisors were not queried because the CLI exposes no advisors command and the management token is keychain-held; `db lint --linked` on an identical schema stands in and is recorded as a substitution, not an equivalent.
+- **Course/DoD/Git:** Lesson 17 records the rebaseline, the destroyed contents, and the Auth-email gate.
 
 ### Phase 2 — People, profile, invites, and privacy surfaces
 
@@ -1163,10 +1175,22 @@ Installed source/types and pinned CLI `--help` take precedence over generic exam
 
 ## 31. Exact next action
 
-The next action is **Checkpoint 1B — Parallel hosted-development cutover**, exactly as scoped in Section 27. It has not been authorized.
+Phase 1 is complete. The next action is **Phase 2 — People, profile, invites, and privacy surfaces**, exactly as scoped in Section 27. It has not been authorized.
 
-First approval needed:
+Two gates carried forward from Checkpoint 1B remain open and are independent of Phase 2 approval:
 
-> Approve Codex to create a fresh parallel hosted-development Supabase project for Orca in the agreed organization and region, record its redacted empty-project inventory and cost/rollback boundary, and stop before promoting migrations, changing Auth/config, deploying functions, creating buckets/Vault/Cron, or cutting over an app endpoint.
+1. **Hosted Auth email.** The free tier's default email provider refuses Orca's six-digit OTP templates, so hosted signup verification does not yet match the app. Resolving it needs one of:
+
+   > Approve configuring a custom SMTP provider for the hosted-development project, or approve upgrading that project's plan, so the versioned `[auth]` config block including the six-digit OTP templates and `otp_length = 6` can be promoted with `supabase config push`.
+
+   Both options involve an external account or a purchase and are therefore founder decisions.
+
+2. **Physical-iPhone smoke.** Deferred from 1B and requires gate 1 first, then a rebuilt development client on a physical device.
+
+Phase 2 approval needed:
+
+> Approve Codex to implement Phase 2 — friend-of-friend and profile surfaces, personal invite creation/intake, the shared reserved-object uploader, versioned avatar reservation/finalize, the private `avatars` bucket, and the first `reconcile-operations` worker — and stop before creating hosted buckets, Vault secrets, Cron schedules, or deploying Edge Functions.
+
+Phase 2 creates the first bucket, Vault secret, Cron job, and Edge Function, each of which carries its own separate promotion approval beyond the implementation approval above.
 
 Project creation/billing, hosted migration/config promotion, endpoint cutover, old-project deletion, production creation, function deployment, and any external release remain separate approvals. Approval of one does not imply another.
