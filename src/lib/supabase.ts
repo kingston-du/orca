@@ -11,6 +11,11 @@ if (!supabaseURL || !supabasePublishableKey) {
   throw new Error("Missing Supabase environment variables");
 }
 
+/** Exposed so account-scoped local records can be bound to the environment
+ * they belong to, preventing a build pointed at a different backend from
+ * reusing state the current server would not recognize. */
+export const supabaseUrl = supabaseURL;
+
 export const supabase = createClient<Database>(
   supabaseURL,
   supabasePublishableKey,

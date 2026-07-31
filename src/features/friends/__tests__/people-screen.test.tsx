@@ -16,7 +16,11 @@ jest.mock("@/features/friends/friends-api", () => ({
   runFriendOperation: jest.fn(),
 }));
 
-function renderPeople(onOpenMyProfile = jest.fn(), onOpenProfile = jest.fn()) {
+function renderPeople(
+  onOpenMyProfile = jest.fn(),
+  onOpenProfile = jest.fn(),
+  onOpenInviteLink = jest.fn(),
+) {
   const client = new QueryClient({
     defaultOptions: {
       mutations: { gcTime: Infinity, retry: false },
@@ -26,6 +30,7 @@ function renderPeople(onOpenMyProfile = jest.fn(), onOpenProfile = jest.fn()) {
   return render(
     <QueryClientProvider client={client}>
       <PeopleScreen
+        onOpenInviteLink={onOpenInviteLink}
         onOpenMyProfile={onOpenMyProfile}
         onOpenProfile={onOpenProfile}
       />

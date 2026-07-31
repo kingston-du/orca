@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -200,6 +200,56 @@ try {
   const ownBlocks = await alice.client.rpc("list_blocked_profiles");
   assert.ifError(ownBlocks.error);
   assert.equal(ownBlocks.data.length, 0);
+
+  // Checkpoint 2B: a real 32-byte token, hashed the same way the app hashes it,
+  // registered and resolved over the actual Data API.
+  const rawToken = randomBytes(32).toString("base64url");
+  const tokenDigest = createHash("sha256").update(rawToken).digest("hex");
+
+  const created = await alice.client.rpc("create_invite_link", {
+    p_token_sha256: tokenDigest,
+  });
+  assert.ifError(created.error);
+  assert.equal(created.data[0].fingerprint, tokenDigest.slice(0, 8));
+
+  // A lost response must be safe to retry with the same digest.
+  const retried = await alice.client.rpc("create_invite_link", {
+    p_token_sha256: tokenDigest,
+  });
+  assert.ifError(retried.error);
+  assert.equal(retried.data[0].fingerprint, created.data[0].fingerprint);
+
+  // A different digest without rotation is refused.
+  const conflicting = await alice.client.rpc("create_invite_link", {
+    p_token_sha256: createHash("sha256").update("other").digest("hex"),
+  });
+  assert.equal(conflicting.error?.code, "23505");
+
+  const status = await alice.client.rpc("get_invite_status");
+  assert.ifError(status.error);
+  assert.equal(status.data[0].fingerprint, tokenDigest.slice(0, 8));
+  // Nothing the server returns may be usable to rebuild the link.
+  assert.ok(!JSON.stringify(status.data).includes(rawToken));
+
+  const resolved = await carol.client.rpc("resolve_invite", {
+    p_token_sha256: tokenDigest,
+  });
+  assert.ifError(resolved.error);
+  assert.equal(resolved.data[0].id, alice.id);
+  assert.equal(resolved.data[0].relationship_state, "none");
+
+  // Resolving must not have created any relationship on its own.
+  const afterResolve = await carol.client.rpc("get_profile_summary", {
+    p_profile_id: alice.id,
+  });
+  assert.ifError(afterResolve.error);
+  assert.equal(afterResolve.data[0].relationship_state, "none");
+
+  const unknownInvite = await carol.client.rpc("resolve_invite", {
+    p_token_sha256: createHash("sha256").update("guess").digest("hex"),
+  });
+  assert.ifError(unknownInvite.error);
+  assert.equal(unknownInvite.data.length, 0);
 
   const forged = await alice.client.from("friendships").insert({
     state: "accepted",

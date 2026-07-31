@@ -214,6 +214,13 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      create_invite_link: {
+        Args: { p_token_sha256: string }
+        Returns: {
+          expires_at: string
+          fingerprint: string
+        }[]
+      }
       get_account_control_state: {
         Args: never
         Returns: {
@@ -225,6 +232,13 @@ export type Database = {
           onboarding_completed_at: string
           profile_id: string
           username: string
+        }[]
+      }
+      get_invite_status: {
+        Args: never
+        Returns: {
+          expires_at: string
+          fingerprint: string
         }[]
       }
       get_profile_summary: {
@@ -315,6 +329,24 @@ export type Database = {
           generation_id: string
           request_id: string
           result_state: string
+        }[]
+      }
+      resolve_invite: {
+        Args: { p_token_sha256: string }
+        Returns: {
+          display_name: string
+          id: string
+          mutual_friend_count: number
+          relationship_state: string
+          username: string
+        }[]
+      }
+      revoke_invite_link: { Args: never; Returns: undefined }
+      rotate_invite_link: {
+        Args: { p_token_sha256: string }
+        Returns: {
+          expires_at: string
+          fingerprint: string
         }[]
       }
       send_friend_request: {

@@ -23,11 +23,13 @@ const friendsKey = ["friends"] as const;
 const requestsKey = ["friend-requests"] as const;
 
 type PeopleScreenProps = {
+  onOpenInviteLink: () => void;
   onOpenMyProfile: () => void;
   onOpenProfile: (profileId: string) => void;
 };
 
 export function PeopleScreen({
+  onOpenInviteLink,
   onOpenMyProfile,
   onOpenProfile,
 }: PeopleScreenProps) {
@@ -142,6 +144,14 @@ export function PeopleScreen({
               )}
             </Pressable>
           </View>
+          <Pressable
+            accessibilityHint="Create or share a personal invite link"
+            accessibilityRole="button"
+            onPress={onOpenInviteLink}
+            style={styles.inviteRow}
+          >
+            <Text style={styles.link}>My Invite Link</Text>
+          </Pressable>
           {lookupMessage ? (
             <Text accessibilityLiveRegion="polite" style={styles.message}>
               {lookupMessage}
@@ -350,6 +360,7 @@ const styles = StyleSheet.create({
   chevron: { color: "#52606D", fontSize: 32 },
   content: { gap: 24, padding: 20, paddingBottom: 48 },
   flex: { flex: 1, gap: 2 },
+  inviteRow: { justifyContent: "center", minHeight: 44 },
   input: {
     backgroundColor: "#FFFFFF",
     borderColor: "#BCCCDC",
