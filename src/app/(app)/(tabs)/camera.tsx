@@ -1,5 +1,5 @@
-import { PhotoSourcePickerScreen } from "@/features/posts/photo-source-picker-screen";
+import { PhotoCaptureScreen } from "@/features/posts/photo-capture-screen";
 
 export default function CameraScreen() {
-  return <PhotoSourcePickerScreen />;
+  return <PhotoCaptureScreen />;
 }

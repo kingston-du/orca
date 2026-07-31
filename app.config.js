@@ -17,6 +17,16 @@ module.exports = ({ config }) => ({
         microphonePermission: false,
       },
     ],
+    [
+      "expo-camera",
+      {
+        cameraPermission:
+          "Orca uses the camera only when you take a photo to share privately with a Circle.",
+        microphonePermission: false,
+        recordAudioAndroid: false,
+        barcodeScannerEnabled: false,
+      },
+    ],
   ],
   ios: {
     ...config.ios,

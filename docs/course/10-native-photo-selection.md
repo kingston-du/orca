@@ -1,5 +1,7 @@
 # The native photo-selection boundary
 
+> **Architecture update (July 30):** this lesson records the first safe media boundary. Orca now requires an embedded Expo Camera as its primary capture surface. The scoped system photo picker and the trust-boundary lessons below remain valid; the system-camera portion is replaced by Lesson 11.
+
 ## What we built and why it comes before Storage
 
 Phase 4 is Orca's first photo pipeline. A photo begins on a device, becomes a normalized private file, is uploaded to one exact Storage path, and finally becomes a published database row. Those are separate trust boundaries:
@@ -22,7 +24,7 @@ That order matters. If picker output flowed directly into Storage, client-report
 
 ## Why these two Expo packages exist
 
-`expo-image-picker` opens operating-system camera and photo-selection UI. Orca does not build a custom camera.
+`expo-image-picker` opens operating-system camera and photo-selection UI. At this checkpoint Orca had not yet added its embedded camera; that capture path is superseded by Lesson 11 while the system-library picker remains current.
 
 `expo-image-manipulator` will create the normalized JPEG in the next checkpoint. Installing it now lets the native binary include the complete first media boundary before development clients are rebuilt.
 

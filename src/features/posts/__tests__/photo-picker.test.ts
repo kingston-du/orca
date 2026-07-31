@@ -4,8 +4,17 @@ import * as ImagePicker from "expo-image-picker";
 import {
   choosePhoto,
   restorePendingPhoto,
-  takePhoto,
 } from "@/features/posts/photo-picker";
+
+const mockNormalizePhoto = jest.fn();
+
+jest.mock("@/features/posts/photo-normalizer", () => ({
+  getDeviceCaptureTime: () => ({
+    capturedAt: "2026-07-30T12:00:00.000Z",
+    capturedUtcOffsetMinutes: -420,
+  }),
+  normalizePhoto: (...args: unknown[]) => mockNormalizePhoto(...args),
+}));
 
 jest.mock("expo-image-picker", () => ({
   PermissionStatus: {
@@ -13,10 +22,7 @@ jest.mock("expo-image-picker", () => ({
     GRANTED: "granted",
     UNDETERMINED: "undetermined",
   },
-  getCameraPermissionsAsync: jest.fn(),
-  requestCameraPermissionsAsync: jest.fn(),
   requestMediaLibraryPermissionsAsync: jest.fn(),
-  launchCameraAsync: jest.fn(),
   launchImageLibraryAsync: jest.fn(),
   getPendingResultAsync: jest.fn(),
 }));
@@ -39,6 +45,14 @@ const selectedAsset = {
 describe("photo picker boundary", () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    mockNormalizePhoto.mockImplementation(async (input) => ({
+      ...input,
+      uri: "file:///normalized.jpg",
+      width: 1200,
+      height: 900,
+      byteSize: 123_456,
+      mimeType: "image/jpeg",
+    }));
   });
 
   test("uses the scoped system library picker without requesting broad access", async () => {
@@ -60,81 +74,33 @@ describe("photo picker boundary", () => {
       exif: false,
       quality: 1,
     });
-    expect(outcome).toEqual({
-      kind: "selected",
-      photo: {
+    expect(mockNormalizePhoto).toHaveBeenCalledWith(
+      expect.objectContaining({
         uri: "file:///selected.jpg",
         width: 1600,
         height: 1200,
         source: "library",
+        capturedUtcOffsetMinutes: expect.any(Number),
+        capturedAtSource: "fallback",
+      }),
+    );
+    expect(outcome).toEqual({
+      kind: "selected",
+      photo: {
+        uri: "file:///normalized.jpg",
+        width: 1200,
+        height: 900,
+        byteSize: 123_456,
+        mimeType: "image/jpeg",
+        source: "library",
+        capturedAt: expect.any(String),
+        capturedUtcOffsetMinutes: expect.any(Number),
+        capturedAtSource: "fallback",
       },
     });
     expect(outcome).not.toEqual(
       expect.objectContaining({ assetId: expect.anything() }),
     );
-  });
-
-  test("requests camera permission only after the camera action", async () => {
-    mockImagePicker.getCameraPermissionsAsync.mockResolvedValue({
-      granted: false,
-      canAskAgain: true,
-      expires: "never",
-      status: ImagePicker.PermissionStatus.UNDETERMINED,
-    });
-    mockImagePicker.requestCameraPermissionsAsync.mockResolvedValue({
-      granted: true,
-      canAskAgain: true,
-      expires: "never",
-      status: ImagePicker.PermissionStatus.GRANTED,
-    });
-    mockImagePicker.launchCameraAsync.mockResolvedValue({
-      canceled: true,
-      assets: null,
-    });
-
-    expect(mockImagePicker.getCameraPermissionsAsync).not.toHaveBeenCalled();
-
-    await expect(takePhoto()).resolves.toEqual({ kind: "canceled" });
-    expect(mockImagePicker.getCameraPermissionsAsync).toHaveBeenCalledTimes(1);
-    expect(mockImagePicker.requestCameraPermissionsAsync).toHaveBeenCalledTimes(
-      1,
-    );
-    expect(mockImagePicker.launchCameraAsync).toHaveBeenCalledTimes(1);
-  });
-
-  test("does not open the camera after a permanent permission denial", async () => {
-    mockImagePicker.getCameraPermissionsAsync.mockResolvedValue({
-      granted: false,
-      canAskAgain: false,
-      expires: "never",
-      status: ImagePicker.PermissionStatus.DENIED,
-    });
-
-    await expect(takePhoto()).resolves.toEqual({
-      kind: "camera-permission-denied",
-      canAskAgain: false,
-    });
-    expect(
-      mockImagePicker.requestCameraPermissionsAsync,
-    ).not.toHaveBeenCalled();
-    expect(mockImagePicker.launchCameraAsync).not.toHaveBeenCalled();
-  });
-
-  test("maps an unavailable camera to a safe error", async () => {
-    mockImagePicker.getCameraPermissionsAsync.mockResolvedValue({
-      granted: true,
-      canAskAgain: true,
-      expires: "never",
-      status: ImagePicker.PermissionStatus.GRANTED,
-    });
-    mockImagePicker.launchCameraAsync.mockRejectedValue(
-      new Error("native camera unavailable"),
-    );
-
-    await expect(takePhoto()).resolves.toEqual({
-      kind: "error",
-      source: "camera",
-    });
   });
 
   test("restores an Android result after activity destruction", async () => {
@@ -147,7 +113,7 @@ describe("photo picker boundary", () => {
     await expect(restorePendingPhoto()).resolves.toEqual({
       kind: "selected",
       photo: expect.objectContaining({
-        uri: "file:///selected.jpg",
+        uri: "file:///normalized.jpg",
         source: "restored",
       }),
     });

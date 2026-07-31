@@ -1,19 +1,18 @@
 import { Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 
-export type PhotoSource = "camera" | "library" | "restored";
+import {
+  getDeviceCaptureTime,
+  normalizePhoto,
+  type NormalizedPhoto,
+  type PhotoSource,
+} from "@/features/posts/photo-normalizer";
 
-export type SelectedPhotoPreview = {
-  uri: string;
-  width: number;
-  height: number;
-  source: PhotoSource;
-};
+export type SelectedPhotoPreview = NormalizedPhoto;
 
 export type PhotoPickerOutcome =
   | { kind: "selected"; photo: SelectedPhotoPreview }
   | { kind: "canceled" }
-  | { kind: "camera-permission-denied"; canAskAgain: boolean }
   | { kind: "error"; source: PhotoSource };
 
 const PHOTO_PICKER_OPTIONS = {
@@ -25,22 +24,28 @@ const PHOTO_PICKER_OPTIONS = {
   quality: 1,
 } satisfies ImagePicker.ImagePickerOptions;
 
-function toPreview(
+async function toPreview(
   asset: ImagePicker.ImagePickerAsset,
   source: PhotoSource,
-): SelectedPhotoPreview {
-  return {
+): Promise<SelectedPhotoPreview> {
+  const captureTime = getDeviceCaptureTime();
+
+  return normalizePhoto({
     uri: asset.uri,
     width: asset.width,
     height: asset.height,
     source,
-  };
+    // V1 deliberately avoids retaining imported metadata. The post workflow will
+    // replace this fallback with a trusted capture-time policy where appropriate.
+    ...captureTime,
+    capturedAtSource: "fallback",
+  });
 }
 
-function resultToOutcome(
+async function resultToOutcome(
   result: ImagePicker.ImagePickerResult,
   source: PhotoSource,
-): PhotoPickerOutcome {
+): Promise<PhotoPickerOutcome> {
   if (result.canceled) {
     return { kind: "canceled" };
   }
@@ -50,7 +55,7 @@ function resultToOutcome(
     return { kind: "error", source };
   }
 
-  return { kind: "selected", photo: toPreview(asset, source) };
+  return { kind: "selected", photo: await toPreview(asset, source) };
 }
 
 export async function choosePhoto(): Promise<PhotoPickerOutcome> {
@@ -59,31 +64,9 @@ export async function choosePhoto(): Promise<PhotoPickerOutcome> {
     // request broad photo-library permission here.
     const result =
       await ImagePicker.launchImageLibraryAsync(PHOTO_PICKER_OPTIONS);
-    return resultToOutcome(result, "library");
+    return await resultToOutcome(result, "library");
   } catch {
     return { kind: "error", source: "library" };
-  }
-}
-
-export async function takePhoto(): Promise<PhotoPickerOutcome> {
-  try {
-    let permission = await ImagePicker.getCameraPermissionsAsync();
-
-    if (!permission.granted && permission.canAskAgain) {
-      permission = await ImagePicker.requestCameraPermissionsAsync();
-    }
-
-    if (!permission.granted) {
-      return {
-        kind: "camera-permission-denied",
-        canAskAgain: permission.canAskAgain,
-      };
-    }
-
-    const result = await ImagePicker.launchCameraAsync(PHOTO_PICKER_OPTIONS);
-    return resultToOutcome(result, "camera");
-  } catch {
-    return { kind: "error", source: "camera" };
   }
 }
 
@@ -102,7 +85,7 @@ export async function restorePendingPhoto(): Promise<PhotoPickerOutcome | null> 
       return { kind: "error", source: "restored" };
     }
 
-    return resultToOutcome(result, "restored");
+    return await resultToOutcome(result, "restored");
   } catch {
     return { kind: "error", source: "restored" };
   }
