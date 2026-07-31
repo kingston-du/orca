@@ -31,7 +31,9 @@ These checks validate Checkpoints 1A and 1B. Moments, media publication, feeds, 
 
 ### Known hosted drift
 
-The hosted project runs Supabase's free tier with the default email provider, which refuses custom Auth email templates. The versioned `[auth]` block in `supabase/config.toml` therefore could not be promoted: hosted still has `otp_length = 8` and Supabase's default `{{ .ConfirmationURL }}` link templates, while Orca's app and local stack use six-digit `{{ .Token }}` codes. Signup email verification against the hosted endpoint will not match the app UI until a custom SMTP provider or a paid plan is authorized. `supabase config push` applied the `[api]` section successfully; only the Auth update was rejected. This drift is recorded rather than worked around with a dashboard tweak, and one `config push` promotes the whole block once the provider decision is made.
+The founder configured a custom Resend SMTP sender on a self-owned domain through the Supabase dashboard, which lifted the free tier's block on custom Auth email templates. The versioned `[auth]` block then promoted successfully: hosted now reports `otp_length = 6`, `otp_exp = 3600`, open signup, required email confirmation, and Orca's six-digit `{{ .Token }}` confirmation/recovery templates. The Checkpoint 1B Auth-email gate is closed.
+
+One drift remains: the SMTP credential and sender identity live only in the hosted dashboard, not in `supabase/config.toml`, because committing an env-substituted `[auth.email.smtp]` block whose variable is unset would clear the working configuration on the next push. This is recorded here as the Section 22 drift assertion. Checkpoint 9D owns versioning production SMTP properly. Until then, verify SMTP survived any `config push` before relying on hosted email.
 
 ### Replaced locally with a recoverable boundary
 
@@ -1004,7 +1006,9 @@ Every checkpoint uses the same evidence record: outcome; dependency reason; exac
 - **Scope/files/resources:** relink, verified read-only inventory audit, destructive linked reset, canonical promotion, hosted lint/Data API/Auth verification, `[api]` config promotion, and an endpoint-parameterized API suite.
 - **Security/failure:** inventory captured before destruction; no `migration repair`; publishable key only in `.env`; hosted secret never committed; `anon` retains no app-table grants; `public`-only Data API with `graphql_public` unreachable. No production resource, bucket, Vault secret, Cron job, or Edge Function.
 - **Evidence:** promoted history equals local (`20260731184401`, `20260731184403`); `circles`/`circle_members`/`circle_invites`/`posts` all 404; `supabase db lint --linked` clean on `public` and `private`; real hosted two-user Auth/Data API suite passed covering anon denial, onboarding, exact lookup, request/accept, post-friend visibility, forged-insert denial, and block suppression; `graphql_public` reachability moved 200 → 406. Local gates re-run green: clean two-migration replay, warning-free lint, 73 pgTAP assertions, no generated-type drift, 18 Jest suites / 66 tests, 5 bounded-JPEG tests, TypeScript, zero-warning lint, formatting, legal hashes, native-manifest assertion, Expo dependency agreement, Expo Doctor 20/20.
-- **Deferred:** hosted six-digit OTP email templates and `otp_length = 6` are blocked by the free tier's default email provider and need a founder SMTP/plan decision; the physical development-client smoke — app-switcher shield, no old-user frame on foreground, friend-first camera permission/readiness copy, and the real signup/onboarding/friend regression — needs that email path plus a rebuilt client on a physical iPhone. Security/Performance Advisors were not queried because the CLI exposes no advisors command and the management token is keychain-held; `db lint --linked` on an identical schema stands in and is recorded as a substitution, not an equivalent.
+- **Auth-email gate closed:** after the founder configured custom Resend SMTP, the `[auth]` config block promoted; hosted reports `otp_length = 6`, `otp_exp = 3600`, open signup, required confirmation, and Orca's six-digit templates.
+- **Advisors:** queried through the management API. Security returns four expected `rls_enabled_no_policy` INFO results on unexposed `private` tables (defense in depth) and fifteen `authenticated_security_definer_function_executable` WARN results. The WARN set is the documented Section 14 architecture — narrowly granted `public` security-definer entry points owned by `orca_api_owner` that derive the caller from `auth.uid()` and authorize independently — and is accepted, not suppressed. Performance returns three `unused_index` INFO results expected on an empty database, plus two genuine minor deviations carried into Phase 2: `public.legal_acceptances` has an uncovered composite foreign key, and `public.profiles` has two permissive `SELECT` policies for `authenticated` that could be one.
+- **Deferred:** the physical development-client smoke — app-switcher shield, no old-user frame on foreground, friend-first camera permission/readiness copy, and the real signup/onboarding/friend regression on a rebuilt client — still requires a physical iPhone.
 - **Course/DoD/Git:** Lesson 17 records the rebaseline, the destroyed contents, and the Auth-email gate.
 
 ### Phase 2 — People, profile, invites, and privacy surfaces
@@ -1177,15 +1181,9 @@ Installed source/types and pinned CLI `--help` take precedence over generic exam
 
 Phase 1 is complete. The next action is **Phase 2 — People, profile, invites, and privacy surfaces**, exactly as scoped in Section 27. It has not been authorized.
 
-Two gates carried forward from Checkpoint 1B remain open and are independent of Phase 2 approval:
+One gate carried forward from Checkpoint 1B remains open and is independent of Phase 2 approval:
 
-1. **Hosted Auth email.** The free tier's default email provider refuses Orca's six-digit OTP templates, so hosted signup verification does not yet match the app. Resolving it needs one of:
-
-   > Approve configuring a custom SMTP provider for the hosted-development project, or approve upgrading that project's plan, so the versioned `[auth]` config block including the six-digit OTP templates and `otp_length = 6` can be promoted with `supabase config push`.
-
-   Both options involve an external account or a purchase and are therefore founder decisions.
-
-2. **Physical-iPhone smoke.** Deferred from 1B and requires gate 1 first, then a rebuilt development client on a physical device.
+- **Physical-iPhone smoke.** A rebuilt development client on a physical device must exercise the app-switcher privacy shield, absence of an old-user frame on foreground, friend-first camera permission/readiness copy, and a real signup/onboarding/friend regression against hosted. Hosted email now works, so nothing blocks this but device time.
 
 Phase 2 approval needed:
 
