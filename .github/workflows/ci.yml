@@ -86,5 +86,11 @@ jobs:
       - name: Run private Storage API integration tests
         run: npm run db:test:storage
 
+      - name: Test bounded JPEG verification
+        run: npm run functions:test
+
+      - name: Run trusted finalization HTTP integration tests
+        run: npm run functions:test:integration
+
       - name: Check generated database types
         run: npm run db:types:check

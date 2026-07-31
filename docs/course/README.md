@@ -16,6 +16,7 @@ These lessons are self-contained tutorials for each completed engineering checkp
 10. [The native photo-selection boundary](./10-native-photo-selection.md)
 11. [Embedded camera and bounded image normalization](./11-embedded-camera-and-image-normalization.md)
 12. [Pending posts and private-media authorization](./12-pending-posts-and-private-media.md)
+13. [Trusted JPEG inspection and atomic publication](./13-trusted-post-finalization.md)
 
 ## How to use a lesson
 

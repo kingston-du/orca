@@ -285,6 +285,33 @@ export type Database = {
           token: string
         }[]
       }
+      finalize_post: {
+        Args: { p_post_id: string }
+        Returns: {
+          author_id: string
+          caption: string | null
+          captured_at: string
+          captured_at_source: string
+          captured_utc_offset_minutes: number
+          circle_id: string
+          created_at: string | null
+          id: string
+          media_byte_size: number | null
+          media_height: number | null
+          media_mime_type: string | null
+          media_path: string
+          media_width: number | null
+          status: string
+          upload_expires_at: string
+          upload_started_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "posts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       leave_circle: { Args: { p_circle_id: string }; Returns: undefined }
       list_circle_members: {
         Args: { p_circle_id: string }
@@ -302,6 +329,18 @@ export type Database = {
           expires_at: string
           is_usable: boolean
         }[]
+      }
+      record_post_media_verification: {
+        Args: {
+          p_author_id: string
+          p_media_byte_size: number
+          p_media_height: number
+          p_media_mime_type: string
+          p_media_path: string
+          p_media_width: number
+          p_post_id: string
+        }
+        Returns: undefined
       }
       redeem_circle_invite: {
         Args: { p_token: string }
