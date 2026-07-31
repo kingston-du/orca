@@ -67,8 +67,11 @@ select ok(
 
 select ok(
     position('set state = ''deleting''' in pg_get_functiondef('private.request_circle_deletion(uuid)'::regprocedure)) > 0
-    and position('delete from public.circles' in pg_get_functiondef('private.request_circle_deletion(uuid)'::regprocedure)) > 0,
-    'the Phase 3 Circle deletion helper transitions through deleting before completion'
+    and position('private.enqueue_circle_cleanup' in pg_get_functiondef('private.request_circle_deletion(uuid)'::regprocedure)) > 0
+    and position('private.complete_circle_cleanup' in pg_get_functiondef('private.request_circle_deletion(uuid)'::regprocedure)) > 0
+    and position('private.enqueue_circle_cleanup' in pg_get_functiondef('private.prepare_own_account_deletion()'::regprocedure)) > 0
+    and position('delete from public.circles' in pg_get_functiondef('private.prepare_own_account_deletion()'::regprocedure)) = 0,
+    'the Circle deletion helper transitions through deleting and the durable cleanup boundary'
 );
 
 -- Fixture users: active delete caller, active successor, suspended fallback,
@@ -194,7 +197,11 @@ select is((select count(*) from public.circle_members where circle_id = (select 
 select is((select count(*) from public.circle_invites where circle_id = (select id from deletable_circle)), 0::bigint, 'completed Circle deletion cascades revoked invitations');
 set local role authenticated;
 set local "request.jwt.claim.sub" = '73000000-0000-4000-8000-000000000002';
-select throws_ok($$ select * from public.request_circle_deletion((select id from deletable_circle)) $$, '42501'::char(5), null, 'a retry after completed Circle deletion receives the generic denial');
+select results_eq(
+    $$ select circle_id, completed from public.request_circle_deletion((select id from deletable_circle)) $$,
+    $$ select id, true from deletable_circle $$,
+    'the original requester can safely retry after a completed Circle deletion'
+);
 select throws_ok($$ select * from public.request_circle_deletion('73000000-0000-4000-8000-000000000199') $$, '42501'::char(5), null, 'a forged Circle id receives the same generic denial');
 
 -- A persistent deleting state is hidden from normal reads and rejects normal

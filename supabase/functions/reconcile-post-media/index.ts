@@ -32,9 +32,27 @@ export default {
 
     const claims = rows<CleanupClaim>(data);
     const result = await processCleanupClaims(ctx.supabaseAdmin, claims);
+
+    // Child completion and parent completion are separate proof boundaries.
+    // This sweep also finishes Circles whose last batch was handled by a
+    // crashed interactive request.
+    const { data: circles, error: circleError } = await ctx.supabaseAdmin.rpc(
+      "complete_ready_circle_cleanups",
+      { p_limit: limit },
+    );
+    if (circleError) {
+      console.error("Ready Circle cleanup completion failed", {
+        code: circleError.code,
+      });
+      return json({ error: "Unable to complete Circle cleanup" }, 500);
+    }
+
+    const completedCircles = rows<{ completed: boolean }>(circles).filter(
+      (circle) => circle.completed,
+    ).length;
     return json(
-      { claimed: claims.length, ...result },
-      result.retry ? 503 : 200,
+      { claimed: claims.length, ...result, completedCircles },
+      result.retry || result.lost ? 503 : 200,
     );
   }),
 };

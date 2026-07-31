@@ -230,6 +230,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_circle_media_cleanup_batch: {
+        Args: {
+          p_circle_id: string
+          p_lease_seconds?: number
+          p_limit?: number
+        }
+        Returns: {
+          job_id: string
+          lease_token: string
+          media_path: string
+          post_id: string
+        }[]
+      }
       claim_post_media_cleanup: {
         Args: { p_lease_seconds?: number; p_post_id: string }
         Returns: {
@@ -247,6 +260,10 @@ export type Database = {
           media_path: string
           post_id: string
         }[]
+      }
+      complete_circle_cleanup: {
+        Args: { p_circle_id: string }
+        Returns: boolean
       }
       complete_onboarding: {
         Args: {
@@ -279,6 +296,13 @@ export type Database = {
       complete_post_media_cleanup: {
         Args: { p_job_id: string; p_lease_token: string }
         Returns: boolean
+      }
+      complete_ready_circle_cleanups: {
+        Args: { p_limit?: number }
+        Returns: {
+          circle_id: string
+          completed: boolean
+        }[]
       }
       create_circle: {
         Args: { p_name: string }

@@ -18,6 +18,7 @@ These lessons are self-contained tutorials for each completed engineering checkp
 12. [Pending posts and private-media authorization](./12-pending-posts-and-private-media.md)
 13. [Trusted JPEG inspection and atomic publication](./13-trusted-post-finalization.md)
 14. [Retryable post-media deletion and reconciliation](./14-retryable-post-media-cleanup.md)
+15. [Retryable Circle deletion across database and Storage](./15-retryable-circle-cleanup.md)
 
 ## How to use a lesson
 

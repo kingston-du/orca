@@ -33,6 +33,7 @@ for (const name of [
 }
 
 const deleteUrl = `${status.API_URL}/functions/v1/delete-post`;
+const deleteCircleUrl = `${status.API_URL}/functions/v1/delete-circle`;
 const reconcileUrl = `${status.API_URL}/functions/v1/reconcile-post-media`;
 const jwtByUser = {};
 const uploadedPaths = [];
@@ -203,11 +204,51 @@ try {
     );
   }
   pass("the repeated worker found no duplicate cleanup work");
+
+  await expectStatus(
+    fetchWithUpstreamRetry(deleteCircleUrl, {
+      method: "POST",
+      headers: {
+        apikey: status.PUBLISHABLE_KEY,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ circleId: ids.circle }),
+    }),
+    401,
+    "delete-circle requires a verified user session",
+  );
+  await expectStatus(
+    invokeCircleDelete("not-a-uuid", ids.member),
+    400,
+    "delete-circle rejects malformed input before changing state",
+  );
+  await expectStatus(
+    invokeCircleDelete(ids.circle, ids.outsider),
+    403,
+    "an outsider cannot discover or delete a Circle",
+  );
+  await expectStatus(
+    invokeCircleDelete(ids.circle, ids.member),
+    200,
+    "an admin removes the final post object before Circle completion",
+  );
+  assertCircleMissing(ids.circle);
+  await expectStatus(
+    serviceDownload(pathFor(ids.member, ids.foreign)),
+    400,
+    "Circle completion leaves no private post bytes behind",
+  );
+  await expectStatus(
+    invokeCircleDelete(ids.circle, ids.member),
+    200,
+    "the durable receipt makes a lost-response retry succeed",
+  );
 } finally {
   for (const path of uploadedPaths) await deleteObject(path);
   sql(`
     delete from public.posts where circle_id = '${ids.circle}';
     delete from public.circles where id = '${ids.circle}';
+    delete from private.circle_cleanup_jobs where circle_id = '${ids.circle}';
   `);
   for (const userId of [ids.author, ids.member, ids.outsider]) {
     await deleteAuthUser(userId);
@@ -306,6 +347,14 @@ function invokeDelete(postId, userId) {
     method: "POST",
     headers: userHeaders(userId),
     body: JSON.stringify({ postId }),
+  });
+}
+
+function invokeCircleDelete(circleId, userId) {
+  return fetchWithUpstreamRetry(deleteCircleUrl, {
+    method: "POST",
+    headers: userHeaders(userId),
+    body: JSON.stringify({ circleId }),
   });
 }
 
@@ -436,6 +485,13 @@ function assertPostMissing(postId) {
     `select count(*) from public.posts where id = '${postId}'`,
   );
   if (count !== "0") throw new Error(`${postId} still exists`);
+}
+
+function assertCircleMissing(circleId) {
+  const count = queryScalar(
+    `select count(*) from public.circles where id = '${circleId}'`,
+  );
+  if (count !== "0") throw new Error(`${circleId} still exists`);
 }
 
 async function waitForPostMissing(postId) {
