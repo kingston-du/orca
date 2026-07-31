@@ -7,6 +7,7 @@ const profile = {
   id: "11111111-1111-4111-8111-111111111111",
   onboarding_completed_at: "2026-07-28T00:00:00Z",
   updated_at: "2026-07-28T00:00:00Z",
+  username: "kingston",
 };
 
 describe("onboarding actions", () => {
@@ -19,7 +20,9 @@ describe("onboarding actions", () => {
       completeOnboarding: completeOnboardingRpc,
     });
 
-    await expect(completeOnboarding("  Kingston  ")).resolves.toEqual({
+    await expect(
+      completeOnboarding("  Kingston_1  ", "  Kingston  "),
+    ).resolves.toEqual({
       kind: "success",
       profile,
     });
@@ -30,6 +33,7 @@ describe("onboarding actions", () => {
         "0df777ca323f0882d8af688b90a73d344adf0f63f63a82bfe9b2bf03462b27a6",
       p_adult_version: "development-2026-07-27",
       p_display_name: "Kingston",
+      p_username: "kingston_1",
       p_guidelines_sha256:
         "a6e285fb40f2fef3fa6670b8b71046985e4fe0b7588cce6d906316fb368c791a",
       p_guidelines_version: "development-2026-07-27",
@@ -50,7 +54,7 @@ describe("onboarding actions", () => {
       }),
     });
 
-    await expect(completeOnboarding("Kingston")).resolves.toEqual({
+    await expect(completeOnboarding("kingston", "Kingston")).resolves.toEqual({
       kind: "error",
       message:
         "The onboarding requirements changed. Reload Orca and try again.",

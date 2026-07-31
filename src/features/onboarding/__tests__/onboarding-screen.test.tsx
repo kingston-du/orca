@@ -41,6 +41,7 @@ describe("OnboardingScreen", () => {
       id: "11111111-1111-4111-8111-111111111111",
       onboarding_completed_at: "2026-07-28T00:00:00Z",
       updated_at: "2026-07-28T00:00:00Z",
+      username: "kingston",
     };
     const onComplete = jest.fn().mockResolvedValue({
       kind: "success",
@@ -52,6 +53,7 @@ describe("OnboardingScreen", () => {
     );
 
     await user.type(screen.getByLabelText("Display name"), "Kingston");
+    await user.type(screen.getByLabelText("Username"), "Kingston");
 
     for (const label of ACCEPTANCE_LABELS) {
       await fireEvent(screen.getByLabelText(label), "valueChange", true);
@@ -60,7 +62,7 @@ describe("OnboardingScreen", () => {
     await user.press(screen.getByText("Finish setup"));
 
     await waitFor(() => {
-      expect(onComplete).toHaveBeenCalledWith("Kingston");
+      expect(onComplete).toHaveBeenCalledWith("kingston", "Kingston");
     });
   });
 

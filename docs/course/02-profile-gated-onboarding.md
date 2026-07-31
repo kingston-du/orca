@@ -1,5 +1,7 @@
 # Lesson 2 — Profile-gated onboarding
 
+> **Active historical foundation; extended by Lesson 16.** Server-owned legal readiness and 18+ evidence remain current. The friend-first implementation now creates the profile during an atomic canonical username claim and routes through a narrow account-control projection. Read [Lesson 16](./16-friend-first-foundation-rebaseline.md) for the current code path.
+
 ## Outcome
 
 A verified user cannot enter Orca’s tabs until the server records a display name, adult eligibility, and acceptance of the exact current Terms, Privacy Notice, and Community Guidelines.

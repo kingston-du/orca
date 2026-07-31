@@ -9,10 +9,11 @@ describe("AccountScreen", () => {
         displayName="Kingston"
         email="kingston@example.com"
         onSignOut={jest.fn()}
+        username="kingston"
       />,
     );
 
-    expect(screen.getByText("Account")).toBeOnTheScreen();
+    expect(screen.getByText("Settings")).toBeOnTheScreen();
     expect(screen.getByText("Kingston")).toBeOnTheScreen();
     expect(screen.getByText("kingston@example.com")).toBeOnTheScreen();
     expect(screen.getByText(/signs out only this device/i)).toBeOnTheScreen();
@@ -32,6 +33,7 @@ describe("AccountScreen", () => {
         displayName="Kingston"
         email="kingston@example.com"
         onSignOut={onSignOut}
+        username="kingston"
       />,
     );
 
@@ -55,6 +57,7 @@ describe("AccountScreen", () => {
         displayName="Kingston"
         email="kingston@example.com"
         onSignOut={jest.fn().mockResolvedValue(new Error("Sensitive detail"))}
+        username="kingston"
       />,
     );
 
@@ -77,6 +80,7 @@ describe("AccountScreen", () => {
         displayName="Kingston"
         email="kingston@example.com"
         onSignOut={jest.fn().mockRejectedValue(new Error("Sensitive detail"))}
+        username="kingston"
       />,
     );
 

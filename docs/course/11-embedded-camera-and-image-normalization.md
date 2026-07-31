@@ -1,5 +1,7 @@
 # Embedded camera and bounded image normalization
 
+> **Active foundation; downstream contract superseded.** The embedded camera lifecycle, permission minimization, selfie/orientation behavior, and bounded JPEG normalizer remain current code. Checkpoint 1A removed Circle-facing copy but did not yet change picker evidence or add publication. Phase 3 must classify missing or unreliable picker capture metadata as Archive under [`PROJECT.md`](../../PROJECT.md).
+
 ## What we built
 
 Orca's Camera tab now has a low-friction embedded **photo** camera, with the

@@ -2,699 +2,241 @@
 
 ## Mission
 
-You are the AI engineering mentor for **Orca**, a private social photo journal for real friend groups.
+Build Orca into a production-quality private, friend-first iOS photo app while keeping the architecture simple enough for an initial ~100-user beta.
 
-Your job is to help the developer **ship Orca quickly while learning how to build production-quality software**.
+Orca's tagline is:
 
-Optimize for this balance:
+> “Live your life, and remember it too.”
 
-> **Fast progress × real understanding × transferable engineering habits × simple, scalable architecture**
+The product loop is: capture or choose a recent photo → share one **Moment** with friends → swipe through friends' Moments → Heart or Superheart → build personal and shared history.
 
-The developer has chosen **guided pair-builder mode**: the AI implements complete, coherent checkpoints while teaching the system-level concepts, important code paths, security boundaries, and verification evidence. Optimize for shipping speed without allowing important code to remain a black box. The developer reviews meaningful diffs and should be able to explain the behavior in plain English; they do not need to memorize low-value syntax or boilerplate.
+Implement coherent checkpoints autonomously. In chat, explain the outcome, important product/architecture/security choices, meaningful diff, verification evidence, and remaining gates. Do not quiz the developer, interrupt routine work for syntax decisions, or turn the live chat into a tutorial. The repository course is the comprehensive teaching surface.
 
-### Workspace editing boundary
+## Product non-negotiables
 
-Implement app code and configuration when the current checkpoint requires it, while preserving the documented architecture, security rules, and phase order. Automatically update `PROJECT.md` and `AGENTS.md` after a confirmed milestone or material decision. The AI may run routine CLI commands and create/push a coherent Git commit when the checkpoint is verified green; report the commit and push afterward. Database migration promotion, destructive operations, external releases, and other consequential remote changes still require their normal explicit review gates.
+- Say **Moment**, not Post, in user-facing UI.
+- V1 is private and friend-first: mutual accepted friendships, exact username discovery, recipient snapshots, tags, historical access, and blocking enforced server-side.
+- Primary navigation is Home, Camera, People. Settings is reached through My Profile.
+- One photo per Moment; camera first; narrow iOS system picker; no broad Photos permission where the system picker suffices.
+- Recent requires credible capture time within the server-validated 24-hour window. Old or unreliable picker media is Archive: author + tagged friends only, never Home/Highlights/new-Moment push.
+- All Friends snapshots friends at successful publication; Selected is explicit; Only Me cannot tag. Audience/media/tags are immutable after publication except a tagged user's self-removal; author may edit caption and delete.
+- Unfriend stops new sharing, active Home/Highlights, and new reactions but preserves authorized history. Re-friend does not resurrect old Moments into active surfaces. Block overrides history everywhere.
+- No comments, DMs/chat, saved Groups, video, multiple photos, contacts, location, followers, public profiles/Moments/feed, fuzzy directory, streaks, payments, or Android release work in V1.
+- Do not add placeholder UI/schema, extension abstractions, or dependencies for excluded or V1.1 features.
 
-### Current project state
+Detailed UX, data, lifecycle, testing, cost, and roadmap contracts live in [PROJECT.md](PROJECT.md). Do not duplicate or silently reinterpret them here.
 
-Implementation is underway. **Phase 0 — Expo engineering baseline** is complete: the app runs in the iOS Simulator and the Home / Camera / Memories / Settings shell exists. The private GitHub repository is connected as `origin`, and `.env` is not tracked. The toolchain is pinned to Node `24.14.1` and npm `11.11.0`; Supabase CLI `2.109.1` and Expo Doctor `1.20.1` remain exactly pinned. The local Supabase stack runs Postgres `17.6`; all ten migrations are applied to hosted development with matching history and 259/259 remote assertions. The July 29 product decision supersedes the ninth migration's signup gate: Auth signup is permanently open so any organizer can create an account and start a separate Circle, while joining an existing Circle remains invite-only. Corrective migration `20260730044326` is promoted to healthy linked `orca-dev`, the obsolete Before User Created hook is removed, signup-gate objects are absent, and hosted Security/Performance Advisors have only the expected INFO entries. A user may belong to any number of Circles; the composite `(circle_id, user_id)` key prevents only duplicate membership in the same Circle. Default invitations last seven days and allow up to 10 joins for group-chat sharing. Phase 3 is closed. Phase 4 now has an Expo Camera embedded photo-only tab and a shared normalization boundary for camera/system-picker inputs: focus/foreground lifecycle, current-session readiness, rear/front, autofocus, responsive orientation, mirrored selfies, Auto/Off flash, scoped library fallback, JPEG re-encoding, 2048-pixel/6-MiB bounds, and capture-time offset/source. Four local-only posting migrations now cover reserve/upload authorization, bounded trusted JPEG finalization, retryable author/expired/orphan cleanup, and parent/child Circle-wide cleanup. Authenticated `delete-post` and `delete-circle` hide ordinary access first, remove immutable paths through bounded leased Storage-API work, and complete relational deletion only after proof; secret-only reconciliation uses the same worker/backoff and completes ready Circle parents. A private Circle receipt enables nonrevealing lost-response retry, sole-member account preparation uses the same cleanup primitive, and no SQL deletes Storage metadata. None of the four migrations or functions is promoted/deployed. Clean 14-migration replay, database lint/types, all 420 pgTAP assertions, 12 verifier/orchestration tests, all real Storage/finalization/cleanup HTTP suites, 70 app tests, and Expo Doctor 20/20 pass. No app upload/finalize path exists yet. Generated native manifests remain least privilege; physical-iPhone output/metadata acceptance and a rebuilt client remain pending. The temporary legal text remains founder-only. The encrypted session/Auth boundaries, EAS setup, and deferred Apple/physical acceptance remain unchanged. There is no production Supabase project.
+## Required reading and source of truth
 
-The active implementation milestone is **Phase 4 — One-photo posting vertical slice**. The next checkpoint wires the normalized camera/picker result into a local-only composer and trusted publish flow: current-Circle audience, preview/capture time, optional caption, idempotent reservation, exact non-upsert upload, `finalize-post`, progress/retry/cancel, abandoned-reservation cleanup, and focused UI/API tests. Do not promote the four posting migrations or deploy functions yet. Hosted Vault/Cron activation, physical-iPhone camera fixtures, and the rebuilt media-enabled development client remain gates before promotion or external testing. Phase 2's external Auth/legal/physical-device gates remain deferred until before external testing. Do not amend applied migrations or make unrelated dashboard changes.
+Before meaningful work:
 
----
+1. Read this file completely.
+2. Read `PROJECT.md` Sections 1–2 (observed/redesign status), the active checkpoint in Section 27, and the exact next action in Section 31.
+3. Read every `PROJECT.md` section governing the affected domain, including access, lifecycle, cleanup, testing, and release gates.
+4. Inspect current source/tests/migrations/config/Git status. Do not rely on filenames, a prior chat summary, or target documentation as proof of implementation.
+5. Consult the one-time [friend-first repository inventory](docs/audits/2026-07-31-friend-first-repository-inventory.md) only to classify pre-rebaseline code.
+6. Read relevant active course lessons for context; archived Circle lessons are historical evidence, never current product direction.
 
-## Plan Ownership and Advice Standard
+Truth precedence:
 
-The developer has explicitly delegated technical architecture, sequencing, security, quality, and release-readiness judgment to the AI. Do not make them repeatedly ask whether a recommendation is current, secure, or industry-standard.
+1. Current repository and verification evidence determine what is implemented.
+2. `PROJECT.md` defines the desired product and ordered plan.
+3. This file defines how agents work.
+4. Course lessons explain completed checkpoints.
 
-Before assigning or reviewing a meaningful implementation task:
+If these conflict, stop implementation long enough to reconcile the documents and code truth. Never mark planned behavior complete. Never let historical Circle terminology drive new architecture.
 
-1. Read the current-status block and active phase in `PROJECT.md`.
-2. Inspect the relevant current code/configuration rather than relying on an earlier description.
-3. Identify the next unmet dependency and the applicable phase gate.
-4. Verify version-sensitive behavior against installed versions and current primary documentation.
-5. Choose the simplest design that is production-suitable for Orca's actual scale.
-6. State whether anything is a temporary shortcut, and name the checkpoint that removes it.
-7. Include security, failure, testing, cleanup, and release implications before the developer implements the pattern—not after they discover them.
+## Current-phase recovery
 
-The AI owns the default recommendation. Ask the developer to choose only when the answer is genuinely a product preference, legal/business identity, irreversible external account decision, or a tradeoff that cannot be resolved from the product contract. When a choice is needed, recommend one default and explain its consequence.
+At session start:
 
-Follow the phase order in `PROJECT.md`. If evidence requires a different architecture or sequence, explain why, update both documents first, and then assign the revised task. Never silently drift from the plan or call a phase complete before its gate passes.
+- Record branch, HEAD, remotes, worktree status, relevant environment/link state without printing secrets, and the latest completed checkpoint/evidence.
+- Preserve all user changes and intentional untracked `RefactoringUI.pdf`.
+- Identify the first unmet dependency and approval gate from `PROJECT.md`; do not skip ahead to attractive UI.
+- Confirm whether the active checkpoint is approved. Checkpoint 1A is implemented with green automated local gates on `codex/friend-first-rebaseline`; its endpoint-dependent simulator flow is assigned to 1B. Checkpoint 1B is not authorized until the founder gives the precise approval in Section 31.
+- If a checkpoint is partially implemented, continue it through debugging, verification, documentation, and one coherent Git checkpoint rather than starting a second feature.
+- If repository evidence differs from the status document, treat code as reality, diagnose the drift, and update status before or with the scoped fix.
 
-Optimize total delivery time. A tutorial shortcut that later requires an authorization rewrite is not fast; an enterprise abstraction with no current consumer is not optimal.
+## Authority and approval boundary
 
----
+After a checkpoint is explicitly approved, the agent may independently make in-scope local app/schema/test/config/docs edits, run routine non-destructive commands, update course/status documentation, and create/push one coherent green Git commit.
 
-## 1. Teaching Contract
+Explicit approval is still required for:
 
-### Default mode: guided pair-builder
+- database rebaseline or destructive migration-history replacement;
+- hosted migration promotion or linked remote reset;
+- Edge Function deployment;
+- hosted/production project creation or configuration;
+- endpoint cutover, destructive remote action, or deletion;
+- TestFlight/App Store/external release;
+- purchases;
+- legal/business identity, retention, support, or moderation-operator decisions;
+- material product-scope expansion.
 
-For each coherent checkpoint:
+Read-only remote inspection is allowed when relevant and configured. Approval for one gate does not imply another. If new authority, credentials repurposing, billing, or consequential external coordination is needed, stop and request it. Never work around a permission failure.
 
-1. **Orient** — explain where the checkpoint fits in the system and what should be true when it is complete.
-2. **Implement coherently** — make the complete scoped change rather than assigning one-line edits or making the developer copy boilerplate manually.
-3. **Verify** — run the relevant clean checks, negative authorization tests, and failure-path checks before calling the checkpoint complete.
-4. **Teach the flow** — connect important lines to runtime behavior using concise, plain language. Explain unfamiliar keywords when they first matter.
-5. **Review evidence** — summarize the diff, test results, security implications, and any remaining deferred acceptance work.
-6. **Check understanding selectively** — ask at most one or two meaningful questions about the mechanism; do not quiz syntax memorization.
+## Working method
 
-The developer should learn architecture, data flow, authorization, failure behavior, debugging, and review judgment. The AI may own exact framework, SQL, migration, test, and configuration syntax when doing so is faster and safer.
+For each checkpoint:
 
-### Help ladder
+1. **Orient:** state the outcome, why it is next, what is already true, and which gates remain.
+2. **Inspect:** read current implementation and tests; verify installed versions and current primary documentation for unstable behavior.
+3. **Design:** use the `PROJECT.md` contract; resolve ordinary engineering details with a strong default. Ask only about subjective, irreversible, legal/business, or materially scope-changing choices.
+4. **Implement coherently:** include data, API, UI, failures, cleanup, accessibility, tests, documentation, and migration/type impact in one understandable boundary.
+5. **Verify:** run the narrow tests while iterating, then every checkpoint gate from clean state. Include negative authorization and interruption/lost-response paths.
+6. **Review:** inspect complete diff/status, secret/privacy exposure, generated artifacts, migration history, and unrelated changes.
+7. **Document:** update actual status in `PROJECT.md` and this file, add/update the course lesson and index, and record deferred device/remote gates accurately.
+8. **Git:** make one descriptive coherent commit and push only when the checkpoint and approval allow it.
 
-Use this order unless the developer asks otherwise:
+Optimize total delivery time, not line count. Reuse proven infrastructure, but delete obsolete Circle work when its approved replacement is green. Avoid both tutorial shortcuts that require security rewrites and abstractions with no current consumer.
 
-**Level 1 — Direction**  
-Explain what to build and point to the relevant file/concept.
+## Engineering standards
 
-**Level 2 — Hint**  
-Give pseudocode, a data shape, relevant API names, or a smaller example.
+### TypeScript and React Native
 
-**Level 3 — Scaffold**  
-Provide a function signature, component skeleton, SQL outline, or TODO-based structure with important logic omitted.
+- Strict TypeScript; avoid `any`, unsafe casts, and error silencing.
+- Thin Expo Router routes; feature-oriented domain code; small composable function components.
+- Local state stays local. TanStack Query owns remote rows. Use one focused Context/reducer only for state such as Auth or the Camera draft that genuinely spans a subtree.
+- Do not duplicate query data into a general store. Do not add repository/service/factory/DI layers, generic API wrappers, speculative Realtime, or a general offline queue.
+- Handle loading, empty, success, error, offline, interrupted, permission, access-loss, and retry states intentionally.
+- Stable IDs for lists; keyset pagination for growing data; bounded image/page retention. Optimize only against measured release-build evidence.
+- Accessibility is part of implementation: Dynamic Type, VoiceOver roles/order/state, gesture alternatives, reduced motion, non-color meaning, contrast, and ≥44×44-point targets.
+- Comment why, not obvious syntax. Keep sensitive content out of routes, cache keys, analytics, and logs.
 
-**Level 4 — Focused example**  
-Show a small isolated example that teaches the pattern, but is not the completed Orca feature.
+### Dependencies
+
+Prefer installed Expo/React Native/Supabase capability. Before adding a dependency, record:
 
-**Level 5 — Full solution**  
-Only when the developer explicitly asks for it, when a blocking tool/configuration issue makes learning-by-discovery wasteful, or after repeated failed attempts. Explain the solution afterward so it is not merely copied.
+- the actual problem and why installed primitives are insufficient;
+- installed-version compatibility and maintenance health;
+- bundle/native-build, privacy, testing, and removal impact.
 
-### Never create fake learning
+Use Expo-compatible installation; never use unpinned `latest` or `npm audit fix --force`. Do not add a package for minor convenience.
 
-Do not force the developer to rediscover trivial syntax or boilerplate. Learning time should focus on transferable concepts such as:
+## Architecture boundaries
 
-- component boundaries
-- state and data flow
-- async programming
-- TypeScript types
-- database modeling
-- SQL and relational thinking
-- authentication vs authorization
-- Row Level Security
-- file uploads
-- API/data fetching
-- caching and invalidation
-- error handling
-- navigation
-- testing
-- debugging
-- Git
-- privacy/security
-- performance tradeoffs
+- Expo Router owns navigation; protected layout owns auth/onboarding gating.
+- One Auth provider/subscription and one app-lifecycle refresh owner. The `onAuthStateChange` callback stays synchronous. Do not add deprecated `processLock`.
+- Sessions are encrypted before AsyncStorage with a random key in SecureStore. Missing/corrupt ciphertext means safe sign-out. Never put a service/secret key in the client.
+- TanStack Query owns server rows and invalidation; user/environment scope prevents cross-account data.
+- Postgres/RPCs own durable relational invariants and short transactions.
+- Edge Functions are only for trusted byte verification, service credentials, Storage work, push delivery, moderation evidence, Auth-last deletion, or real cross-system orchestration.
+- Private Storage paths are immutable. Cross-system workflows use reservations, idempotency receipts, status checks, outboxes, leases, bounded retries, and proof before relational completion.
+- No public bucket, client service role, client-only authorization, generic Edge Function API layer, unbounded query/cache, or direct SQL deletion of Storage metadata.
+
+Use the target structure in `PROJECT.md`; create a new layer only when an actual checkpoint earns it.
 
-It is fine to give exact commands for setup, installs, formatting, migrations, or other low-learning-value boilerplate.
+## Security and privacy invariants
 
----
+- Authentication identifies a caller; explicit grants/API reachability and RLS/RPC authorization decide access. Verify them separately.
+- Every ordinary app-data operation requires the server eligibility predicate: present Auth user, active account state, verified email, completed profile/18+ onboarding, and current required legal acceptance. Missing, suspended, deleting, unverified, incomplete, or stale-legal callers deny even with a valid JWT; subject suspension/deletion also hides ordinary reads. Exact control-plane/safety exceptions in `PROJECT.md` cover Auth/onboarding/legal recovery, support/sign-out, independently authorized block/report for a stale-legal active user, and self-deletion request/status; they grant no ordinary social/media access.
+- Blocks are checked in profile/search/graph/Moment/media/tag/reaction/count/rank/history/notification and mutation paths, not filtered only in UI.
+- Friend requests use one canonical unordered pair, ordered locks, idempotent commands, and a new acceptance generation. Recipient/tag snapshots preserve the publication-time generation.
+- Exact search is a bounded RPC, not a global profile SELECT. Invite tokens are high entropy, hash-only, expiring/revocable, rate-limited, and never auto-friend.
+- Published Moment access comes from author ownership, immutable recipient snapshot, or current tag; active Home/reaction additionally requires the matching current friendship generation. Later friends gain nothing retroactively.
+- The server owns publication time, status, quota, and trusted media facts. It validates capture bounds but does not falsely claim picker metadata is cryptographically trustworthy.
+- Reaction/count/Highlights queries filter the same hidden identities; a hidden actor must not leak through a number or rank.
+- Delayed work reauthorizes immediately before action. Generic UI/push/errors must not reveal block, account, audience, caption, photo, or graph details.
+- Do not log email, username, caption, raw EXIF, photo/object/signed URL, invite/deletion/device token, recipient/tag/friend list, report content, session, or secret.
+- Already downloaded/cached/copied/screenshotted bytes cannot be remotely revoked. Never promise otherwise.
+- Reports/evidence, username quarantine, backups, and deletion retention must match approved legal/privacy language before external beta.
 
-## 2. Progress Style
+## Database and Storage rules
 
-Keep sessions focused.
+- Use handwritten, imperative, version-controlled migrations. Do not use alpha declarative schema.
+- Client tables/RPCs live in exposed `public`; helpers, rate limits, tokens, workers, evidence, moderation, and receipts live in unexposed `private`.
+- Every public table migration includes constraints, indexes, explicit grants, RLS enablement/policies, cleanup behavior, and negative pgTAP. Index foreign keys and authorization/query predicates.
+- `anon` gets no app-table grants. Grant `authenticated` only exact operations. Prefer narrow RPCs for writes and cross-row transactions.
+- Simple read RPCs may be security-invoker over public/RLS. Elevated cross-row/private mutations use one narrowly granted public security-definer entry point owned by a non-login role: empty `search_path`, fully qualified objects, caller derived from `auth.uid()`, independent active/authorization checks, and `PUBLIC`/`anon` execution revoked. Private helpers receive no API-role schema/function grants. Exposed views are security-invoker.
+- Trusted Edge/worker commits use separate purpose-specific public security-definer entry points: `PUBLIC`/`anon`/`authenticated` revoked, EXECUTE only for `service_role` or a dedicated scoped server role, no `auth.uid()` authorization, and strict request/job/lease/object/parent/forward-transition validation. Never expose a generic service RPC; test both privileges and forged/stale completion inputs.
+- Do not reference a table before its migration creates it. Never amend promoted migrations unless an explicitly approved rebaseline replaces that environment and history.
+- Clean local reset, lint, pgTAP, real Data API/Storage/function tests, and generated-type drift precede hosted promotion.
+- Private buckets are `moment-media`, `avatars`, and service-only `moderation-evidence` under the target plan. Client upload is exact non-upsert to a matching pending reservation; no client update/delete.
+- Normalize to stripped JPEG ≤2048 long edge and ≤6 MiB; verifier trusts bytes, not client MIME/extension. React Native uses supported ArrayBuffer/native transfer, not browser Blob/File/FormData.
+- Signed URLs are short-lived and never persisted. Cache lifetime can outlive token checks; deletion/block stops new authorization but cannot recall bytes.
+- Workers delete through Storage API, treat verified absence as success, then finalize relational deletion. Never `DELETE FROM storage.objects`.
 
-At the beginning of a meaningful task, tell the developer:
+## iOS and Expo rules
 
-- **What we are building now**
-- **Why it matters**
-- **What they should understand by the end**
+- V1 acceptance is iOS-first. Preserve Android portability where essentially free; do not add Android release work.
+- Inspect installed SDK 57 source/types and current official Expo/Apple docs before version-sensitive work.
+- Camera is embedded, fast, photo-only, lifecycle-aware, rear/front, mirrored correctly, autofocus, orientation-safe, and Auto/Off flash. Show a Photos-shaped picker tile before consent; it may show only the current user-selected draft afterward, never a live latest-library image that would require broader access.
+- System picker is single-image and does not request broad photo-library permission. Allowlist only required capture-time EXIF, then discard it and strip all metadata/GPS.
+- Cover the root synchronously on inactive/background before the iOS app-switcher snapshot; hold the opaque privacy shield until foreground identity/access revalidation completes. Test no private-photo/old-user flash. This does not prevent user screenshots.
+- Use the installed Expo FileSystem native upload task for reserved avatar/Moment binary POST so progress/cancel/background semantics are real; pin the exact Supabase auth/apikey/content/cache/x-upsert headers and reconcile status after any unknown outcome.
+- App links, camera/picker, push, encrypted session restore, account switching, interruption, memory pressure, accessibility, and performance require a rebuilt development/release client and physical iPhone; simulator/Expo Go is not sufficient.
+- Request notification permission contextually. Push content is generic and deep links reauthorize.
+- Keep native manifests least privilege. Any package/plugin/capability change requires generated-manifest review and a native rebuild gate.
 
-Then work in small checkpoints.
+## Testing and verification
 
-Prefer:
+Use the smallest layer that can prove behavior, but never substitute a UI mock for server authorization:
 
-> “First, make the `Moment` type. Here are the fields it needs and why. Send me your attempt.”
+- pure tests for transformations/state machines;
+- React Native Testing Library for high-value UI/failure/accessibility flows;
+- pgTAP for grants, RLS, constraints, state, negative authorization, and concurrency;
+- real Data API and Storage tests for reachability/policy/path/lifecycle;
+- Edge Function orchestration tests for bytes, lost responses, leases, cleanup, push, moderation, deletion;
+- physical-iPhone fixtures for media metadata/lifecycle/performance/accessibility;
+- a small Maestro suite after critical flows stabilize.
 
-Over:
+Run clean migration replay and generated-type drift. Test duplicate/crossed commands, stale JWTs, block/unfriend/refriend history, upload/finalize/cancel/process death, reaction quota races, pagination/new arrivals/seen state, notification suppression, report evidence, and Storage/Auth-last deletion.
 
-> “Here are 700 lines implementing Moments.”
+Do not call a checkpoint complete because the happy path rendered once. If a remote/device/legal gate is not yet authorized, mark local work complete and that gate deferred; never imply full acceptance.
 
-Do not dump the entire roadmap during every interaction. Use `PROJECT.md` as the source of truth and surface only the current milestone plus the next one.
+## Current-doc rule
 
-### Course notes
+Expo, Supabase, Apple policy, OpenAI/Codex, pricing, and provider behavior change. For version-sensitive or unfamiliar work:
 
-After each completed coherent checkpoint, add or update a numbered lesson in `docs/course/` and its index. Write it as a self-contained tutorial that lets the developer understand the checkpoint without first reverse-engineering every implementation file. Be detailed where a concept, keyword, state transition, or security boundary is new, while avoiding repeated boilerplate and entire-file dumps. Teach:
+1. inspect installed versions, source/types, lockfile, and pinned CLI `--help`;
+2. consult current primary Expo, React Native, Supabase, Apple, or OpenAI documentation and relevant recent changelog/breaking notes;
+3. distinguish platform limit, current policy, measured Orca evidence, and planning assumption;
+4. record important links/decision in `PROJECT.md`.
 
-- the problem, mental model, and where the checkpoint fits in Orca;
-- the end-to-end flow;
-- the important lines of real Orca code, including unfamiliar syntax and how each line advances the flow;
-- which layer owns state, validation, and authorization;
-- the meaningful failure/security behavior;
-- how the focused tests connect inputs and failures to expected behavior;
-- the verification evidence;
-- practical debugging/review guidance where it is useful;
-- one plain-English understanding question.
+Official quickstarts are setup references, not automatically Orca's production target. Verify SQL grants/Data API exposure separately from RLS. Recheck costs before purchase and App Review requirements before beta/submission.
 
-Do not paste entire implementation files into a lesson. Use focused excerpts, link to the source, and explain why the important lines exist. Prefer enough depth for independent learning over artificially short notes, but do not repeat concepts already taught unless the new checkpoint changes them.
+## Git and change safety
 
-### Thread continuity
+- Preserve a dirty worktree and unrelated user changes. Inspect `git diff` before editing overlapping files.
+- Never expose or commit `.env`, keys, tokens, signed URLs, local Supabase temp state, private fixtures, or large accidental assets. Keep `RefactoringUI.pdf` untracked unless separately authorized.
+- Use `codex/` branches for substantial/risky checkpoints. Keep `main` green. Use non-interactive Git and descriptive commits.
+- Do not rewrite Git history, amend another checkpoint, delete broad paths, reset hard, or edit applied migrations outside an approved rebaseline.
+- Verify exact destructive targets read-only first. Prefer recoverable operations and explicit paths.
+- A successful approved checkpoint may be committed and pushed after all gates pass; report commit/push afterward. Remote database/deployment/release gates remain separate.
 
-Keep one chat through a coherent implementation checkpoint, including its debugging, review, verification, and commit. Do not recommend a new chat merely because the transcript is long.
+## Course-writing contract
 
-Recommend starting a new chat when the current checkpoint is cleanly committed and the work changes to a distinct outcome—especially a new major phase/feature, an independent research/design task, or an unrelated debugging problem. Before recommending the split, update `PROJECT.md` and this file so the new chat can recover the exact state from the repository. Give the developer a short starter prompt such as: `Read AGENTS.md and PROJECT.md, inspect the current code, and continue the documented next checkpoint.`
+The developer is an advanced beginner progressing toward intermediate professional engineering. After every completed coherent implementation checkpoint, add one numbered active lesson and update `docs/course/README.md`.
 
-Do not split in the middle of an uncommitted migration, failing test, or unresolved diagnosis.
+Each self-contained lesson teaches:
 
----
+- where the checkpoint fits and the mental model;
+- end-to-end runtime/data flow;
+- focused excerpts/links to real Orca code, not entire files;
+- unfamiliar TypeScript/React Native/Expo/TanStack/Supabase/Postgres/RLS/Storage/testing APIs;
+- state, validation, authorization, failure, cleanup, security, and privacy ownership;
+- database/code-design principles and tradeoffs;
+- important tests and what they prove;
+- exact verification evidence and debugging/review guidance;
+- a small practical exercise or understanding question.
 
-## 3. Developer Understanding Check
+Lessons document implemented code only. Move obsolete material to `docs/course/archive/` with classification/provenance and a do-not-implement warning where unsafe. Never let archived Circle lessons appear current.
 
-For important concepts, occasionally ask one short comprehension question **after** explaining or reviewing them, for example:
+## Debugging expectations
 
-- “Why do you think `circle_id` belongs on the post?”
-- “What does this RLS policy prevent?”
-- “Which state belongs on the server versus only in this component?”
+Read the exact error; identify the owning layer; state one likely hypothesis; run the smallest confirming test; fix the root cause; explain why it occurred; add regression coverage. Use TypeScript/Metro/native logs, network evidence, Supabase/Postgres/Storage/function logs, query plans, constraints, and Git diffs deliberately. Redact before sharing. After two or three failed attempts at one hypothesis, stop and reform it rather than making random edits.
 
-Do not quiz constantly. The goal is understanding, not schoolwork.
+For an incidental sandbox/network failure, use the normal approval mechanism when the task requires it; do not bypass permissions or repurpose credentials. If a consequential prerequisite remains unauthorized, stop with a precise request.
 
-When the developer can explain the idea correctly, move on quickly.
+## Definition of done and continuity
 
----
+A checkpoint is complete only when scope, security, failure/recovery, cleanup, tests, accessibility, measured device gates, docs/course, diff review, and approved Git actions satisfy `PROJECT.md` Section 28. Update both source-of-truth documents in the same commit with:
 
-## 4. Debugging Rules
+- observed commit/date and what is now implemented;
+- exact tests/counts/device/hosted evidence;
+- deferred gates and why;
+- next unmet dependency and exact approval, if any.
 
-When something breaks, do not immediately rewrite it.
+Keep one task through implementation, debugging, verification, lesson, commit, and push. Start a new task only after the checkpoint is cleanly committed and the next work is a distinct outcome. Before handoff, make repository state sufficient for a new agent to recover without chat history; a useful starter is:
 
-Use this sequence:
-
-1. Read the exact error.
-2. Ask what the developer expected versus what happened if unclear.
-3. Identify the layer: UI, navigation, state, network, Supabase client, database, RLS, Storage, native config, build tooling, etc.
-4. Form one likely hypothesis.
-5. Suggest the smallest test that can confirm or reject it.
-6. Inspect the result.
-7. Fix the root cause.
-8. Explain why the bug happened.
-
-Teach the developer to use:
-
-- TypeScript errors
-- Expo/Metro logs
-- React Native debugger/dev tools
-- network inspection where appropriate
-- Supabase logs
-- SQL queries
-- database constraints
-- Git diffs
-- minimal reproductions
-
-Never use random edits until the error disappears.
-
-After 2–3 failed attempts at the same approach, stop and reconsider the hypothesis.
-
----
-
-## 5. Coding Standards
-
-Use boring, readable, industry-standard code.
-
-### TypeScript
-
-- Use TypeScript throughout.
-- Keep strict type checking enabled.
-- Avoid `any`. If unavoidable, explain why and contain it.
-- Prefer explicit domain types for important objects.
-- Let TypeScript infer simple local values.
-- Never silence errors with unsafe casts just to make the compiler happy.
-
-### React / React Native
-
-- Prefer small, composable function components.
-- Keep route files thin; move reusable UI and logic out of route files.
-- Keep local UI state local.
-- Do not introduce global state unless multiple distant parts of the app genuinely need it.
-- Do not store server data redundantly in global client state.
-- Prefer clear props over clever abstractions.
-- Extract components when it improves readability or reuse, not merely because a file feels long.
-- Handle loading, empty, success, and error states intentionally.
-- Use stable keys for lists.
-- Avoid premature memoization and optimization.
-
-### Functions
-
-- Functions should generally do one understandable thing.
-- Prefer descriptive names over comments explaining unclear names.
-- Separate pure transformation logic from side effects where practical.
-- Handle errors close to the layer that can meaningfully respond to them.
-
-### Comments
-
-Comment **why**, not obvious **what**.
-
-Good:
-
-> `// Keep the original upload path so retrying metadata creation does not duplicate files.`
-
-Bad:
-
-> `// Set loading to true.`
-
----
-
-## 6. Project Structure Principles
-
-Use Expo Router and a feature-oriented structure without overengineering.
-
-Target shape:
-
-```text
-src/
-  app/                 # Expo Router route files and layouts
-    (auth)/            # signed-out routes
-    (app)/             # protected onboarding, tabs, detail, settings
-  components/          # Shared presentational components
-  features/            # Domain-specific UI + hooks + helpers
-    auth/
-    feed/
-    posts/
-    circles/
-    moments/
-    memories/
-    reactions/
-    comments/
-    safety/
-    notifications/
-  lib/                 # Typed Supabase client, auth storage, query client, config
-  types/               # Shared domain/generated database types
-  constants/           # Theme tokens and fixed app constants
-supabase/
-  config.toml
-  migrations/          # Version-controlled database schema changes
-  tests/               # pgTAP authorization/invariant tests
-  seed.sql              # Optional local/dev seed data
-  functions/            # Only privileged cross-system workflows
-assets/
-e2e/                    # Small critical-flow suite once flows stabilize
-```
-
-Do not create layers such as repositories, services, factories, dependency injection containers, or elaborate design systems unless the project actually earns that complexity.
-
----
-
-## 7. Current Technology Direction
-
-The intended V1 stack is:
-
-- **Expo + React Native + TypeScript**
-- **Expo Router** for navigation
-- **Supabase Auth** for accounts
-- **Supabase Postgres** for relational app data
-- **Supabase Storage** for private photos
-- **Supabase Realtime only where it materially improves the experience**
-- **TanStack Query** when the first real profile/Circle server queries are introduced
-- **Expo development, preview, production-backed beta, and production builds / EAS**
-- **Git + GitHub** for version control
-
-V1 is iOS-first and photo-only; keep the shared Expo implementation Android-portable and require physical Android acceptance only before Android testing/release. Use one Expo Camera preview as the primary low-friction capture surface and the system photo picker for existing photos. Do not add web compatibility, video, filters/effects, a custom native camera module, or broad device permissions.
-
-Use local Supabase for schema/tests, the existing hosted project for development, and a separate production project before real historical data or the memory beta. Do not add a staging backend until the team or release process earns it.
-
-Do not add major libraries reflexively.
-
-Before adding a dependency, answer:
-
-1. What real problem does it solve?
-2. Can React Native/Expo/Supabase already solve it simply?
-3. Is the library maintained and compatible with the current Expo SDK?
-4. Does its complexity save more time than it costs?
-
-Use React state for local UI and one focused Context for Auth. Use TanStack Query for remote rows once introduced; never duplicate query data into a general global store. Do not add a form library or state-management library until repeated code demonstrates a concrete need.
-
----
-
-## 8. Current-Docs Rule
-
-Expo and Supabase evolve quickly.
-
-Before giving version-sensitive setup instructions or implementing an unfamiliar platform feature:
-
-1. Check the current official documentation.
-2. Prefer official Expo, React Native, Supabase, Apple, or Android documentation over old tutorials.
-3. Inspect the versions actually installed and check package compatibility rather than guessing versions.
-4. For Supabase work, scan relevant recent changelog/breaking-change notes.
-5. For CLI commands, use the pinned tool's current `--help` when practical rather than relying on memory.
-6. Verify any deprecation against current source/reference material instead of repeating a stale quickstart.
-
-Treat official quickstarts as teaching references, not automatically as the production target. Cross-check them against the versions actually installed, and distinguish clearly between “works for setup” and “recommended for Orca.” Before recommending a pattern as optimal, account for ownership, cleanup, Fast Refresh/remount behavior, error handling, and Orca's actual platform scope. Do not add web or other platform branches unless the product intends to support them. If a temporary shortcut is appropriate, label it as such before the developer implements it.
-
-For current Supabase projects, verify Data API schema exposure and SQL grants separately from RLS. A correct RLS policy does not itself make a table available through the Data API.
-
-Do not recommend deprecated `processLock`. Do not recommend `npm audit fix --force` or package `latest` in an Expo project; use Expo-compatible installs and assess whether a finding is production-reachable.
-
-Do not blindly copy old blog posts.
-
----
-
-## 9. Supabase Safety Rules
-
-Treat privacy as part of the feature, not cleanup work.
-
-### Keys
-
-- Client apps may use the project's **publishable** key.
-- Never place a Supabase secret/service-role key in the Expo client.
-- Never commit secrets.
-
-### Native session storage
-
-Supabase sessions contain bearer access and refresh tokens. Do not use raw AsyncStorage as Orca's final session store. Use the current maintained Supabase large-session pattern: encrypt the serialized session before storing it in AsyncStorage and keep its random encryption key in Expo SecureStore. Keep that adapter isolated from client construction, pin its dependencies, avoid inventing or casually modifying cryptography, and treat missing keys/corrupt ciphertext as a safe sign-out rather than a crash loop. Do not enable biometric `requireAuthentication` for routine background refresh. Direct SecureStore storage is not assumed safe for the full serialized session because underlying platforms may reject large values. Verify restore, refresh, sign-out, reinstall, kill/relaunch, and foreground/background behavior on physical iOS and Android.
-
-Keep one app-lifecycle refresh owner with cleanup. Omit deprecated `processLock`. Keep one Auth provider/subscription and make the `onAuthStateChange` callback synchronous.
-
-### Row Level Security
-
-Enable RLS on every app table exposed through the Data API.
-
-Grant only the required SQL operations to `authenticated`, and verify that the intended schema is exposed. Treat grants/API exposure as reachability and RLS as row authorization; both must be correct.
-
-Authorization must reflect Orca's social model:
-
-> A user can only read content if they are permitted to see the audience/circle that owns that content.
-
-Do not rely on “the UI hides it.” The database must enforce it.
-
-Do not treat `TO authenticated` by itself as authorization. Policies must also verify ownership or circle membership.
-
-Profile identity is readable only by the profile owner, users who currently share a Circle, or users who can still see that person's published contribution in one of their Circles, subject to blocking. This preserves attribution when a former member's post remains shared history without enabling global enumeration. Users may write only permitted fields on their own profile. V1 has no global user directory, username search, friendship, or follower relationship; secure invite tokens handle Circle joining.
-
-Treat this as the final V1 policy and stage it with schema dependencies: self-only in the profiles migration, shared-Circle after memberships exist, historical-attribution after posts exist, and block predicates only after blocks exist. Never make an earlier migration or test reference a later table.
-
-### Storage
-
-Photo Storage policies must mirror database visibility rules.
-
-Do not make the media bucket public merely because it is easier.
-
-Use one private `post-media` bucket with immutable object paths shaped as `{circle_id}/{author_id}/{post_id}/media.jpg`. Post creation is **reserve pending row → upload exact object → trusted verify/finalize published row**. Uploads must verify the caller is the author segment, belongs to the Circle, and owns the exact matching pending post. Allow the narrow pending-author SELECT required by current Storage `INSERT … RETURNING`, but no other pending read. Published reads allow the author or current Circle visibility under the final block rules; a former author's owner fallback must not grant the old Circle feed/reactions/comments. Do not grant client Storage update/upsert. Delete through the Storage API as part of a controlled post lifecycle; never delete `storage.objects` rows directly with SQL.
-
-Use a separate private `avatars` bucket with immutable versioned paths. Avatar reads mirror self/shared-Circle profile visibility; only the owner may upload/delete their objects. Profile-avatar readability must never be reused as a policy for post media.
-
-### Orca data invariants
-
-- A post belongs to one real Circle and contains exactly one photo in V1.
-- A post moves through `pending` → `published` or `deleting`; only published posts are readable in feeds.
-- A Moment belongs to one Circle, has no independent audience, and may contain only posts from that Circle.
-- `created_at` is database-set when publish finalizes and means sharing time; `captured_at` is memory time. Home uses the former, while Memories, Moments, and Rewind use the latter.
-- A user may add multiple different reaction types to a post, but only one instance of each type.
-- Comments may have one level of replies. A reply and its top-level parent must belong to the same post.
-- Deleting a comment with replies must remove its body but preserve a tombstone and the other users' replies.
-- The Circle creator is inserted as the first admin. Admins may remove members, and no operation may leave a Circle without an admin.
-- Circle invitations are expiring/revocable, store only a high-entropy token hash, and are redeemed transactionally.
-- Blocking is enforced in database visibility/interaction behavior and caches/notifications, not only filtered in UI.
-- Leaving/removal ends server access to other Circle data immediately. Existing published contributions remain Circle history by default; the former author retains row/media owner access and deletion rights but not the old feed/reactions/comments, and full account deletion removes their content under the deletion policy. Short signed-URL expiry bounds new link use, but already cached/downloaded bytes cannot be remotely revoked; never promise otherwise.
-- Every app-data operation requires an active private account state; suspended/deleting/missing callers deny even with an unexpired JWT.
-- Production V1 is invitation-gated and 18+; current server-validated legal/eligibility acceptance is required before posting or interaction.
-- Moment children, cover, participants, and counts are filtered to posts visible to the viewer; an empty visible subset hides the Moment.
-
-### Database changes
-
-Use hand-written, version-controlled imperative migrations. Do not adopt Supabase's alpha declarative schema workflow for V1.
-
-Before the first app table, establish local Supabase, the hosted development project, generated TypeScript database types, pgTAP tests, and CI. The current hosted project is development; create a separate production project before the memory beta. Apply persistent changes through migrations, test from a clean local reset, then promote development before production.
-
-Client-facing V1 tables and thin callable RPC entry points live in the exposed `public` schema; helpers and operational/moderation state live in an unexposed `private` schema. A client RPC is security-invoker with `PUBLIC`/`anon` execution revoked. If elevated rights are unavoidable, it calls one narrowly granted private security-definer helper that independently derives/validates `auth.uid()`, uses an empty `search_path`, and fully qualifies every object. Every table migration includes constraints, indexes, explicit grants, explicit RLS enablement/policies, and negative authorization tests. Exposed views use invoker security.
-
-Prefer constraints in the database for facts the database must guarantee:
-
-- foreign keys
-- uniqueness
-- required fields
-- sensible check constraints
-
-Do not rely only on client validation.
-
-### Privileged workflows and recovery
-
-Use Postgres RPCs for short transactional invariants such as Circle creation, invite redemption, and last-admin changes. Use Edge Functions when a service credential, trusted file inspection, or multi-system orchestration is genuinely required, such as publish finalization, complete account/Circle deletion, moderation operations, push sending, or Storage cleanup. Never authorize a requested user ID instead of the verified JWT caller.
-
-Create a private active/suspended/deleting account state before app-data policies. Every authorization helper denies a missing/nonactive caller so deletion or moderation stops an already-issued JWT immediately; revoking sessions or deleting `auth.users` alone does not invalidate an access token that has not expired. Delete Auth identity last after all database and Storage dependencies succeed.
-
-Before real historical data enters production, define and test database plus private-media backup/restore. Supabase database backups do not contain Storage objects; Orca needs an encrypted off-site media copy and a restore drill before claiming memories are permanent.
-
----
-
-## 10. Database Learning Rules
-
-Whenever introducing a table, teach:
-
-1. What real-world object it represents.
-2. Its primary key.
-3. Its foreign keys.
-4. Why each relationship exists.
-5. Who can SELECT/INSERT/UPDATE/DELETE it.
-6. Which constraints protect data integrity.
-7. Whether an index is actually needed yet.
-8. How deletion/account cleanup affects it.
-9. Which pgTAP negative cases prove its authorization.
-
-Prefer normalized, understandable relational data over giant JSON blobs.
-
-Do not optimize for hypothetical millions of users before Orca works for 15 friends.
-
----
-
-## 11. Git Habits
-
-Teach professional Git from day one.
-
-- A private GitHub remote is required before the first database migration so code, schema, tests, and generated types have an off-device source of truth.
-- Keep `main` working.
-- Make small, coherent commits.
-- Commit after a meaningful checkpoint, not every keystroke and not once per week.
-- Use descriptive commit messages such as `feat: add circle membership schema`.
-- Review `git diff` before committing.
-- Never commit `.env`, credentials, generated secret files, or large accidental assets.
-- Use branches when a change is risky or spans substantial work; do not create ceremony for tiny solo changes.
-- CI must recreate the app/database from a clean checkout before release work depends on it.
-
-At natural checkpoints, suggest a commit.
-
----
-
-## 12. Testing Philosophy
-
-Do not pursue 100% test coverage for V1.
-
-Prioritize tests for logic where a silent bug would matter:
-
-- authorization/RLS behavior
-- SQL grants and Data API reachability
-- private Storage policy agreement with row visibility
-- audience visibility
-- invite expiry/revocation/concurrency
-- moment grouping logic
-- pending/upload/publish/delete lifecycle and idempotency
-- Circle/admin lifecycle invariants
-- post-to-Moment Circle consistency
-- comment reply parent/post consistency
-- comment deletion/tombstone behavior
-- capture-time versus sharing-time behavior
-- account deletion and data/media cleanup
-- blocking/reporting behavior
-- important pure utility functions
-- regressions discovered during development
-
-Use pgTAP and real API/Storage integration tests for authorization and database invariants. Use React Native Testing Library for a few high-value component flows, not snapshot-heavy coverage or new `react-test-renderer` tests. Add a small Maestro E2E suite only after critical flows stabilize.
-
-Every milestone should also have a short manual acceptance checklist. Camera/picker, encrypted session persistence, permissions, app links, notifications, account switching, install/upgrade, accessibility, and performance require physical-device or production-like build checks where applicable; Expo Go/simulator success is not sufficient.
-
----
-
-## 13. UX/Product Guardrails
-
-The code must protect Orca's product thesis.
-
-### Core thesis
-
-> Friends casually post silly photos and videos now; Orca quietly turns those posts into a shared history they can relive later.
-
-### Product loop
-
-> **Do something → post it → friends react → it becomes part of the group history → rediscover it later**
-
-### Product personality
-
-Orca should feel:
-
-- private
-- warm
-- playful
-- effortless
-- intimate
-- visual
-- youthful without trying too hard
-- more like friends hanging out than performing for an audience
-
-### Avoid
-
-Do not accidentally turn Orca into:
-
-- Instagram
-- a follower network
-- a public content platform
-- a Discord replacement
-- a planning/productivity suite
-- a complicated scrapbook editor
-- an engagement-maximizing notification machine
-
-If a proposed feature does not strengthen the core loop, challenge it.
-
----
-
-## 14. V1 Scope Discipline
-
-Build the smallest version that is genuinely fun for the founder's real 12–15-person friend group.
-
-Prioritize:
-
-1. recoverable engineering, migrations, CI, and secure session foundation
-2. account + profile
-3. Circle membership/invites/admin lifecycle
-4. one-photo publishing
-5. Circle and Everyone feeds
-6. reactions/comments plus blocking/reporting/moderation
-7. private alpha of the immediate loop
-8. capture-time Memories and historical single-photo import
-9. automatic Moments and simple Rewind
-10. production data/backup/account-lifecycle foundation and memory beta
-11. public deletion/support, legal/link verification, and notification release requirements
-12. release candidate, store submission, and operations
-
-Delay unless evidence proves otherwise:
-
-- planning
-- polls
-- bucket lists
-- written journals
-- DMs
-- followers
-- public discovery
-- streaks
-- algorithmic feeds
-- elaborate editing/filter tools
-- AI features
-- web application support
-- camera filters, effects, or a custom native camera module beyond Expo Camera
-- bulk import
-- video before V1.1 evidence and reliability gates
-
-Phase 7 is the **private alpha**: prove the immediate posting/interaction loop with 2–3 trusted friends using disposable development data. Phase 10 is the **memory beta**: validate the archive with the intended 12–15-person group only after a separate production backend and database-plus-media recovery work. Seeded history proves correctness, not organic retention.
-
----
-
-## 15. “Everyone” Semantics
-
-For V1, **Everyone is an aggregate viewing option, not a physical database Circle**.
-
-When the user selects **Everyone** in the Circle switcher, show the union of posts they are authorized to see across their Circles, ordered by time.
-
-Posting should still choose a real Circle/audience so permissions remain explicit.
-
-Do not duplicate posts in the database merely to create an Everyone feed.
-
-If the founder later wants “post to everyone I know on Orca,” treat that as a separate product decision and model it deliberately.
-
----
-
-## 16. Definition of Done
-
-A feature is not done because it renders once.
-
-Before calling a feature complete, check:
-
-- happy path works
-- loading state exists where needed
-- empty state makes sense
-- common error path is handled
-- permissions are correct
-- Data API exposure, explicit grants, RLS, and Storage policies are independently verified where Supabase data is involved
-- TypeScript passes
-- lint/format checks pass
-- relevant pgTAP/unit/integration tests pass from a clean state
-- generated database types match migrations
-- no obvious duplicate requests or uploads
-- destructive or retried work cannot leave ambiguous partial state
-- important data survives app reload
-- historical photos preserve a credible `captured_at` while `created_at` remains the actual share time
-- behavior is tested on a real device when camera/media/native behavior is involved
-- sign-out/account switching clears user-scoped query, media, signed-URL, draft, and temporary-file state
-- developer can explain the core mechanism in plain English
-
-Also apply the current phase gate in `PROJECT.md`. Rendering once or passing app-only checks cannot complete a backend, security, beta, or release phase.
-
----
-
-## 17. AI Response Format During Development
-
-For most implementation questions, respond approximately like this:
-
-### What we're solving
-
-One short explanation.
-
-### What you need to understand
-
-1–3 concepts maximum.
-
-### Your next step
-
-One concrete task for the developer to implement.
-
-### Hints
-
-Only enough detail to unblock them.
-
-### Done when
-
-A small acceptance checklist.
-
-Then stop and let the developer work unless they asked for more.
-
-When reviewing code, use:
-
-### Good
-
-What is correct.
-
-### Fix
-
-Specific problems, ordered by importance.
-
-### Why
-
-The transferable lesson.
-
-### Next edit
-
-The smallest next change.
-
----
-
-## 18. When Full Code Is Appropriate
-
-The “do not write my app for me” rule does **not** mean refusing all code.
-
-You may provide exact code for:
-
-- tiny syntax demonstrations
-- configuration boilerplate with little learning value
-- migration corrections after explaining the issue
-- security-critical fixes where ambiguity is dangerous
-- small examples disconnected from the full feature
-- generated types or tool-generated code
-- code the developer explicitly asks you to write after attempting it
-
-When you provide substantial code, annotate the important decisions and ask the developer to explain or modify one meaningful part themselves.
-
----
-
-## 19. Source of Truth
-
-- `PROJECT.md` defines **what Orca is and what should be built next**.
-- The current-status block at the top of `PROJECT.md` defines the active phase and next checkpoint.
-- This file defines **how the AI should help build it**.
-- The current codebase is the source of truth for what is actually implemented.
-
-After the developer confirms a completed checkpoint or material product/architecture decision, inspect the evidence, update `PROJECT.md` and this file to match, and only then assign the next task. The developer should not need to remind the AI to maintain these files.
-
-Before giving “the next step,” verify it is the next unmet dependency in the active phase. Surface only that checkpoint and its immediate context; the complete plan remains in `PROJECT.md`.
-
-When these disagree, point out the mismatch rather than silently inventing a new direction.
+> Read AGENTS.md and PROJECT.md, inspect the current repository and evidence, then continue the documented next approved checkpoint.

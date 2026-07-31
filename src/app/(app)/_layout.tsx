@@ -69,10 +69,11 @@ export default function AppLayout() {
     );
   }
 
-  const { canEnterOnboarding, canEnterTabs } = getOnboardingRouteAccess(
-    onboardingStateQuery.data.profile.onboarding_completed_at,
-    onboardingStateQuery.data.hasCurrentAcceptances,
-  );
+  const { canEnterOnboarding, canEnterRestricted, canEnterTabs } =
+    getOnboardingRouteAccess(
+      onboardingStateQuery.data.account_state,
+      onboardingStateQuery.data.is_eligible,
+    );
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
@@ -80,21 +81,25 @@ export default function AppLayout() {
         <Stack.Screen name="onboarding" />
       </Stack.Protected>
 
+      <Stack.Protected guard={canEnterRestricted}>
+        <Stack.Screen name="restricted" />
+      </Stack.Protected>
+
       <Stack.Protected guard={canEnterTabs}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
-          name="circles/create"
-          options={{ headerShown: true, title: "Create Circle" }}
+          name="profile/index"
+          options={{ headerShown: true, title: "My Profile" }}
         />
         <Stack.Screen
-          name="circles/join"
-          options={{ headerShown: true, title: "Join Circle" }}
-        />
-        <Stack.Screen
-          name="circles/[circleId]"
-          options={{ headerShown: true, title: "Circle" }}
+          name="settings/index"
+          options={{ headerShown: true, title: "Settings" }}
         />
       </Stack.Protected>
+      <Stack.Screen
+        name="support"
+        options={{ headerShown: true, title: "Support" }}
+      />
     </Stack>
   );
 }

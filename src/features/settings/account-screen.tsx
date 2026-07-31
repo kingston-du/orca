@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 type AccountScreenProps = {
   displayName: string;
   email: string;
+  username: string;
   onSignOut: () => Promise<{ message: string } | null>;
 };
 
@@ -19,6 +20,7 @@ export function AccountScreen({
   displayName,
   email,
   onSignOut,
+  username,
 }: AccountScreenProps) {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export function AccountScreen({
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Account</Text>
+        <Text style={styles.title}>Settings</Text>
         <Text style={styles.subtitle}>
           Your private Orca account on this device.
         </Text>
@@ -59,6 +61,10 @@ export function AccountScreen({
           <View style={styles.detail}>
             <Text style={styles.label}>Display name</Text>
             <Text style={styles.value}>{displayName}</Text>
+          </View>
+          <View style={styles.detail}>
+            <Text style={styles.label}>Username</Text>
+            <Text style={styles.value}>@{username}</Text>
           </View>
           <View style={styles.detail}>
             <Text style={styles.label}>Email</Text>

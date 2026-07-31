@@ -35,7 +35,7 @@ async function toPreview(
     width: asset.width,
     height: asset.height,
     source,
-    // V1 deliberately avoids retaining imported metadata. The post workflow will
+    // V1 deliberately avoids retaining imported metadata. Moment publication will
     // replace this fallback with a trusted capture-time policy where appropriate.
     ...captureTime,
     capturedAtSource: "fallback",

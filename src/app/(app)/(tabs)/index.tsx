@@ -1,19 +1,27 @@
-import { router } from "expo-router";
-
-import { useAuth } from "@/features/auth/auth-provider";
-import { CircleHubScreen } from "@/features/circles/circle-hub-screen";
+import { StyleSheet, Text, View } from "react-native";
 
 export default function HomeRoute() {
-  const { user } = useAuth();
-
   return (
-    <CircleHubScreen
-      onCreateCircle={() => router.push("/circles/create")}
-      onJoinCircle={() => router.push("/circles/join")}
-      onOpenCircle={(circleId) =>
-        router.push({ pathname: "/circles/[circleId]", params: { circleId } })
-      }
-      userId={user?.id}
-    />
+    <View style={styles.container}>
+      <Text accessibilityRole="header" style={styles.title}>
+        Home
+      </Text>
+      <Text style={styles.body}>
+        Your friends’ recent Moments will appear here after publishing ships.
+      </Text>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  body: { color: "#52606D", fontSize: 17, lineHeight: 25, textAlign: "center" },
+  container: {
+    alignItems: "center",
+    backgroundColor: "#F5FAFF",
+    flex: 1,
+    gap: 16,
+    justifyContent: "center",
+    padding: 28,
+  },
+  title: { color: "#102A43", fontSize: 34, fontWeight: "900" },
+});

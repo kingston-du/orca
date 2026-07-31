@@ -7,7 +7,7 @@ import {
   InvalidJpegError,
   MAX_JPEG_BYTES,
   verifyJpeg,
-} from "../finalize-post/verify-jpeg.ts";
+} from "../_shared/verify-jpeg.ts";
 
 function jpegFixture(width = 3, height = 2) {
   const data = Buffer.alloc(width * height * 4, 255);

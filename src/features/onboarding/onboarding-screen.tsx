@@ -21,7 +21,12 @@ import {
 import type { OnboardingResult } from "./onboarding-actions";
 
 type OnboardingScreenProps = {
-  onComplete: (displayName: string) => Promise<OnboardingResult>;
+  initialDisplayName?: string;
+  initialUsername?: string;
+  onComplete: (
+    username: string,
+    displayName: string,
+  ) => Promise<OnboardingResult>;
   onSignOut: () => Promise<void>;
 };
 
@@ -33,13 +38,17 @@ const INITIAL_ACCEPTANCES: Record<LegalDocumentKey, boolean> = {
 };
 
 export function OnboardingScreen({
+  initialDisplayName = "",
+  initialUsername = "",
   onComplete,
   onSignOut,
 }: OnboardingScreenProps) {
-  const [displayName, setDisplayName] = useState("");
+  const [displayName, setDisplayName] = useState(initialDisplayName);
+  const [username, setUsername] = useState(initialUsername);
   const [acceptances, setAcceptances] =
     useState<Record<LegalDocumentKey, boolean>>(INITIAL_ACCEPTANCES);
   const [displayNameError, setDisplayNameError] = useState<string | null>(null);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [acceptanceError, setAcceptanceError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,6 +69,10 @@ export function OnboardingScreen({
     }
 
     const trimmedDisplayName = displayName.trim();
+    const normalizedUsername = username.trim().toLowerCase();
+    const nextUsernameError = /^[a-z][a-z0-9_]{2,19}$/.test(normalizedUsername)
+      ? null
+      : "Use 3–20 lowercase letters, numbers, or underscores, starting with a letter.";
     const nextDisplayNameError =
       trimmedDisplayName.length === 0
         ? "Enter the name your friends will see."
@@ -68,6 +81,7 @@ export function OnboardingScreen({
           : null;
     const hasEveryAcceptance = Object.values(acceptances).every(Boolean);
 
+    setUsernameError(nextUsernameError);
     setDisplayNameError(nextDisplayNameError);
     setAcceptanceError(
       hasEveryAcceptance
@@ -76,7 +90,7 @@ export function OnboardingScreen({
     );
     setFormError(null);
 
-    if (nextDisplayNameError || !hasEveryAcceptance) {
+    if (nextUsernameError || nextDisplayNameError || !hasEveryAcceptance) {
       return;
     }
 
@@ -84,7 +98,7 @@ export function OnboardingScreen({
     setIsSubmitting(true);
 
     try {
-      const result = await onComplete(trimmedDisplayName);
+      const result = await onComplete(normalizedUsername, trimmedDisplayName);
 
       if (result.kind === "error") {
         setFormError(result.message);
@@ -140,6 +154,34 @@ export function OnboardingScreen({
               Founder testing only. These documents must be replaced before
               external testing.
             </Text>
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>Username</Text>
+            <TextInput
+              accessibilityLabel="Username"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!isBusy && initialUsername.length === 0}
+              maxLength={20}
+              onChangeText={(value) => {
+                setUsername(value.toLowerCase());
+                setUsernameError(null);
+                setFormError(null);
+              }}
+              placeholder="kingston"
+              placeholderTextColor="#7B8794"
+              style={[styles.input, usernameError && styles.inputError]}
+              value={username}
+            />
+            <Text style={styles.helper}>
+              Your V1 username cannot be changed.
+            </Text>
+            {usernameError ? (
+              <Text accessibilityRole="alert" style={styles.errorText}>
+                {usernameError}
+              </Text>
+            ) : null}
           </View>
 
           <View style={styles.field}>
@@ -298,6 +340,11 @@ const styles = StyleSheet.create({
   },
   field: {
     gap: 8,
+  },
+  helper: {
+    color: "#52606D",
+    fontSize: 13,
+    lineHeight: 18,
   },
   input: {
     backgroundColor: "#FFFFFF",

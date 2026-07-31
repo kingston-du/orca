@@ -16,7 +16,7 @@ export function useOwnOnboardingState(userId: string | undefined) {
         );
       }
 
-      return loadOwnOnboardingState(userId);
+      return loadOwnOnboardingState();
     },
     queryKey: ownOnboardingStateQueryKey(userId ?? "signed-out"),
     staleTime: 5 * 60 * 1000,

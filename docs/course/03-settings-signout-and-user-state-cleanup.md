@@ -1,5 +1,7 @@
 # Lesson 3 — Settings, local sign-out, and user-state cleanup
 
+> **Active foundation; route placement updated.** Auth-driven sign-out and outgoing-user cache cleanup remain current. Friend-first Checkpoint 1A moved Settings out of the tab bar and now reaches it through My Profile; [Lesson 16](./16-friend-first-foundation-rebaseline.md) explains the privacy shield and new route gate.
+
 ## Outcome
 
 Orca now has an Account screen that shows the signed-in person's display name and email, signs **this device** out safely, and clears cached remote data when the authenticated identity changes. This checkpoint is deliberately bigger than “add a sign-out button.” It establishes a privacy rule that will remain useful as the app gains feeds, photos, drafts, and other user-specific state.

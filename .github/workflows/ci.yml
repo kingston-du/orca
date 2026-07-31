@@ -53,6 +53,9 @@ jobs:
       - name: Run Expo Doctor
         run: npm run doctor
 
+      - name: Check generated native privacy configuration
+        run: npm run native:check
+
   database:
     name: Database quality
     runs-on: ubuntu-latest
@@ -83,17 +86,11 @@ jobs:
       - name: Run pgTAP tests
         run: npm run db:test
 
-      - name: Run private Storage API integration tests
-        run: npm run db:test:storage
+      - name: Run real Auth and Data API tests
+        run: npm run db:test:api
 
       - name: Test bounded JPEG verification
         run: npm run functions:test
-
-      - name: Run trusted finalization HTTP integration tests
-        run: npm run functions:test:integration
-
-      - name: Run trusted media cleanup HTTP integration tests
-        run: npm run functions:test:cleanup
 
       - name: Check generated database types
         run: npm run db:types:check

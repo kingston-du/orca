@@ -1,18 +1,10 @@
-import { focusManager } from "@tanstack/react-query";
 import { Stack } from "expo-router";
-import { useEffect } from "react";
-import {
-  ActivityIndicator,
-  AppState,
-  type AppStateStatus,
-  StyleSheet,
-  View,
-} from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 import { AuthProvider, useAuth } from "@/features/auth/auth-provider";
 import { getAuthRouteAccess } from "@/features/auth/auth-route-access";
+import { PrivacyShield } from "@/features/privacy/privacy-shield";
 import { AppQueryProvider } from "@/lib/query-provider";
-import { supabase } from "@/lib/supabase";
 
 function RootNavigator() {
   const { session, isPasswordRecovery, isRestoring } = useAuth();
@@ -52,36 +44,14 @@ function AuthenticatedApp() {
 
   return (
     <AppQueryProvider userId={user?.id ?? null}>
-      <RootNavigator />
+      <PrivacyShield>
+        <RootNavigator />
+      </PrivacyShield>
     </AppQueryProvider>
   );
 }
 
 export default function RootLayout() {
-  useEffect(() => {
-    function handleAppStateChange(state: AppStateStatus) {
-      focusManager.setFocused(state === "active");
-
-      if (state === "active") {
-        void supabase.auth.startAutoRefresh();
-      } else {
-        void supabase.auth.stopAutoRefresh();
-      }
-    }
-
-    handleAppStateChange(AppState.currentState);
-
-    const subscription = AppState.addEventListener(
-      "change",
-      handleAppStateChange,
-    );
-
-    return () => {
-      subscription.remove();
-      void supabase.auth.stopAutoRefresh();
-    };
-  }, []);
-
   return (
     <AuthProvider>
       <AuthenticatedApp />

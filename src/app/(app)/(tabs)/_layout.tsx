@@ -17,15 +17,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="memories"
+        name="people"
         options={{
-          title: "Memories",
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Settings",
+          title: "People",
         }}
       />
     </Tabs>

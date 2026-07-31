@@ -3,18 +3,21 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/auth-provider";
 import { completeOnboarding } from "@/features/onboarding/onboarding-api";
 import { OnboardingScreen } from "@/features/onboarding/onboarding-screen";
-import { ownOnboardingStateQueryKey } from "@/features/onboarding/use-own-onboarding-state";
+import {
+  ownOnboardingStateQueryKey,
+  useOwnOnboardingState,
+} from "@/features/onboarding/use-own-onboarding-state";
 
 export default function OnboardingRoute() {
   const { signOut, user } = useAuth();
   const queryClient = useQueryClient();
+  const onboardingState = useOwnOnboardingState(user?.id);
 
-  async function handleComplete(displayName: string) {
-    const result = await completeOnboarding(displayName);
+  async function handleComplete(username: string, displayName: string) {
+    const result = await completeOnboarding(username, displayName);
     if (result.kind === "success" && user) {
-      queryClient.setQueryData(ownOnboardingStateQueryKey(user.id), {
-        profile: result.profile,
-        hasCurrentAcceptances: true,
+      await queryClient.invalidateQueries({
+        queryKey: ownOnboardingStateQueryKey(user.id),
       });
     }
 
@@ -30,6 +33,11 @@ export default function OnboardingRoute() {
   }
 
   return (
-    <OnboardingScreen onComplete={handleComplete} onSignOut={handleSignOut} />
+    <OnboardingScreen
+      initialDisplayName={onboardingState.data?.display_name ?? ""}
+      initialUsername={onboardingState.data?.username ?? ""}
+      onComplete={handleComplete}
+      onSignOut={handleSignOut}
+    />
   );
 }

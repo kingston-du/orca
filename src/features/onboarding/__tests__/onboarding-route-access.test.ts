@@ -1,24 +1,30 @@
 import { getOnboardingRouteAccess } from "@/features/onboarding/onboarding-route-access";
 
 describe("getOnboardingRouteAccess", () => {
-  test("keeps incomplete profiles out of the tabs", () => {
-    expect(getOnboardingRouteAccess(null, false)).toEqual({
+  test("routes an active incomplete account to onboarding", () => {
+    expect(getOnboardingRouteAccess("active", false)).toEqual({
       canEnterOnboarding: true,
+      canEnterRestricted: false,
       canEnterTabs: false,
     });
   });
 
-  test("keeps completed profiles out of onboarding", () => {
-    expect(getOnboardingRouteAccess("2026-07-28T00:00:00Z", true)).toEqual({
+  test("routes only an eligible active account to the tabs", () => {
+    expect(getOnboardingRouteAccess("active", true)).toEqual({
       canEnterOnboarding: false,
+      canEnterRestricted: false,
       canEnterTabs: true,
     });
   });
 
-  test("requires reacceptance when the current documents change", () => {
-    expect(getOnboardingRouteAccess("2026-07-28T00:00:00Z", false)).toEqual({
-      canEnterOnboarding: true,
+  test("routes suspended and deleting accounts to restricted controls", () => {
+    expect(getOnboardingRouteAccess("suspended", false)).toEqual({
+      canEnterOnboarding: false,
+      canEnterRestricted: true,
       canEnterTabs: false,
     });
+    expect(getOnboardingRouteAccess("deleting", false).canEnterRestricted).toBe(
+      true,
+    );
   });
 });

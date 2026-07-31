@@ -18,6 +18,7 @@ export type OnboardingResult =
 
 export function createOnboardingActions(client: OnboardingRpcClient) {
   async function completeOnboarding(
+    username: string,
     displayName: string,
   ): Promise<OnboardingResult> {
     const { data, error } = await client.completeOnboarding({
@@ -25,6 +26,7 @@ export function createOnboardingActions(client: OnboardingRpcClient) {
       p_adult_sha256: LEGAL_DOCUMENTS.adultEligibility.sha256,
       p_adult_version: LEGAL_DOCUMENT_VERSION,
       p_display_name: displayName.trim(),
+      p_username: username.trim().toLowerCase(),
       p_guidelines_sha256: LEGAL_DOCUMENTS.communityGuidelines.sha256,
       p_guidelines_version: LEGAL_DOCUMENT_VERSION,
       p_privacy_sha256: LEGAL_DOCUMENTS.privacy.sha256,
@@ -34,6 +36,13 @@ export function createOnboardingActions(client: OnboardingRpcClient) {
     });
 
     if (error) {
+      if (error.code === "23505") {
+        return {
+          kind: "error",
+          message: "That username is unavailable. Try another.",
+        };
+      }
+
       if (error.code === "22023") {
         return {
           kind: "error",

@@ -11,9 +11,9 @@ module.exports = ({ config }) => ({
       "expo-image-picker",
       {
         photosPermission:
-          "Orca lets you choose one photo to share privately with a Circle.",
+          "Orca lets you choose one photo to share privately with friends.",
         cameraPermission:
-          "Orca uses the camera only when you take a photo to share privately with a Circle.",
+          "Orca uses the camera only when you take a Moment to share privately with friends.",
         microphonePermission: false,
       },
     ],
@@ -21,7 +21,7 @@ module.exports = ({ config }) => ({
       "expo-camera",
       {
         cameraPermission:
-          "Orca uses the camera only when you take a photo to share privately with a Circle.",
+          "Orca uses the camera only when you take a Moment to share privately with friends.",
         microphonePermission: false,
         recordAudioAndroid: false,
         barcodeScannerEnabled: false,

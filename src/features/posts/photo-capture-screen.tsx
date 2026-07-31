@@ -275,7 +275,7 @@ export function PhotoCaptureScreen() {
             testID="captured-photo-preview"
           />
           <View style={styles.previewControls}>
-            <Text style={styles.previewText}>Ready for your Circle</Text>
+            <Text style={styles.previewText}>Moment ready to review</Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Retake photo"

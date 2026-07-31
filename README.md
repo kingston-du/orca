@@ -1,24 +1,42 @@
 # Orca
 
-Orca is a private social photo journal for real friend groups. Friends share casual photos, react and comment, and build a shared history they can revisit later.
+> Live your life, and remember it too.
 
-Orca is currently under private development for native iOS and Android.
+Orca is a private, friend-first iOS photo app. Capture or choose one photo, share the Moment with friends, swipe through their Moments, react, and quietly build personal and shared history.
 
-## Prerequisites
+The repository is under founder-only development. Checkpoint 1A contains the local friend-first account, username, friendship, block, navigation, privacy-shield, and People foundation. Moment publication, hosted cutover, physical-device acceptance, production legal text, and external beta remain gated.
+
+## Product boundaries
+
+- Private mutual friendships; no public profiles, feed, followers, contacts, or fuzzy directory.
+- One photo per Moment; camera first and narrow system picker.
+- Home, Camera, and People tabs; Settings lives under My Profile.
+- No comments, messages, saved Groups, video, multiple photos, payments, or Android release work in V1.
+
+See [PROJECT.md](PROJECT.md) for the product and architecture contract and [AGENTS.md](AGENTS.md) for execution rules.
+
+## Local setup
+
+Prerequisites:
 
 - Node.js `24.14.1`
 - npm `11.11.0`
 - Docker Desktop
-- Xcode/iOS Simulator or Android Studio/emulator
+- Xcode and an iOS Simulator
 
-## Initial setup
-
-Install the exact locked dependencies:
+Install and verify:
 
 ```bash
 npm ci
+npm run db:start
+npm run db:reset
+npm run db:test
+npm test
+npm run typecheck
 ```
 
-## Guided build course
+Copy `.env.example` to `.env` and supply only the local or approved environment's publishable Supabase values. Never place a secret or service-role key in the app.
 
-Read the numbered [Orca guided build lessons](./docs/course/README.md) for tutorial-style explanations of each completed checkpoint, including its runtime flow, important code and syntax, security boundaries, tests, and verification evidence.
+## Learning notes
+
+The numbered [course lessons](docs/course/README.md) explain completed checkpoints. Historical Circle-era lessons are preserved under `docs/course/archive/` and are not current implementation guidance.

@@ -9,105 +9,92 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      circle_invites: {
+      blocks: {
         Row: {
-          circle_id: string
+          blocked_id: string
+          blocker_id: string
           created_at: string
-          created_by: string | null
-          expires_at: string
-          id: string
-          max_uses: number
-          revoked_at: string | null
-          token_hash: string
-          use_count: number
+          generation_id: string
         }
         Insert: {
-          circle_id: string
+          blocked_id: string
+          blocker_id: string
           created_at?: string
-          created_by?: string | null
-          expires_at: string
-          id?: string
-          max_uses?: number
-          revoked_at?: string | null
-          token_hash: string
-          use_count?: number
+          generation_id: string
         }
         Update: {
-          circle_id?: string
+          blocked_id?: string
+          blocker_id?: string
           created_at?: string
-          created_by?: string | null
-          expires_at?: string
-          id?: string
-          max_uses?: number
-          revoked_at?: string | null
-          token_hash?: string
-          use_count?: number
+          generation_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "circle_invites_circle_id_fkey"
-            columns: ["circle_id"]
+            foreignKeyName: "blocks_blocked_id_fkey"
+            columns: ["blocked_id"]
             isOneToOne: false
-            referencedRelation: "circles"
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blocks_blocker_id_fkey"
+            columns: ["blocker_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
       }
-      circle_members: {
+      friendships: {
         Row: {
-          circle_id: string
-          joined_at: string
-          role: string
-          user_id: string
-        }
-        Insert: {
-          circle_id: string
-          joined_at?: string
-          role?: string
-          user_id: string
-        }
-        Update: {
-          circle_id?: string
-          joined_at?: string
-          role?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "circle_members_circle_id_fkey"
-            columns: ["circle_id"]
-            isOneToOne: false
-            referencedRelation: "circles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      circles: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          id: string
-          name: string
+          accepted_at: string | null
+          expires_at: string | null
+          generation_id: string | null
+          request_id: string | null
+          requested_at: string | null
+          requester_id: string | null
           state: string
-          updated_at: string
+          user_high: string
+          user_low: string
         }
         Insert: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          name: string
-          state?: string
-          updated_at?: string
+          accepted_at?: string | null
+          expires_at?: string | null
+          generation_id?: string | null
+          request_id?: string | null
+          requested_at?: string | null
+          requester_id?: string | null
+          state: string
+          user_high: string
+          user_low: string
         }
         Update: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          name?: string
+          accepted_at?: string | null
+          expires_at?: string | null
+          generation_id?: string | null
+          request_id?: string | null
+          requested_at?: string | null
+          requester_id?: string | null
           state?: string
-          updated_at?: string
+          user_high?: string
+          user_low?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "friendships_user_high_fkey"
+            columns: ["user_high"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "friendships_user_low_fkey"
+            columns: ["user_low"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_acceptances: {
         Row: {
@@ -133,95 +120,33 @@ export type Database = {
         }
         Relationships: []
       }
-      posts: {
-        Row: {
-          author_id: string
-          caption: string | null
-          captured_at: string
-          captured_at_source: string
-          captured_utc_offset_minutes: number
-          circle_id: string
-          created_at: string | null
-          id: string
-          media_byte_size: number | null
-          media_height: number | null
-          media_mime_type: string | null
-          media_path: string
-          media_width: number | null
-          status: string
-          upload_expires_at: string
-          upload_started_at: string
-        }
-        Insert: {
-          author_id: string
-          caption?: string | null
-          captured_at: string
-          captured_at_source: string
-          captured_utc_offset_minutes: number
-          circle_id: string
-          created_at?: string | null
-          id: string
-          media_byte_size?: number | null
-          media_height?: number | null
-          media_mime_type?: string | null
-          media_path: string
-          media_width?: number | null
-          status?: string
-          upload_expires_at?: string
-          upload_started_at?: string
-        }
-        Update: {
-          author_id?: string
-          caption?: string | null
-          captured_at?: string
-          captured_at_source?: string
-          captured_utc_offset_minutes?: number
-          circle_id?: string
-          created_at?: string | null
-          id?: string
-          media_byte_size?: number | null
-          media_height?: number | null
-          media_mime_type?: string | null
-          media_path?: string
-          media_width?: number | null
-          status?: string
-          upload_expires_at?: string
-          upload_started_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "posts_circle_id_fkey"
-            columns: ["circle_id"]
-            isOneToOne: false
-            referencedRelation: "circles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           avatar_path: string | null
           created_at: string
-          display_name: string | null
+          display_name: string
           id: string
-          onboarding_completed_at: string | null
+          onboarding_completed_at: string
           updated_at: string
+          username: string
         }
         Insert: {
           avatar_path?: string | null
           created_at?: string
-          display_name?: string | null
+          display_name: string
           id: string
-          onboarding_completed_at?: string | null
+          onboarding_completed_at: string
           updated_at?: string
+          username: string
         }
         Update: {
           avatar_path?: string | null
           created_at?: string
-          display_name?: string | null
+          display_name?: string
           id?: string
-          onboarding_completed_at?: string | null
+          onboarding_completed_at?: string
           updated_at?: string
+          username?: string
         }
         Relationships: []
       }
@@ -230,40 +155,34 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      claim_circle_media_cleanup_batch: {
-        Args: {
-          p_circle_id: string
-          p_lease_seconds?: number
-          p_limit?: number
-        }
+      accept_friend_request: {
+        Args: { p_command_id: string; p_other_id: string; p_request_id: string }
         Returns: {
-          job_id: string
-          lease_token: string
-          media_path: string
-          post_id: string
+          generation_id: string
+          request_id: string
+          result_state: string
         }[]
       }
-      claim_post_media_cleanup: {
-        Args: { p_lease_seconds?: number; p_post_id: string }
+      block_user: {
+        Args: { p_command_id: string; p_other_id: string }
         Returns: {
-          job_id: string
-          lease_token: string
-          media_path: string
-          post_id: string
+          generation_id: string
+          request_id: string
+          result_state: string
         }[]
       }
-      claim_post_media_cleanup_batch: {
-        Args: { p_lease_seconds?: number; p_limit?: number }
-        Returns: {
-          job_id: string
-          lease_token: string
-          media_path: string
-          post_id: string
-        }[]
-      }
-      complete_circle_cleanup: {
-        Args: { p_circle_id: string }
+      can_view_friendship: {
+        Args: { p_user_high: string; p_user_low: string }
         Returns: boolean
+      }
+      can_view_profile: { Args: { p_profile_id: string }; Returns: boolean }
+      cancel_friend_request: {
+        Args: { p_command_id: string; p_other_id: string; p_request_id: string }
+        Returns: {
+          generation_id: string
+          request_id: string
+          result_state: string
+        }[]
       }
       complete_onboarding: {
         Args: {
@@ -277,14 +196,16 @@ export type Database = {
           p_privacy_version: string
           p_terms_sha256: string
           p_terms_version: string
+          p_username: string
         }
         Returns: {
           avatar_path: string | null
           created_at: string
-          display_name: string | null
+          display_name: string
           id: string
-          onboarding_completed_at: string | null
+          onboarding_completed_at: string
           updated_at: string
+          username: string
         }
         SetofOptions: {
           from: "*"
@@ -293,176 +214,100 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      complete_post_media_cleanup: {
-        Args: { p_job_id: string; p_lease_token: string }
-        Returns: boolean
-      }
-      complete_ready_circle_cleanups: {
-        Args: { p_limit?: number }
+      get_account_control_state: {
+        Args: never
         Returns: {
-          circle_id: string
-          completed: boolean
+          account_state: string
+          display_name: string
+          email_verified: boolean
+          has_current_legal: boolean
+          is_eligible: boolean
+          onboarding_completed_at: string
+          profile_id: string
+          username: string
         }[]
       }
-      create_circle: {
-        Args: { p_name: string }
-        Returns: {
-          created_at: string
-          created_by: string | null
-          id: string
-          name: string
-          state: string
-          updated_at: string
+      is_account_active: { Args: never; Returns: boolean }
+      is_app_eligible: { Args: never; Returns: boolean }
+      list_friend_requests: {
+        Args: {
+          p_before_request_id?: string
+          p_before_requested_at?: string
+          p_limit?: number
         }
-        SetofOptions: {
-          from: "*"
-          to: "circles"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      create_circle_invite: {
-        Args: { p_circle_id: string; p_expires_at: string; p_max_uses: number }
         Returns: {
-          circle_id: string
-          expires_at: string
+          direction: string
+          display_name: string
           id: string
-          max_uses: number
-          token: string
+          request_id: string
+          requested_at: string
+          username: string
         }[]
       }
-      fail_post_media_cleanup: {
-        Args: { p_error_code: string; p_job_id: string; p_lease_token: string }
-        Returns: boolean
-      }
-      finalize_post: {
-        Args: { p_post_id: string }
-        Returns: {
-          author_id: string
-          caption: string | null
-          captured_at: string
-          captured_at_source: string
-          captured_utc_offset_minutes: number
-          circle_id: string
-          created_at: string | null
-          id: string
-          media_byte_size: number | null
-          media_height: number | null
-          media_mime_type: string | null
-          media_path: string
-          media_width: number | null
-          status: string
-          upload_expires_at: string
-          upload_started_at: string
+      list_friends: {
+        Args: {
+          p_after_id?: string
+          p_after_username?: string
+          p_limit?: number
         }
-        SetofOptions: {
-          from: "*"
-          to: "posts"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      leave_circle: { Args: { p_circle_id: string }; Returns: undefined }
-      list_circle_members: {
-        Args: { p_circle_id: string }
         Returns: {
           display_name: string
-          role: string
-          user_id: string
-        }[]
-      }
-      preview_circle_invite: {
-        Args: { p_token: string }
-        Returns: {
-          circle_id: string
-          circle_name: string
-          expires_at: string
-          is_usable: boolean
-        }[]
-      }
-      record_post_media_verification: {
-        Args: {
-          p_author_id: string
-          p_media_byte_size: number
-          p_media_height: number
-          p_media_mime_type: string
-          p_media_path: string
-          p_media_width: number
-          p_post_id: string
-        }
-        Returns: undefined
-      }
-      redeem_circle_invite: {
-        Args: { p_token: string }
-        Returns: {
-          circle_id: string
-          joined: boolean
-        }[]
-      }
-      remove_circle_member: {
-        Args: { p_circle_id: string; p_user_id: string }
-        Returns: undefined
-      }
-      request_circle_deletion: {
-        Args: { p_circle_id: string }
-        Returns: {
-          circle_id: string
-          completed: boolean
-        }[]
-      }
-      request_post_deletion: { Args: { p_post_id: string }; Returns: string }
-      reserve_post: {
-        Args: {
-          p_caption?: string
-          p_captured_at: string
-          p_captured_at_source: string
-          p_captured_utc_offset_minutes: number
-          p_circle_id: string
-          p_post_id: string
-        }
-        Returns: {
-          author_id: string
-          caption: string | null
-          captured_at: string
-          captured_at_source: string
-          captured_utc_offset_minutes: number
-          circle_id: string
-          created_at: string | null
+          generation_id: string
           id: string
-          media_byte_size: number | null
-          media_height: number | null
-          media_mime_type: string | null
-          media_path: string
-          media_width: number | null
-          status: string
-          upload_expires_at: string
-          upload_started_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "posts"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+          username: string
+        }[]
       }
-      revoke_circle_invite: {
-        Args: { p_circle_id: string; p_invite_id: string }
-        Returns: undefined
-      }
-      set_circle_member_role: {
-        Args: { p_circle_id: string; p_role: string; p_user_id: string }
+      lookup_profile_exact: {
+        Args: { p_username: string }
         Returns: {
-          circle_id: string
-          joined_at: string
-          role: string
-          user_id: string
+          display_name: string
+          generation_id: string
+          id: string
+          relationship_state: string
+          request_id: string
+          requester_id: string
+          username: string
+        }[]
+      }
+      reject_friend_request: {
+        Args: { p_command_id: string; p_other_id: string; p_request_id: string }
+        Returns: {
+          generation_id: string
+          request_id: string
+          result_state: string
+        }[]
+      }
+      send_friend_request: {
+        Args: { p_command_id: string; p_other_id: string }
+        Returns: {
+          generation_id: string
+          request_id: string
+          result_state: string
+        }[]
+      }
+      unblock_user: {
+        Args: {
+          p_block_generation_id: string
+          p_command_id: string
+          p_other_id: string
         }
-        SetofOptions: {
-          from: "*"
-          to: "circle_members"
-          isOneToOne: true
-          isSetofReturn: false
+        Returns: {
+          generation_id: string
+          request_id: string
+          result_state: string
+        }[]
+      }
+      unfriend: {
+        Args: {
+          p_command_id: string
+          p_generation_id: string
+          p_other_id: string
         }
+        Returns: {
+          generation_id: string
+          request_id: string
+          result_state: string
+        }[]
       }
     }
     Enums: {

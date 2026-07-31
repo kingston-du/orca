@@ -1,11 +1,10 @@
 export function getOnboardingRouteAccess(
-  onboardingCompletedAt: string | null,
-  hasCurrentAcceptances: boolean,
+  accountState: string,
+  isEligible: boolean,
 ) {
-  const isOnboarded = onboardingCompletedAt !== null && hasCurrentAcceptances;
-
   return {
-    canEnterOnboarding: !isOnboarded,
-    canEnterTabs: isOnboarded,
+    canEnterOnboarding: accountState === "active" && !isEligible,
+    canEnterRestricted: accountState !== "active",
+    canEnterTabs: accountState === "active" && isEligible,
   };
 }
