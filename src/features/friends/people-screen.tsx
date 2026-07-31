@@ -24,9 +24,13 @@ const requestsKey = ["friend-requests"] as const;
 
 type PeopleScreenProps = {
   onOpenMyProfile: () => void;
+  onOpenProfile: (profileId: string) => void;
 };
 
-export function PeopleScreen({ onOpenMyProfile }: PeopleScreenProps) {
+export function PeopleScreen({
+  onOpenMyProfile,
+  onOpenProfile,
+}: PeopleScreenProps) {
   const queryClient = useQueryClient();
   const friends = useQuery({ queryKey: friendsKey, queryFn: listFriends });
   const requests = useQuery({
@@ -227,6 +231,7 @@ export function PeopleScreen({ onOpenMyProfile }: PeopleScreenProps) {
                   expectedId: friend.generation_id,
                 })
               }
+              onOpen={() => onOpenProfile(friend.id)}
               username={friend.username}
             />
           ))}
@@ -266,6 +271,7 @@ function PersonRow({
   disabled,
   displayName,
   onAction,
+  onOpen,
   onSecondaryAction,
   secondaryAction,
   username,
@@ -274,16 +280,26 @@ function PersonRow({
   disabled: boolean;
   displayName: string;
   onAction: () => void;
+  onOpen?: () => void;
   onSecondaryAction?: () => void;
   secondaryAction?: string;
   username: string;
 }) {
+  // Only rows that lead somewhere become a button; a lookup result or pending
+  // request row stays plain so VoiceOver does not announce a dead control.
+  const Identity = onOpen ? Pressable : View;
+
   return (
     <View style={styles.personRow}>
-      <View style={styles.flex}>
+      <Identity
+        accessibilityHint={onOpen ? "Opens this profile" : undefined}
+        accessibilityRole={onOpen ? "button" : undefined}
+        onPress={onOpen}
+        style={styles.flex}
+      >
         <Text style={styles.cardTitle}>{displayName}</Text>
         <Text style={styles.body}>@{username}</Text>
-      </View>
+      </Identity>
       {secondaryAction ? (
         <Pressable
           accessibilityRole="button"

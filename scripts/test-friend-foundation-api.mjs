@@ -154,6 +154,53 @@ try {
     [alice.id, bob.id].sort(),
   );
 
+  // Checkpoint 2A: carol befriends bob only, making her alice's
+  // friend-of-friend through exactly one mutual friend.
+  const carol = await createSignedInUser("carol");
+  await carol.client.rpc("complete_onboarding", {
+    ...legalArgs,
+    p_display_name: "Carol",
+    p_username: `c_${suffix.replaceAll("-", "").slice(0, 12)}`,
+  });
+  const carolToBob = await carol.client.rpc("send_friend_request", {
+    p_command_id: randomUUID(),
+    p_other_id: bob.id,
+  });
+  assert.ifError(carolToBob.error);
+  const bobAcceptsCarol = await bob.client.rpc("accept_friend_request", {
+    p_command_id: randomUUID(),
+    p_other_id: carol.id,
+    p_request_id: carolToBob.data[0].request_id,
+  });
+  assert.ifError(bobAcceptsCarol.error);
+
+  const carolSummary = await alice.client.rpc("get_profile_summary", {
+    p_profile_id: carol.id,
+  });
+  assert.ifError(carolSummary.error);
+  assert.equal(carolSummary.data[0].access_tier, "friend_of_friend");
+  assert.equal(carolSummary.data[0].mutual_friend_count, 1);
+
+  const bobFriends = await alice.client.rpc("list_friend_friends", {
+    p_friend_id: bob.id,
+  });
+  assert.ifError(bobFriends.error);
+  assert.deepEqual(
+    bobFriends.data.map((row) => row.id),
+    [carol.id],
+    "a friend's list excludes the viewer",
+  );
+
+  // The graph must not be transitively walkable: alice is not carol's friend.
+  const deniedList = await alice.client.rpc("list_friend_friends", {
+    p_friend_id: carol.id,
+  });
+  assert.equal(deniedList.error?.code, "42501");
+
+  const ownBlocks = await alice.client.rpc("list_blocked_profiles");
+  assert.ifError(ownBlocks.error);
+  assert.equal(ownBlocks.data.length, 0);
+
   const forged = await alice.client.from("friendships").insert({
     state: "accepted",
     user_high: bob.id,

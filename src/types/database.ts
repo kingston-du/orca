@@ -227,8 +227,48 @@ export type Database = {
           username: string
         }[]
       }
+      get_profile_summary: {
+        Args: { p_profile_id: string }
+        Returns: {
+          access_tier: string
+          display_name: string
+          id: string
+          mutual_friend_count: number
+          relationship_state: string
+          username: string
+        }[]
+      }
       is_account_active: { Args: never; Returns: boolean }
       is_app_eligible: { Args: never; Returns: boolean }
+      list_blocked_profiles: {
+        Args: {
+          p_after_blocked_id?: string
+          p_after_created_at?: string
+          p_limit?: number
+        }
+        Returns: {
+          created_at: string
+          display_name: string
+          generation_id: string
+          id: string
+          username: string
+        }[]
+      }
+      list_friend_friends: {
+        Args: {
+          p_after_id?: string
+          p_after_username?: string
+          p_friend_id: string
+          p_limit?: number
+        }
+        Returns: {
+          display_name: string
+          id: string
+          mutual_friend_count: number
+          relationship_state: string
+          username: string
+        }[]
+      }
       list_friend_requests: {
         Args: {
           p_before_request_id?: string

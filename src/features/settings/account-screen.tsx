@@ -13,12 +13,14 @@ type AccountScreenProps = {
   displayName: string;
   email: string;
   username: string;
+  onOpenBlockedUsers: () => void;
   onSignOut: () => Promise<{ message: string } | null>;
 };
 
 export function AccountScreen({
   displayName,
   email,
+  onOpenBlockedUsers,
   onSignOut,
   username,
 }: AccountScreenProps) {
@@ -70,6 +72,21 @@ export function AccountScreen({
             <Text style={styles.label}>Email</Text>
             <Text style={styles.value}>{email}</Text>
           </View>
+        </View>
+
+        <View style={styles.signOutSection}>
+          <Text style={styles.sectionTitle}>Privacy &amp; Safety</Text>
+          <Pressable
+            accessibilityHint="Review and lift accounts you have blocked"
+            accessibilityRole="button"
+            onPress={onOpenBlockedUsers}
+            style={styles.navRow}
+          >
+            <Text style={styles.value}>Blocked Users</Text>
+            <Text accessibilityElementsHidden style={styles.chevron}>
+              ›
+            </Text>
+          </Pressable>
         </View>
 
         <View style={styles.signOutSection}>
@@ -167,6 +184,19 @@ const styles = StyleSheet.create({
   },
   signOutButtonPressed: {
     backgroundColor: "#FFF5F5",
+  },
+  navRow: {
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 52,
+    paddingHorizontal: 16,
+  },
+  chevron: {
+    color: "#52606D",
+    fontSize: 28,
   },
   signOutSection: {
     gap: 14,

@@ -12,7 +12,9 @@ select has_table('public', 'profiles', 'profiles exist');
 select has_table('public', 'legal_acceptances', 'legal acceptances exist');
 select ok((select relrowsecurity from pg_class where oid = 'public.profiles'::regclass), 'profiles uses RLS');
 select ok((select relrowsecurity from pg_class where oid = 'public.legal_acceptances'::regclass), 'legal acceptances use RLS');
-select policies_are('public', 'profiles', array['profiles_select_current_friends', 'profiles_select_self']::name[], 'profiles have only friend-first read policies');
+-- Checkpoint 2A dropped the redundant self policy; can_view_profile already
+-- returns true for the caller's own row.
+select policies_are('public', 'profiles', array['profiles_select_current_friends']::name[], 'profiles have only friend-first read policies');
 select ok(not has_schema_privilege('authenticated', 'private', 'usage'), 'authenticated cannot resolve private helpers');
 select ok(not has_table_privilege('anon', 'public.profiles', 'select,insert,update,delete'), 'anon has no profile access');
 select ok(has_table_privilege('authenticated', 'public.profiles', 'select') and not has_table_privilege('authenticated', 'public.profiles', 'insert,update,delete'), 'authenticated receives profile read only');

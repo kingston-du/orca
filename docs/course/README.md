@@ -4,7 +4,7 @@ These lessons explain verified Orca implementation checkpoints through their men
 
 ## Redesign status
 
-Orca's friend-first foundation is implemented on `codex/friend-first-rebaseline`, and Phase 1 is complete. The canonical schema, Home/Camera/People shell, username onboarding, restricted controls, privacy shield, and exact friendship core replace the Circle-era implementation, and that same canonical history now runs on the hosted-development project. Hosted six-digit OTP email delivery and the physical-iPhone smoke remain open gates.
+Orca's friend-first foundation is implemented on `codex/friend-first-rebaseline`, and Phase 1 is complete. The canonical schema, Home/Camera/People shell, username onboarding, restricted controls, privacy shield, and exact friendship core replace the Circle-era implementation, and that same canonical history now runs on the hosted-development project. Checkpoint 2A adds friend-of-friend browsing, tiered profile summaries, and the blocked-user surface. The physical-iPhone smoke remains an open gate.
 
 Only the retained foundations below are current course material. Obsolete and superseded work is separated in the [historical archive](./archive/README.md).
 
@@ -16,12 +16,13 @@ Only the retained foundations below are current course material. Obsolete and su
 - Lesson 11 — [Embedded camera and bounded image normalization](./11-embedded-camera-and-image-normalization.md)
 - Lesson 16 — [Friend-first security, usernames, and friendship state](./16-friend-first-foundation-rebaseline.md)
 - Lesson 17 — [Promoting a canonical schema to a hosted environment](./17-hosted-rebaseline-and-environment-promotion.md)
+- Lesson 18 — [Graph boundaries and access tiers](./18-graph-boundaries-and-access-tiers.md)
 
 Lesson 11's native camera lifecycle and normalization boundary remain useful. Its references to Circle publishing and fallback picker capture time describe the pre-redesign downstream contract; the friend-first implementation must follow `PROJECT.md` instead.
 
 ## Next lesson
 
-Lesson 18 is created only after the separately approved Phase 2 people/profile/invite/avatar work is implemented and verified. Course notes never describe speculative code as though it exists.
+Lesson 19 is created only after Checkpoint 2B's personal invites are implemented and verified. Course notes never describe speculative code as though it exists.
 
 ## Course progression and checkpoint contract
 

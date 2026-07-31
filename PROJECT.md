@@ -2,7 +2,7 @@
 
 Status date: 2026-07-31
 
-Implementation state: Phase 1 complete — Checkpoint 1A implemented locally and Checkpoint 1B promoted in place to the reused hosted-development project; hosted six-digit OTP email delivery is blocked pending a founder SMTP/plan decision
+Implementation state: Phase 1 complete and Checkpoint 2A implemented; local and hosted run the same three-migration history
 
 Product target: production-quality private iOS beta for approximately 100 users
 
@@ -1011,7 +1011,18 @@ Every checkpoint uses the same evidence record: outcome; dependency reason; exac
 - **Deferred:** the physical development-client smoke — app-switcher shield, no old-user frame on foreground, friend-first camera permission/readiness copy, and the real signup/onboarding/friend regression on a rebuilt client — still requires a physical iPhone.
 - **Course/DoD/Git:** Lesson 17 records the rebaseline, the destroyed contents, and the Auth-email gate.
 
-### Phase 2 — People, profile, invites, and privacy surfaces
+Phase 2 is implemented as three coherent checkpoints so that every approval-gated hosted resource lands together in 2C: **2A** graph and profile surfaces (no new infrastructure), **2B** personal invites (no new infrastructure), **2C** avatars, the shared reserved-object uploader, and the first worker.
+
+### Checkpoint 2A — Graph and profile surfaces (**implemented; local and hosted gates green**)
+
+- **Outcome:** an accepted friend's block-filtered friend list, server-derived profile access tiers (`self`/`friend`/`friend_of_friend`/`stranger`), mutual-friend context, and the Settings → Privacy & Safety → Blocked Users surface with generation-checked unblock. 1A's lookup/request lifecycle is extended, not reimplemented.
+- **Scope/files:** `20260731210000_friend_graph_surfaces.sql`; `list_friend_friends`, `get_profile_summary`, `list_blocked_profiles` and the `private.mutual_friend_count`/`private.relationship_state` helpers; friend-profile and blocked-users screens with their `(app)/profile/[id]` and `(app)/settings/blocked` routes; People friend rows open profiles; extended `friends-api`.
+- **Advisor deviations fixed:** dropped the redundant `profiles_select_self` permissive policy, and added `legal_acceptances_document_idx` covering the composite legal-document foreign key.
+- **Security/failure:** friend lists require an accepted friendship with the list owner, so the graph is not transitively walkable; every denial raises one generic `42501`; lists and mutual counts filter on the _viewer's_ blocks and eligibility so hidden identities cannot leak numerically; stranger tier reports no graph context; a blocked account that becomes ineligible keeps a liftable row with its identity withheld; unblock carries the observed generation.
+- **Evidence:** clean three-migration replay; warning-free `db lint` locally and `--linked`; 103 pgTAP assertions; 20 Jest suites / 75 tests; real three-user Data API suite covering friend-of-friend tiers and the denied non-friend list, passed locally **and against hosted**; generated-type agreement; TypeScript, lint, format, legal hashes, native manifest, Expo Doctor 20/20.
+- **Course/Git:** Lesson 18. Migration promoted to hosted development; no bucket, Vault secret, Cron job, or Edge Function created.
+
+### Phase 2 — People, profile, invites, and privacy surfaces (**2A complete; 2B and 2C planned**)
 
 - **Outcome:** complete the 1A friend core with avatar and full My Profile identity/settings entry, accepted friend's block-filtered friend list/FoF profiles, personal invite creation/intake, and blocked-user/profile/settings surfaces; 1A's exact lookup/request lifecycle is extended, not reimplemented. Diary UI waits for real Moment rows in 5B.
 - **Why/dependencies:** Moments need recipients/tags and block predicates first; depends on 1B.

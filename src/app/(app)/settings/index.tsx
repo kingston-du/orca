@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
@@ -25,6 +26,7 @@ export default function SettingsRoute() {
     <AccountScreen
       displayName={state.data.display_name ?? "Orca member"}
       email={user.email ?? "Email unavailable"}
+      onOpenBlockedUsers={() => router.push("/settings/blocked")}
       onSignOut={signOut}
       username={state.data.username ?? "unavailable"}
     />
