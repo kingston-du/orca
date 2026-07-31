@@ -230,6 +230,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_post_media_cleanup: {
+        Args: { p_lease_seconds?: number; p_post_id: string }
+        Returns: {
+          job_id: string
+          lease_token: string
+          media_path: string
+          post_id: string
+        }[]
+      }
+      claim_post_media_cleanup_batch: {
+        Args: { p_lease_seconds?: number; p_limit?: number }
+        Returns: {
+          job_id: string
+          lease_token: string
+          media_path: string
+          post_id: string
+        }[]
+      }
       complete_onboarding: {
         Args: {
           p_adult_eligible: boolean
@@ -258,6 +276,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      complete_post_media_cleanup: {
+        Args: { p_job_id: string; p_lease_token: string }
+        Returns: boolean
+      }
       create_circle: {
         Args: { p_name: string }
         Returns: {
@@ -284,6 +306,10 @@ export type Database = {
           max_uses: number
           token: string
         }[]
+      }
+      fail_post_media_cleanup: {
+        Args: { p_error_code: string; p_job_id: string; p_lease_token: string }
+        Returns: boolean
       }
       finalize_post: {
         Args: { p_post_id: string }
@@ -360,6 +386,7 @@ export type Database = {
           completed: boolean
         }[]
       }
+      request_post_deletion: { Args: { p_post_id: string }; Returns: string }
       reserve_post: {
         Args: {
           p_caption?: string

@@ -66,6 +66,7 @@
     "db:test:storage": "node scripts/test-post-media-storage.mjs",
     "functions:test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test supabase/functions/tests/*.test.mjs",
     "functions:test:integration": "node scripts/test-finalize-post.mjs",
+    "functions:test:cleanup": "node scripts/test-post-media-cleanup.mjs",
     "db:types": "supabase gen types --local --schema public > src/types/database.ts",
     "db:types:check": "supabase gen types --local --schema public | diff -u src/types/database.ts -"
   },

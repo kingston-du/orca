@@ -92,5 +92,8 @@ jobs:
       - name: Run trusted finalization HTTP integration tests
         run: npm run functions:test:integration
 
+      - name: Run trusted media cleanup HTTP integration tests
+        run: npm run functions:test:cleanup
+
       - name: Check generated database types
         run: npm run db:types:check
