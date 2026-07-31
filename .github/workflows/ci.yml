@@ -83,5 +83,8 @@ jobs:
       - name: Run pgTAP tests
         run: npm run db:test
 
+      - name: Run private Storage API integration tests
+        run: npm run db:test:storage
+
       - name: Check generated database types
         run: npm run db:types:check

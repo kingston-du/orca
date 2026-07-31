@@ -15,6 +15,7 @@ These lessons are self-contained tutorials for each completed engineering checkp
 9. [Closing Phase 3: safe links and overlapping Circles](./09-phase-3-acceptance.md)
 10. [The native photo-selection boundary](./10-native-photo-selection.md)
 11. [Embedded camera and bounded image normalization](./11-embedded-camera-and-image-normalization.md)
+12. [Pending posts and private-media authorization](./12-pending-posts-and-private-media.md)
 
 ## How to use a lesson
 

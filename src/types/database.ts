@@ -133,6 +133,71 @@ export type Database = {
         }
         Relationships: []
       }
+      posts: {
+        Row: {
+          author_id: string
+          caption: string | null
+          captured_at: string
+          captured_at_source: string
+          captured_utc_offset_minutes: number
+          circle_id: string
+          created_at: string | null
+          id: string
+          media_byte_size: number | null
+          media_height: number | null
+          media_mime_type: string | null
+          media_path: string
+          media_width: number | null
+          status: string
+          upload_expires_at: string
+          upload_started_at: string
+        }
+        Insert: {
+          author_id: string
+          caption?: string | null
+          captured_at: string
+          captured_at_source: string
+          captured_utc_offset_minutes: number
+          circle_id: string
+          created_at?: string | null
+          id: string
+          media_byte_size?: number | null
+          media_height?: number | null
+          media_mime_type?: string | null
+          media_path: string
+          media_width?: number | null
+          status?: string
+          upload_expires_at?: string
+          upload_started_at?: string
+        }
+        Update: {
+          author_id?: string
+          caption?: string | null
+          captured_at?: string
+          captured_at_source?: string
+          captured_utc_offset_minutes?: number
+          circle_id?: string
+          created_at?: string | null
+          id?: string
+          media_byte_size?: number | null
+          media_height?: number | null
+          media_mime_type?: string | null
+          media_path?: string
+          media_width?: number | null
+          status?: string
+          upload_expires_at?: string
+          upload_started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "posts_circle_id_fkey"
+            columns: ["circle_id"]
+            isOneToOne: false
+            referencedRelation: "circles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_path: string | null
@@ -255,6 +320,40 @@ export type Database = {
           circle_id: string
           completed: boolean
         }[]
+      }
+      reserve_post: {
+        Args: {
+          p_caption?: string
+          p_captured_at: string
+          p_captured_at_source: string
+          p_captured_utc_offset_minutes: number
+          p_circle_id: string
+          p_post_id: string
+        }
+        Returns: {
+          author_id: string
+          caption: string | null
+          captured_at: string
+          captured_at_source: string
+          captured_utc_offset_minutes: number
+          circle_id: string
+          created_at: string | null
+          id: string
+          media_byte_size: number | null
+          media_height: number | null
+          media_mime_type: string | null
+          media_path: string
+          media_width: number | null
+          status: string
+          upload_expires_at: string
+          upload_started_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "posts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       revoke_circle_invite: {
         Args: { p_circle_id: string; p_invite_id: string }
