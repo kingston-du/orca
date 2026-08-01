@@ -2,7 +2,7 @@ begin;
 set local search_path = public, extensions;
 set local role postgres;
 create extension if not exists pgtap with schema extensions;
-select plan(94);
+select plan(95);
 
 -- ---------------------------------------------------------------------------
 -- Shape, privileges, and the bucket
@@ -39,6 +39,16 @@ select is(
      and cmd <> 'SELECT'),
   0::bigint,
   'the Moment tables carry read policies only'
+);
+
+-- One permissive policy per table, not several OR-ed by the planner: the
+-- disjunction lives inside the policy where it can be read as one rule.
+select is(
+  (select count(*) from pg_policies
+   where schemaname = 'public'
+     and tablename in ('moments', 'moment_recipients', 'moment_tags')),
+  3::bigint,
+  'each Moment table states its read rule in exactly one policy'
 );
 
 select ok(

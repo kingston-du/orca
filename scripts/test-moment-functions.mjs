@@ -52,6 +52,7 @@ const admin = createClient(apiUrl, serviceKey, {
 const password = `Orca-${randomUUID()}-9a!`;
 const suffix = randomUUID();
 const users = [];
+let cleanupFailures = [];
 
 const legalArgs = {
   p_adult_eligible: true,
@@ -311,9 +312,47 @@ try {
   const maintenance = await reconcile("maintenance");
   assert.equal(maintenance.status, 200, "the daily maintenance mode runs");
 
+  // `moments.author_id` is `on delete restrict`, so an account that authored a
+  // published Moment cannot simply be deleted — dismantling authored content
+  // first is Phase 9's job, and this suite has to do the same by hand or it
+  // leaves a real account behind on every hosted run.
+  const removed = await alice.client.rpc("delete_moment", {
+    p_command_id: randomUUID(),
+    p_moment_id: momentId,
+  });
+  assert.ifError(removed.error);
+
+  const finalDrain = await reconcile();
+  assert.ok(
+    [200, 503].includes(finalDrain.status),
+    `the worker responded with ${finalDrain.status}`,
+  );
+
+  const remaining = await alice.client
+    .from("moments")
+    .select("id")
+    .eq("id", momentId);
+  assert.ifError(remaining.error);
+  assert.equal(
+    remaining.data.length,
+    0,
+    "the published Moment is gone once its bytes are proven absent",
+  );
+
   console.log(
     `finalize-moment and reconcile-operations orchestration passed against the ${label} environment.`,
   );
 } finally {
-  await Promise.all(users.map((id) => admin.auth.admin.deleteUser(id)));
+  const results = await Promise.all(
+    users.map((id) => admin.auth.admin.deleteUser(id)),
+  );
+  cleanupFailures = results.filter((result) => result.error);
 }
+
+// Reached only when the suite itself passed, so a leak fails loudly here
+// instead of quietly accumulating accounts in a shared environment.
+assert.equal(
+  cleanupFailures.length,
+  0,
+  "every test account was deleted; a failure here means authored content survived",
+);

@@ -294,6 +294,44 @@ The photo, caption, and tags survive; only the identity changes.
 
 `scripts/test-moment-functions.mjs` drives `finalize-moment` over HTTP: real bytes verified and published, a replay returning the same canonical outcome, a foreign caller getting 404, mismatched bytes rejected with 422, a refused audience returning `needs_review` as a _200 with an unsuccessful outcome_, and the worker draining both released objects while the published Moment's bytes remain untouched.
 
+## What promotion taught that local testing could not
+
+Phase 4 was promoted to hosted development after its local gates were green, and the hosted environment immediately found two things a clean local replay never could.
+
+**The performance advisor flagged duplicate permissive policies.** `moments` and `moment_recipients` each shipped with two permissive `SELECT` policies — one for the author, one for the viewer. PostgreSQL has to evaluate both and OR them on every row. Locally this is invisible; the hosted advisor names it. Corrective migration `20260801180000` folds each pair into one policy, which is also easier to read as a single statement of who may see a row:
+
+```sql
+create policy moments_select_authorized
+on public.moments for select to authenticated
+using (
+    (
+        author_id = (select auth.uid())
+        and (select public.is_app_eligible())
+    )
+    or (select public.can_view_moment(id))
+);
+```
+
+Note the shape of the fix: `20260801120000` was already applied, so it was **not amended**. Applied history is immutable; corrections are new migrations. That rule is what makes a migration list a reliable description of a live database.
+
+**The test suite leaked a real account.** `test-moment-functions.mjs` published a Moment and never deleted it. Its cleanup called `deleteUser` and ignored the result — and `moments.author_id` is `on delete restrict`, so deleting an account that authored a published Moment _fails_. Locally, `db reset` hides this completely. On hosted, one account and its photo survived every run.
+
+The restriction was working correctly; the test was wrong. Dismantling authored content in the right order is Phase 9's account-deletion job, and a suite that publishes has to do the same by hand. Both Moment suites now delete what they publish and assert the cleanup succeeded:
+
+```js
+// Reached only when the suite itself passed, so a leak fails loudly here
+// instead of quietly accumulating accounts in a shared environment.
+assert.equal(
+  cleanupFailures.length,
+  0,
+  "every test account was deleted; a failure here means authored content survived",
+);
+```
+
+The general lesson: a test that ignores its own cleanup result is not a passing test, it is a test that has stopped looking. `assert.ifError` on the work and nothing on the teardown is a very easy way to leak state into a shared environment for months.
+
+**The one thing promotion confirmed that mattered most:** the hosted Cron worker was observed completing a real Moment deletion end to end — the object left Storage, and only then was the row removed. That is the proof-before-forgetting ordering running on real infrastructure, on a schedule, without anyone driving it.
+
 ## Debugging and review guidance
 
 - **"My publish returns `needs_review` and I do not know why."** `get_moment_upload_status` returns `error_code`; it is one of `CLASSIFICATION_CHANGED`, `AUDIENCE_CHANGED`, or `NO_RECIPIENTS`. The first means the photo aged out; the second means a recipient or tag is no longer valid; the third means All Friends resolved to nobody.

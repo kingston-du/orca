@@ -46,6 +46,7 @@ const admin = createClient(apiUrl, serviceKey, {
 const password = `Orca-${randomUUID()}-9a!`;
 const suffix = randomUUID();
 const users = [];
+let cleanupFailures = [];
 
 const legalArgs = {
   p_adult_eligible: true,
@@ -623,5 +624,17 @@ try {
     `Real Moment publication, Storage, and deletion checks passed against the ${label} environment.`,
   );
 } finally {
-  await Promise.all(users.map((id) => admin.auth.admin.deleteUser(id)));
+  const results = await Promise.all(
+    users.map((id) => admin.auth.admin.deleteUser(id)),
+  );
+  cleanupFailures = results.filter((result) => result.error);
 }
+
+// `moments.author_id` is `on delete restrict`, so an account that still owns a
+// published Moment cannot be deleted. Reached only when the suite itself
+// passed, so a leak fails loudly here instead of quietly accumulating accounts.
+assert.equal(
+  cleanupFailures.length,
+  0,
+  "every test account was deleted; a failure here means authored content survived",
+);
