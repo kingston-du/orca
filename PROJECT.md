@@ -2,7 +2,7 @@
 
 Status date: 2026-07-31
 
-Implementation state: Phase 1 complete, Phase 2 complete locally; hosted runs the four-migration 2B history while Checkpoint 2C's fifth migration, bucket, worker, Cron, and Vault await promotion approval
+Implementation state: Phases 1 and 2 complete and promoted; local and hosted run the same six-migration history, with the `avatars` bucket, both Edge Functions, both Vault secrets, and both Cron schedules live on hosted development
 
 Product target: production-quality private iOS beta for approximately 100 users
 
@@ -21,9 +21,10 @@ The Circle-era repository was audited at commit `c1ee45d0afd1b15810895543378d3bc
 - The primary app shell is Home, Camera, People. My Profile owns the Settings entry; incomplete, stale-legal, suspended, and deleting accounts are routed to their permitted control surfaces. People supports exact lookup plus request, accept, reject, cancel, and unfriend.
 - Local Supabase, handwritten migrations, generated types, 73 pgTAP assertions, a real two-user Auth/Data API test, native-manifest assertions, app tests, and CI exist. The current verification record is in Lesson 16.
 - The hosted-development project was rebaselined in place to the canonical two-migration history. Its promoted history matches local exactly, its Data API exposes `public` only, `graphql_public` is no longer reachable, remote schema lint is clean, obsolete Circle relations return 404, and the same real two-user Auth/Data API suite passes against the hosted endpoint. The app's `.env` already targets this project with a publishable key. The verification record is in Lesson 17.
-- Checkpoint 2C is implemented locally: the private `avatars` bucket, versioned avatar reservation/exact upload/trusted verification/finalize, the generic `private.media_cleanup_jobs` outbox with leases and dead letters, `private.media_verifications`, the shared Expo FileSystem reserved-object uploader, the `finalize-avatar` and `reconcile-operations` Edge Functions, Edit Profile/avatar UI, and avatar exposure on the self/friend/friend-of-friend profile projections. Its Cron and Vault wiring is versioned in the migration but stays inert until the promotion secrets exist. The verification record is in Lesson 20.
+- Checkpoint 2C is implemented and promoted: the private `avatars` bucket, versioned avatar reservation/exact upload/trusted verification/finalize, the generic `private.media_cleanup_jobs` outbox with leases and dead letters, `private.media_verifications`, the shared Expo FileSystem reserved-object uploader, the `finalize-avatar` and `reconcile-operations` Edge Functions, Edit Profile/avatar UI, and avatar exposure on the self/friend/friend-of-friend profile projections. The verification record is in Lesson 20.
+- Hosted development now runs the full media stack: the `avatars` bucket with its three `storage.objects` policies, both Edge Functions ACTIVE with `finalize-avatar` JWT-verified and `reconcile-operations` secret-only, the `orca_functions_base_url` and `orca_worker_secret` Vault secrets, `pg_cron` and `pg_net`, and the `orca-reconcile-operations` (every minute) and `orca-daily-maintenance` (03:17 UTC) schedules. `cron.job_run_details` shows successful runs and `net._http_response` shows HTTP 200 from the worker. All three real suites pass against hosted.
 
-These checks validate Checkpoints 1A, 1B, 2A, 2B, and 2C's local scope. Moments, media publication, feeds, safety surfaces, and release infrastructure remain planned.
+These checks validate Checkpoints 1A, 1B, 2A, 2B, and 2C. Moments, media publication, feeds, safety surfaces, and release infrastructure remain planned.
 
 ### Preserved foundations requiring later extension
 
@@ -62,7 +63,7 @@ Circles, Circle invitations, Circle administration/deletion, the Memories tab, a
 
 ## 2. Redesign status
 
-Checkpoint 1A was explicitly approved and implemented locally. Checkpoint 1B was explicitly approved with a founder-directed change of method — reuse the existing hosted-development project and waive rollback — and is implemented apart from the Auth-email gate recorded in Section 1. Checkpoints 2A and 2B are implemented and promoted. Checkpoint 2C was explicitly approved for local implementation only, with an explicit instruction to stop before creating hosted buckets, Vault secrets, or Cron schedules and before deploying Edge Functions; that boundary was observed. Later checkpoints remain planned and require the approvals stated in their phase and in Section 31.
+Checkpoint 1A was explicitly approved and implemented locally. Checkpoint 1B was explicitly approved with a founder-directed change of method — reuse the existing hosted-development project and waive rollback — and is implemented apart from the Auth-email gate recorded in Section 1. Checkpoints 2A and 2B are implemented and promoted. Checkpoint 2C was implemented under an approval that stopped before every hosted resource, then promoted under a separate explicit approval; promotion exposed and fixed a real dispatcher defect recorded below. Later checkpoints remain planned and require the approvals stated in their phase and in Section 31.
 
 Truth rules:
 
@@ -966,6 +967,15 @@ Expo gets only publishable Supabase config. Service-role, push, moderation, back
 
 Privacy review explicitly covers graph visibility, exact lookup, EXIF stripping, approximate notification behavior, cache/backups, report evidence, username quarantine, account deletion, provider subprocessors, and the fact that recipients can save/screenshot media.
 
+### Dependency advisories
+
+Advisories are triaged by exposure, not by count. A transitive advisory whose vulnerable code path Orca never reaches is recorded here with its evidence rather than "fixed" by a change that carries more risk than the advisory does. `npm audit fix --force` is never used: it proposes semver-major downgrades of the pinned Expo toolchain.
+
+Current standing decisions, to be re-reviewed before external beta:
+
+- **`brace-expansion` <1.1.17 (high, DoS via unbounded expansion) — fixed.** Patch-level within the same major, applied as the pinned `overrides` entry `"brace-expansion@1": "1.1.17"`. The override is scoped by major so the unaffected v5 copy elsewhere in the tree is untouched.
+- **`uuid` <11.1.1 (moderate, missing buffer bounds check in v3/v5/v6 when `buf` is supplied) — accepted, not exposed.** The only consumer is `xcode@3.0.1`, reached solely through `expo-splash-screen → @expo/config-plugins`. `xcode` calls `uuid.v4()` and nothing else, so the affected `v3`/`v5`/`v6` functions are never invoked, let alone with a `buf` argument. That chain also runs only during `prebuild`/native builds and is absent from the shipped bundle, so no user input reaches it. The advertised remedy is uuid 7 → 11, four majors into a build tool for a code path that does not execute; npm's own suggested fix is a downgrade of Expo 57 → 46. Revisit when `@expo/config-plugins` ships a patched `xcode`.
+
 ## 26. App Store and beta requirements
 
 Before any external tester:
@@ -1036,7 +1046,7 @@ Phase 2 is implemented as three coherent checkpoints so that every approval-gate
 - **Deferred:** physical-iPhone custom-scheme intake, fragment preservation through the real native path, and process-death recovery. Production HTTPS/AASA association remains 9D's.
 - **Course/Git:** Lesson 19. Migration promoted to hosted development; no bucket, Vault secret, Cron job, or Edge Function created.
 
-### Checkpoint 2C — Avatars, the shared reserved-object uploader, and the first worker (**implemented; local gates green; every hosted resource deferred to its own approval**)
+### Checkpoint 2C — Avatars, the shared reserved-object uploader, and the first worker (**implemented and promoted; local and hosted gates green**)
 
 - **Outcome:** the reserve → exact upload → trusted verify → finalize → outbox → proven-absence pattern exists end to end for avatars, and the uploader, cleanup outbox, and worker are the generic boundaries Phase 4 reuses for Moment media.
 - **Scope/files:** `20260731230000_avatars_and_media_reconciliation.sql`; the private `avatars` bucket; `private.avatar_publication_requests`, `private.media_verifications`, `private.media_cleanup_jobs`; `reserve_avatar_upload`, `get_avatar_upload_status`, `cancel_avatar_upload`, `remove_avatar`, `can_upload_reserved_avatar`, `can_read_avatar`; service-only `begin_avatar_verification`, `reject_avatar_upload`, `finalize_avatar_upload`, `claim_media_cleanup_batch`, `complete_media_cleanup`, `fail_media_cleanup`, `get_media_operations_metrics`, `run_media_maintenance`; three `storage.objects` policies; `private.dispatch_reconcile_operations` and `private.ensure_reconcile_schedule`; `supabase/functions/{finalize-avatar,reconcile-operations,_shared/verify-avatar.ts,_shared/media-cleanup.ts}`; `src/lib/reserved-object-upload.ts`; `src/features/profiles/*`; `src/components/profile-avatar.tsx`; the `(app)/settings/profile` route with Settings and My Profile entries; avatar exposure added to `get_account_control_state`, `list_friends`, `list_friend_friends`, and `get_profile_summary`.
@@ -1044,10 +1054,12 @@ Phase 2 is implemented as three coherent checkpoints so that every approval-gate
 - **Security/failure:** the server owns the version UUID and path; one active reservation is a partial unique index, not application logic; an exact retry returns the same reservation while different bytes raise `23505`; the finalizer measures structure, exact 512×512 dimensions, byte count, and SHA-256 from the downloaded bytes and never trusts the declared content type; a published request replays idempotently; `x-upsert: false` plus no client `UPDATE`/`DELETE` policy makes a reserved path immutable; only a profile's _current_ `avatar_path` is signable, so a superseded version is unreadable the instant the pointer moves; issuance is self/friend/one-hop-FoF with either-direction block checks and the stranger tier receives no path at all; cleanup uses `FOR UPDATE SKIP LOCKED`, 90-second leases, jittered exponential backoff, a dead letter at ten attempts, and refuses completion until `storage.objects` proves absence; the worker never SQL-deletes Storage metadata and logs only counts, ages, and error codes.
 - **Cron/Vault:** versioned in the migration but inert — `ensure_reconcile_schedule()` returns false until both Vault secrets exist, so a clean local reset and CI make no network call and no credential is committed. Verified against the live edge runtime: `withSupabase({ auth: "secret" })` reads the secret key from the `apikey` header, not `Authorization`.
 - **Evidence:** clean five-migration replay; warning-free `db lint` on `public` and `private`; 226 pgTAP assertions; 26 Jest suites / 136 tests; 19 Node function tests; real local Data API/Storage suite (`scripts/test-avatar-media-api.mjs`) and real Edge Function orchestration suite (`scripts/test-avatar-functions.mjs`) covering foreign/unreserved-path denial, duplicate conflict, `x-upsert` refusal, unsignable unverified object, tiered signing, block revocation, verify/publish/replay/reject, and worker deletion with absence proof; no generated-type drift; TypeScript, zero-warning lint, formatting, legal hashes, native manifest, Expo dependency agreement, Expo Doctor 20/20.
-- **Deferred:** hosted promotion of the fifth migration, the `avatars` bucket, both Vault secrets, both Cron schedules, and both Edge Functions; physical-iPhone acceptance of the native upload task's background transfer, cancel, and process-death behaviour; the two/three-account simulator pass and VoiceOver/Dynamic Type audit on a rebuilt client.
-- **Course/Git:** Lesson 20. No hosted resource was created or deployed.
+- **Promotion defect found and fixed (`20260801000000`):** the dispatcher called `net.http_post` while only `pg_cron` was provisioned. `pg_net` is pre-installed on the local stack and was absent on hosted, so the minute schedule failed every run with `3F000 schema "net" does not exist`. Local gates could not have caught it, because locally the extension was present by accident of the environment. The fix declares the dispatch path's extensions in one list that `ensure_reconcile_schedule` provisions, references both `cron` and `net` dynamically so lint is honest in an environment that has neither, replaces the opaque error with an actionable one, and makes `ensure_reconcile_schedule` perform a real dispatch before returning true — so success now means the wiring works rather than that rows were written. pgTAP asserts the declared extension list is non-empty, covers `pg_net`, and is satisfiable in the current environment.
+- **Hosted evidence:** promoted history equals local across six migrations; `db lint --linked` clean on `public` and `private`; the `avatars` bucket is private with a 1 MiB limit and `image/jpeg` only, carrying exactly three policies and none for UPDATE or DELETE; both functions ACTIVE with `verify_jwt` true/false as configured; `pg_cron` in `pg_catalog` and `pg_net` in `extensions`, matching local; both Cron jobs active with `cron.job_run_details` succeeding and `net._http_response` returning HTTP 200; advisors show only the two documented categories with no new kind; a direct grant query confirms no trusted entry point is executable by `authenticated` or `anon` and no API role holds `private` schema USAGE; all three real suites pass against hosted.
+- **Deferred:** physical-iPhone acceptance of the native upload task's background transfer, cancel, and process-death behaviour; the two/three-account simulator pass and VoiceOver/Dynamic Type audit on a rebuilt client. A dedicated worker API key, rather than the project's `default` secret key, is a hardening follow-up: `withSupabase({ auth: "secret" })` matches only the `default` key unless the function opts into a named key, which needs its own verification.
+- **Course/Git:** Lesson 20.
 
-### Phase 2 — People, profile, invites, and privacy surfaces (**complete locally; 2C hosted promotion deferred**)
+### Phase 2 — People, profile, invites, and privacy surfaces (**complete and promoted**)
 
 - **Outcome:** complete the 1A friend core with avatar and full My Profile identity/settings entry, accepted friend's block-filtered friend list/FoF profiles, personal invite creation/intake, and blocked-user/profile/settings surfaces; 1A's exact lookup/request lifecycle is extended, not reimplemented. Diary UI waits for real Moment rows in 5B.
 - **Why/dependencies:** Moments need recipients/tags and block predicates first; depends on 1B.
@@ -1215,19 +1227,13 @@ Installed source/types and pinned CLI `--help` take precedence over generic exam
 
 ## 31. Exact next action
 
-Phase 1 and all of Phase 2 are implemented. Checkpoint 2C is complete locally with green gates and stopped, as instructed, before every hosted resource. The next action is the **Checkpoint 2C hosted promotion**, which is a short, entirely remote session and needs its own explicit approval.
+Phases 1 and 2 are complete and promoted. Local and hosted development run the same six-migration history, and hosted carries the `avatars` bucket, both Edge Functions, both Vault secrets, `pg_cron`/`pg_net`, and both Cron schedules, all verified.
 
-The promotion, in order, is:
+The next action is **Phase 3 — camera, picker evidence, composer, and recoverable draft**, exactly as scoped in Section 27. It has not been authorized. It adds no backend surface: it settles the privacy, capture-time, and audience contract in one recoverable draft before Phase 4 gives it a publication path.
 
-1. `supabase db push` the fifth migration `20260731230000_avatars_and_media_reconciliation.sql`, which creates the private `avatars` bucket and its `storage.objects` policies on hosted.
-2. Push `supabase/config.toml` so the two `[functions.*]` sections apply, then deploy `finalize-avatar` (JWT-verified) and `reconcile-operations` (secret-only).
-3. Create the two Vault secrets — `orca_functions_base_url` and `orca_worker_secret` — through the dashboard or management API. Their values are never committed; the worker secret must be a secret key, and the dispatcher sends it as `apikey`.
-4. Call `select private.ensure_reconcile_schedule();`, which returns `false` until both secrets exist and otherwise registers `orca-reconcile-operations` (every minute) and `orca-daily-maintenance` (03:17 UTC).
-5. Verify: promoted history equals local; `supabase db lint --linked` clean; `cron.job` shows exactly the two schedules and `cron.job_run_details` shows successful runs; advisors show no new warning category; then rerun both real suites against hosted with `ORCA_TEST_API_URL`, `ORCA_TEST_PUBLISHABLE_KEY`, `ORCA_TEST_SERVICE_ROLE_KEY` (legacy `service_role`), plus `ORCA_TEST_SECRET_KEY` and `ORCA_TEST_FUNCTIONS_URL` for the function suite.
+Phase 3 approval needed:
 
-Approval needed:
-
-> Approve Codex to promote Checkpoint 2C to hosted development: push the fifth migration and the versioned `[functions]` config, create the private `avatars` bucket, deploy `finalize-avatar` and `reconcile-operations`, create the `orca_functions_base_url` and `orca_worker_secret` Vault secrets, register the two Cron schedules, and verify with hosted lint, advisors, `cron.job` history, and both real hosted suites.
+> Approve Codex to implement Phase 3 — the privacy-safe Photos tile and scoped picker, the EXIF allowlist and timezone parser, the composer reducer/provider and one user-scoped cached draft with credible Recent/Archive classification, and a clearly gated development-only harness — with no upload or publication side effect and no dead Publish control in release navigation.
 
 Two device gates remain open and are independent of that approval:
 

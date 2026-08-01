@@ -2,7 +2,7 @@ begin;
 set local search_path = public, extensions;
 set local role postgres;
 create extension if not exists pgtap with schema extensions;
-select plan(95);
+select plan(98);
 
 -- ---------------------------------------------------------------------------
 -- Shape, privileges, and the corrected path constraint
@@ -811,6 +811,32 @@ select is(
   (select count(*) from pg_extension where extname = 'pg_cron'),
   0::bigint,
   'the migration alone installs no scheduler'
+);
+
+-- Promoting 2C found the dispatcher calling `net.http_post` without anything
+-- provisioning pg_net: it was pre-installed locally and absent on hosted, so
+-- the minute schedule failed every run. These three assertions are what would
+-- have caught that before promotion.
+select ok(
+  (select count(*) from private.reconcile_required_extensions()) >= 2,
+  'the dispatch path declares the extensions it depends on'
+);
+select is(
+  (select count(*)::integer from private.reconcile_required_extensions() r
+   where not exists (
+     select 1 from pg_available_extensions a where a.name = r.extension_name
+   )),
+  0,
+  'every declared extension is actually installable in this environment'
+);
+-- pg_net is pre-installed on the local stack, which is exactly why the missing
+-- provisioning went unnoticed; assert the declaration covers it regardless.
+select ok(
+  exists (
+    select 1 from private.reconcile_required_extensions()
+    where extension_name = 'pg_net'
+  ),
+  'pg_net is declared even though the local stack happens to preinstall it'
 );
 
 select * from finish();

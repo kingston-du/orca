@@ -46,6 +46,9 @@
     "supabase": "2.109.1",
     "typescript": "~6.0.3"
   },
+  "overrides": {
+    "brace-expansion@1": "1.1.17"
+  },
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",

@@ -1,6 +1,6 @@
 # Lesson 20 — Reserved uploads, trusted verification, and the first worker
 
-**Checkpoint 2C.** Status: implemented locally; hosted bucket, Vault secret, Cron schedule, and Edge Function deployment are approval-gated and deliberately not created.
+**Checkpoint 2C.** Status: implemented and promoted to hosted development. The bucket, both Edge Functions, both Vault secrets, and both Cron schedules are live and verified.
 
 ## Where this fits
 
@@ -322,6 +322,61 @@ One behaviour had to be measured rather than assumed: `withSupabase({ auth: "sec
 | Byte deletion                  | `reconcile-operations` through the Storage API only      |
 | Forgetting a job               | `complete_media_cleanup`, only after an absence proof    |
 
+## The bug promotion found
+
+Local gates were green. Hosted lint was not:
+
+```
+private.dispatch_reconcile_operations: schema "net" does not exist
+```
+
+`dispatch_reconcile_operations` calls `net.http_post`, but `ensure_reconcile_schedule` provisioned only `pg_cron`. The local Supabase stack **pre-installs `pg_net`**; the hosted project does not. So the dependency was satisfied locally by accident of the environment, and the minute schedule failed on hosted every single run:
+
+```
+orca-reconcile-operations  failed  ERROR: schema "net" does not exist
+```
+
+This is worth sitting with, because no amount of local testing would have caught it. The code was correct _given the environment it was written in_. That is the defining property of an environment-coupling bug, and the only reliable defences are running the real gate against the real target — which is why `db lint --linked` is a promotion step — and removing the ambient assumption entirely.
+
+The fix ([`20260801000000_reconcile_dispatch_dependencies.sql`](../../supabase/migrations/20260801000000_reconcile_dispatch_dependencies.sql)) does the latter. The promoted migration is not amended; a new one supersedes the two functions. Three changes, in order of importance:
+
+**1. The dispatch path declares its own dependencies.**
+
+```sql
+create function private.reconcile_required_extensions()
+returns table (extension_name text, install_schema text)
+...
+    select * from (values ('pg_cron', null::text), ('pg_net', 'extensions')) as required(...)
+```
+
+`ensure_reconcile_schedule` loops over that list and creates whatever is missing. `pg_net` is `relocatable = false` with no schema in its control file, so it must be told where to live — with `search_path = ''`, an unqualified `CREATE EXTENSION` has nowhere to put it. `extensions` is where the local stack has it, so hosted now matches local exactly.
+
+**2. Success now means the wiring works.**
+
+```sql
+if private.dispatch_reconcile_operations(v_jobs[1][2]) is null then
+    raise exception using errcode = '55000',
+        message = 'Reconcile dispatch did not queue a request';
+end if;
+```
+
+Before, `ensure_reconcile_schedule()` returning `true` meant "I wrote some rows." Now it means "I dispatched successfully." A provisioning function that reports success without exercising the thing it provisioned is a provisioning function that will lie to you exactly once, at the worst time.
+
+**3. The error names the remedy.**
+
+```sql
+raise exception using
+    errcode = '55000',
+    message = 'pg_net is not installed',
+    hint = 'Run select private.ensure_reconcile_schedule() to provision it';
+```
+
+`schema "net" does not exist`, buried in a query fragment inside `cron.job_run_details`, tells an operator nothing. This tells them what to run.
+
+Both `cron` and `net` are now referenced through `EXECUTE`. That is not stylistic: a statically analysable reference to a schema that does not exist yet fails every clean replay and every lint, which is precisely how the original `cron.schedule` call came to be dynamic. The lesson generalizes — **if lint can only pass because the environment happens to have something, lint is not testing what you think it is.**
+
+The pgTAP suite now asserts the declaration exists, covers `pg_net` specifically (with a comment explaining that the local stack preinstalls it), and that every declared extension is available in the current environment.
+
 ## A correctness bug this checkpoint fixed
 
 Checkpoint 1A shipped this constraint:
@@ -352,9 +407,11 @@ The lesson generalizes: a constraint nothing exercises yet is a constraint you h
 
 ## Verification evidence
 
-Clean five-migration replay; warning-free `db lint` on `public` and `private`; **226 pgTAP assertions**; **26 Jest suites / 136 tests**; **19 Node function tests**; real local Data API, Storage, and Edge Function suites; no generated-type drift; TypeScript, zero-warning lint, formatting, legal hashes, native manifest, Expo dependency agreement, Expo Doctor 20/20.
+**Local:** clean six-migration replay; warning-free `db lint` on `public` and `private`; **229 pgTAP assertions**; **26 Jest suites / 136 tests**; **19 Node function tests**; real Data API, Storage, and Edge Function suites; no generated-type drift; TypeScript, zero-warning lint, formatting, legal hashes, native manifest, Expo dependency agreement, Expo Doctor 20/20.
 
-Deferred: physical-iPhone acceptance of the native upload task (background transfer, cancel, process death) and hosted promotion of the bucket, Vault secrets, Cron schedule, and both functions.
+**Hosted:** promoted history equals local; `db lint --linked` clean; the `avatars` bucket private at 1 MiB and `image/jpeg` only with three policies and none for UPDATE/DELETE; both functions ACTIVE with the configured `verify_jwt`; `pg_cron` and `pg_net` installed in the same schemas as local; both Cron jobs succeeding with HTTP 200 in `net._http_response`; advisors showing only the two documented categories; a direct grant query proving no trusted entry point is reachable by `authenticated` or `anon`; all three real suites passing against hosted.
+
+Deferred: physical-iPhone acceptance of the native upload task (background transfer, cancel, process death), and a dedicated worker API key instead of the project's `default` secret key.
 
 ## Debugging guide
 
