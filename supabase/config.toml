@@ -430,6 +430,12 @@ verify_jwt = true
 import_map = "./functions/finalize-avatar/deno.json"
 entrypoint = "./functions/finalize-avatar/index.ts"
 
+[functions.finalize-moment]
+enabled = true
+verify_jwt = true
+import_map = "./functions/finalize-moment/deno.json"
+entrypoint = "./functions/finalize-moment/index.ts"
+
 [functions.reconcile-operations]
 enabled = true
 verify_jwt = false

@@ -11,6 +11,11 @@ import {
 } from "@/features/moments/composer/composer-reducer";
 import { ComposerScreen } from "@/features/moments/composer/composer-screen";
 import type { MomentDraft } from "@/features/moments/composer/moment-draft";
+import {
+  initialPublishState,
+  type PublishState,
+} from "@/features/moments/publish/publish-machine";
+import type { PublishController } from "@/features/moments/publish/use-publish-controller";
 
 const photo: NormalizedPhoto = {
   uri: "file:///draft/media.jpg",
@@ -46,13 +51,33 @@ function stateWith(actions: ComposerAction[]): ComposerState {
   return actions.reduce(composerReducer, initialComposerState);
 }
 
-async function renderComposer(state: ComposerState) {
+function publishController(
+  overrides: Partial<PublishState> = {},
+): PublishController {
+  return {
+    state: { ...initialPublishState, ...overrides },
+    publish: jest.fn(),
+    cancel: jest.fn(),
+    checkStatus: jest.fn(),
+    dismiss: jest.fn(),
+  };
+}
+
+async function renderComposer(
+  state: ComposerState,
+  publish: PublishController = publishController(),
+) {
   const dispatch = jest.fn();
   const onDiscard = jest.fn();
   const screen = await render(
-    <ComposerScreen dispatch={dispatch} onDiscard={onDiscard} state={state} />,
+    <ComposerScreen
+      dispatch={dispatch}
+      onDiscard={onDiscard}
+      publish={publish}
+      state={state}
+    />,
   );
-  return { screen, dispatch, onDiscard };
+  return { screen, dispatch, onDiscard, publish };
 }
 
 const recentState = stateWith([
@@ -61,11 +86,67 @@ const recentState = stateWith([
 ]);
 
 describe("ComposerScreen", () => {
-  test("never renders a Publish control", async () => {
-    const { screen } = await renderComposer(recentState);
+  test("shares a valid draft through the publish controller", async () => {
+    const user = userEvent.setup();
+    const { screen, publish } = await renderComposer(recentState);
 
-    expect(screen.queryByText(/publish/i)).not.toBeOnTheScreen();
     expect(screen.getByTestId("composer-photo")).toBeOnTheScreen();
+    await user.press(screen.getByTestId("composer-publish"));
+
+    expect(publish.publish).toHaveBeenCalledTimes(1);
+  });
+
+  test("refuses to share a draft the composer has not settled", async () => {
+    const { screen } = await renderComposer(
+      stateWith([
+        { type: "friends_loaded", friends },
+        { type: "draft_prepared", draft, kind: "recent", origin: "captured" },
+        // Ageing out is exactly the case where an author must look again
+        // before anything is shared.
+        { type: "reclassified", kind: "archive" },
+      ]),
+    );
+
+    expect(screen.getByTestId("composer-publish")).toHaveProp(
+      "accessibilityState",
+      expect.objectContaining({ disabled: true }),
+    );
+  });
+
+  test("reports upload progress and offers cancellation", async () => {
+    const user = userEvent.setup();
+    const { screen, publish } = await renderComposer(
+      recentState,
+      publishController({
+        status: "uploading",
+        momentId: "draft-1",
+        progress: 0.42,
+      }),
+    );
+
+    expect(screen.getByTestId("publish-status")).toHaveTextContent(
+      "Sharing… 42%",
+    );
+    await user.press(screen.getByTestId("publish-cancel"));
+    expect(publish.cancel).toHaveBeenCalledTimes(1);
+  });
+
+  test("offers to ask the server again after an unknown outcome", async () => {
+    const user = userEvent.setup();
+    const { screen, publish } = await renderComposer(
+      recentState,
+      publishController({
+        status: "retryable_unknown",
+        momentId: "draft-1",
+        message: "Orca could not confirm whether this Moment shared.",
+      }),
+    );
+
+    // Cancelling is deliberately absent here: the bytes may already be
+    // published, so the only honest next step is asking.
+    expect(screen.queryByTestId("publish-cancel")).toBeNull();
+    await user.press(screen.getByTestId("publish-check-status"));
+    expect(publish.checkStatus).toHaveBeenCalledTimes(1);
   });
 
   test("offers the three-choice audience control for a Recent Moment", async () => {

@@ -29,6 +29,10 @@ import {
   saveMomentDraft,
 } from "@/features/moments/composer/draft-storage";
 import type { MomentDraft } from "@/features/moments/composer/moment-draft";
+import {
+  usePublishController,
+  type PublishController,
+} from "@/features/moments/publish/use-publish-controller";
 import { supabaseUrl } from "@/lib/supabase";
 import { userScopeKey, type UserScope } from "@/lib/user-scoped-file-cache";
 
@@ -59,6 +63,9 @@ type MomentDraftContextValue = {
   dispatch: (action: ComposerAction) => void;
   startDraft: (photo: NormalizedPhoto) => void;
   discardDraft: () => void;
+  /** The single in-flight publish attempt for the single draft. It lives here
+   * because an upload outlives the composer route. */
+  publish: PublishController;
 };
 
 const MomentDraftContext = createContext<MomentDraftContextValue | null>(null);
@@ -254,9 +261,15 @@ export function MomentDraftProvider({ children }: PropsWithChildren) {
     }
   }, [scope]);
 
+  const publish = usePublishController({
+    composer: state,
+    dispatchComposer: dispatch,
+    discardDraft,
+  });
+
   const value = useMemo<MomentDraftContextValue>(
-    () => ({ state, isRestoring, dispatch, startDraft, discardDraft }),
-    [state, isRestoring, startDraft, discardDraft],
+    () => ({ state, isRestoring, dispatch, startDraft, discardDraft, publish }),
+    [state, isRestoring, startDraft, discardDraft, publish],
   );
 
   return (

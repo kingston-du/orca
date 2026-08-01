@@ -3,6 +3,8 @@ import { File } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 
+import { toHex } from "@/lib/hex";
+
 /** The avatar contract: an exact square, small enough that the trusted
  * verifier can measure it cheaply and the bucket can cap it outright. */
 export const AVATAR_DIMENSION = 512;
@@ -96,12 +98,6 @@ export async function prepareAvatar(
   );
 
   return { uri: result.uri, byteSize, sha256 };
-}
-
-export function toHex(digest: ArrayBuffer): string {
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
 }
 
 export type AvatarPickOutcome =

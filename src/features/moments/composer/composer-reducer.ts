@@ -46,7 +46,10 @@ export type ComposerNotice =
   | { kind: "recipient_locked_by_tag"; friendId: string }
   | { kind: "only_me_cleared_audience" }
   | { kind: "selected_started_empty_above_limit" }
-  | { kind: "aged_out_to_archive" };
+  | { kind: "aged_out_to_archive" }
+  /** The server refused to publish and shared nothing. The message comes from
+   * the publish machine, which owns the server's reasons. */
+  | { kind: "publication_needs_review"; message: string };
 
 /**
  * Two transitions are destructive enough to require a deliberate confirmation
@@ -73,8 +76,13 @@ export type ComposerState = {
   friends: ComposerFriend[] | null;
   pendingTransition: PendingTransition | null;
   notice: ComposerNotice | null;
-  reviewReason: "aged_out" | null;
+  reviewReason: ComposerReviewReason | null;
 };
+
+/** Why the composer is holding the author back. `aged_out` is noticed locally
+ * while the draft rests; `publication_refused` comes from the server after a
+ * publish attempt that shared nothing. */
+export type ComposerReviewReason = "aged_out" | "publication_refused";
 
 export const initialComposerState: ComposerState = {
   status: "preparing",
@@ -106,6 +114,21 @@ export type ComposerAction =
   | { type: "recipient_toggled"; friendId: string }
   | { type: "tag_toggled"; friendId: string }
   | { type: "reclassified"; kind: MomentKind }
+  /**
+   * The server published nothing and the Moment UUID it refused is spent, so
+   * the draft is re-keyed to a fresh one. Without this the author's next
+   * attempt would reserve an ID the tombstone permanently refuses.
+   */
+  | {
+      type: "publication_refused";
+      draftId: string;
+      kind: MomentKind;
+      message: string;
+    }
+  /** A publish attempt ended without sharing and without needing review — the
+   * author cancelled, or the photo was refused. The spent Moment UUID is
+   * replaced so the next attempt has an identity the server will accept. */
+  | { type: "draft_rekeyed"; draftId: string }
   | { type: "review_acknowledged" }
   | { type: "notice_dismissed" };
 
@@ -484,6 +507,41 @@ export function composerReducer(
       }
 
       return { ...state, kind: action.kind, notice: null };
+    }
+
+    case "draft_rekeyed":
+      return state.draft === null
+        ? state
+        : { ...state, draft: { ...state.draft, draftId: action.draftId } };
+
+    case "publication_refused": {
+      if (state.draft === null) return state;
+
+      // Ageing out narrows the audience rules the same way the local
+      // reclassification does, so the two paths converge on one state: the
+      // author reviews, and direct audience selections do not survive a
+      // narrowing.
+      const narrowed = action.kind === "archive";
+      return {
+        ...state,
+        kind: action.kind,
+        status: "needs_review",
+        reviewReason: "publication_refused",
+        pendingTransition: null,
+        notice: {
+          kind: "publication_needs_review",
+          message: action.message,
+        },
+        draft: {
+          ...state.draft,
+          draftId: action.draftId,
+          recipientIds: narrowed ? [] : state.draft.recipientIds,
+          audience: narrowed ? "all_friends" : state.draft.audience,
+          audienceChosenByAuthor: narrowed
+            ? false
+            : state.draft.audienceChosenByAuthor,
+        },
+      };
     }
 
     case "review_acknowledged":

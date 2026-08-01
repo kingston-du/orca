@@ -120,6 +120,167 @@ export type Database = {
         }
         Relationships: []
       }
+      moment_recipients: {
+        Row: {
+          author_id: string
+          created_at: string
+          friendship_generation_id: string
+          moment_id: string
+          recipient_id: string
+          source: string
+        }
+        Insert: {
+          author_id: string
+          created_at?: string
+          friendship_generation_id: string
+          moment_id: string
+          recipient_id: string
+          source: string
+        }
+        Update: {
+          author_id?: string
+          created_at?: string
+          friendship_generation_id?: string
+          moment_id?: string
+          recipient_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moment_recipients_moment_id_author_id_fkey"
+            columns: ["moment_id", "author_id"]
+            isOneToOne: false
+            referencedRelation: "moments"
+            referencedColumns: ["id", "author_id"]
+          },
+          {
+            foreignKeyName: "moment_recipients_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      moment_tags: {
+        Row: {
+          author_id: string
+          created_at: string
+          friendship_generation_id: string
+          moment_id: string
+          tagged_user_id: string
+        }
+        Insert: {
+          author_id: string
+          created_at?: string
+          friendship_generation_id: string
+          moment_id: string
+          tagged_user_id: string
+        }
+        Update: {
+          author_id?: string
+          created_at?: string
+          friendship_generation_id?: string
+          moment_id?: string
+          tagged_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moment_tags_moment_id_author_id_fkey"
+            columns: ["moment_id", "author_id"]
+            isOneToOne: false
+            referencedRelation: "moments"
+            referencedColumns: ["id", "author_id"]
+          },
+          {
+            foreignKeyName: "moment_tags_tagged_user_id_fkey"
+            columns: ["tagged_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      moments: {
+        Row: {
+          audience: string | null
+          author_id: string
+          byte_size: number | null
+          caption: string | null
+          caption_updated_at: string | null
+          capture_evidence: string
+          captured_at: string | null
+          captured_utc_offset_minutes: number | null
+          content_sha256: string | null
+          deleting_at: string | null
+          expires_at: string | null
+          height: number | null
+          id: string
+          kind: string | null
+          mime_type: string | null
+          object_path: string
+          published_at: string | null
+          reserved_at: string
+          source: string
+          status: string
+          width: number | null
+        }
+        Insert: {
+          audience?: string | null
+          author_id: string
+          byte_size?: number | null
+          caption?: string | null
+          caption_updated_at?: string | null
+          capture_evidence: string
+          captured_at?: string | null
+          captured_utc_offset_minutes?: number | null
+          content_sha256?: string | null
+          deleting_at?: string | null
+          expires_at?: string | null
+          height?: number | null
+          id: string
+          kind?: string | null
+          mime_type?: string | null
+          object_path: string
+          published_at?: string | null
+          reserved_at?: string
+          source: string
+          status?: string
+          width?: number | null
+        }
+        Update: {
+          audience?: string | null
+          author_id?: string
+          byte_size?: number | null
+          caption?: string | null
+          caption_updated_at?: string | null
+          capture_evidence?: string
+          captured_at?: string | null
+          captured_utc_offset_minutes?: number | null
+          content_sha256?: string | null
+          deleting_at?: string | null
+          expires_at?: string | null
+          height?: number | null
+          id?: string
+          kind?: string | null
+          mime_type?: string | null
+          object_path?: string
+          published_at?: string | null
+          reserved_at?: string
+          source?: string
+          status?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_path: string | null
@@ -174,6 +335,17 @@ export type Database = {
           user_id: string
         }[]
       }
+      begin_moment_verification: {
+        Args: { p_author_id: string; p_moment_id: string }
+        Returns: {
+          author_id: string
+          client_byte_size: number
+          client_sha256: string
+          moment_id: string
+          object_path: string
+          status: string
+        }[]
+      }
       block_user: {
         Args: { p_command_id: string; p_other_id: string }
         Returns: {
@@ -183,12 +355,25 @@ export type Database = {
         }[]
       }
       can_read_avatar: { Args: { p_object_path: string }; Returns: boolean }
+      can_read_moment_media: {
+        Args: { p_object_path: string }
+        Returns: boolean
+      }
       can_upload_reserved_avatar: {
+        Args: { p_object_path: string }
+        Returns: boolean
+      }
+      can_upload_reserved_moment: {
         Args: { p_object_path: string }
         Returns: boolean
       }
       can_view_friendship: {
         Args: { p_user_high: string; p_user_low: string }
+        Returns: boolean
+      }
+      can_view_moment: { Args: { p_moment_id: string }; Returns: boolean }
+      can_view_moment_tag: {
+        Args: { p_moment_id: string; p_tagged_user_id: string }
         Returns: boolean
       }
       can_view_profile: { Args: { p_profile_id: string }; Returns: boolean }
@@ -201,6 +386,7 @@ export type Database = {
           result_state: string
         }[]
       }
+      cancel_moment_upload: { Args: { p_moment_id: string }; Returns: string }
       claim_media_cleanup_batch: {
         Args: { p_lease_seconds?: number; p_limit?: number }
         Returns: {
@@ -252,6 +438,24 @@ export type Database = {
           fingerprint: string
         }[]
       }
+      delete_moment: {
+        Args: { p_command_id: string; p_moment_id: string }
+        Returns: {
+          moment_id: string
+          status: string
+        }[]
+      }
+      edit_moment_caption: {
+        Args: {
+          p_caption: string
+          p_expected_caption_updated_at: string
+          p_moment_id: string
+        }
+        Returns: {
+          caption: string
+          caption_updated_at: string
+        }[]
+      }
       fail_media_cleanup: {
         Args: { p_error_code: string; p_job_id: string; p_lease_token: string }
         Returns: string
@@ -271,6 +475,28 @@ export type Database = {
         Returns: {
           avatar_path: string
           status: string
+        }[]
+      }
+      finalize_moment_upload: {
+        Args: {
+          p_author_id: string
+          p_byte_size: number
+          p_content_sha256: string
+          p_height: number
+          p_moment_id: string
+          p_object_path: string
+          p_object_version: string
+          p_verifier_version: string
+          p_width: number
+        }
+        Returns: {
+          audience: string
+          kind: string
+          published_at: string
+          recipient_count: number
+          review_reason: string
+          status: string
+          tag_count: number
         }[]
       }
       get_account_control_state: {
@@ -308,13 +534,38 @@ export type Database = {
       get_media_operations_metrics: {
         Args: never
         Returns: {
+          active_moment_reservations: number
           active_reservations: number
           dead_jobs: number
+          deleting_moments: number
           leased_jobs: number
+          oldest_deleting_moment_age_seconds: number
+          oldest_moment_reservation_age_seconds: number
           oldest_ready_age_seconds: number
           oldest_reservation_age_seconds: number
           ready_jobs: number
           retry_jobs: number
+        }[]
+      }
+      get_moment_deletion_status: {
+        Args: { p_moment_id: string }
+        Returns: {
+          completed_at: string
+          error_code: string
+          moment_id: string
+          status: string
+        }[]
+      }
+      get_moment_upload_status: {
+        Args: { p_moment_id: string }
+        Returns: {
+          error_code: string
+          expires_at: string
+          kind: string
+          moment_id: string
+          object_path: string
+          published_at: string
+          status: string
         }[]
       }
       get_profile_summary: {
@@ -414,6 +665,10 @@ export type Database = {
           result_state: string
         }[]
       }
+      reject_moment_upload: {
+        Args: { p_author_id: string; p_error_code: string; p_moment_id: string }
+        Returns: string
+      }
       remove_avatar: { Args: never; Returns: undefined }
       reserve_avatar_upload: {
         Args: { p_client_byte_size: number; p_client_sha256: string }
@@ -421,6 +676,28 @@ export type Database = {
           expires_at: string
           object_path: string
           request_id: string
+          status: string
+        }[]
+      }
+      reserve_moment_upload: {
+        Args: {
+          p_audience: string
+          p_caption: string
+          p_capture_evidence: string
+          p_captured_at: string
+          p_captured_utc_offset_minutes: number
+          p_client_byte_size: number
+          p_client_sha256: string
+          p_intended_kind: string
+          p_moment_id: string
+          p_recipient_ids: string[]
+          p_source: string
+          p_tag_ids: string[]
+        }
+        Returns: {
+          expires_at: string
+          moment_id: string
+          object_path: string
           status: string
         }[]
       }
@@ -445,9 +722,12 @@ export type Database = {
       run_media_maintenance: {
         Args: { p_limit?: number }
         Returns: {
+          expired_moment_reservations: number
           expired_reservations: number
+          pruned_deletion_receipts: number
           pruned_friend_requests: number
           pruned_jobs: number
+          pruned_moment_requests: number
           pruned_rate_buckets: number
           pruned_requests: number
           pruned_verifications: number

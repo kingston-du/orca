@@ -25,26 +25,35 @@ import { formatCaptureLocalTime } from "@/features/moments/capture/capture-evide
 import { captionCharactersRemaining } from "@/features/moments/composer/caption";
 import {
   lockedRecipientIds,
+  validateComposer,
   type ComposerAction,
   type ComposerFriend,
   type ComposerNotice,
   type ComposerState,
 } from "@/features/moments/composer/composer-reducer";
 import type { ComposerAudience } from "@/features/moments/composer/moment-draft";
+import {
+  canCancelPublish,
+  isPublishInFlight,
+  type PublishState,
+} from "@/features/moments/publish/publish-machine";
+import type { PublishController } from "@/features/moments/publish/use-publish-controller";
 
 /**
  * The composer's presentation.
  *
- * It contains no Publish control. Phase 4 owns publication, and a button that
- * cannot do anything is worse than an absent one: it teaches the wrong model
- * and has to be reworked when the real backend arrives. Until then this screen
- * is reachable only from the development harness.
+ * The Publish control is deliberately not a fire-and-forget button. Sharing a
+ * private photo is the highest-consequence action in the product, so the states
+ * that follow it — progress, cancel, "we could not tell whether it shared", and
+ * "nothing was shared, review this" — are first-class here rather than a
+ * spinner that resolves into silence.
  */
 
 type ComposerScreenProps = {
   state: ComposerState;
   dispatch: (action: ComposerAction) => void;
   onDiscard: () => void;
+  publish: PublishController;
 };
 
 const AUDIENCE_OPTIONS: { value: ComposerAudience; label: string }[] = [
@@ -74,6 +83,30 @@ function noticeMessage(
       return `Selected is limited to ${MAX_SELECTED_RECIPIENTS} friends, so nobody is chosen yet. Pick who should see this Moment.`;
     case "aged_out_to_archive":
       return "This photo is now older than a day, so it can only go to you and anyone you tag. Your tags were kept.";
+    case "publication_needs_review":
+      return notice.message;
+  }
+}
+
+/** What the author is told while an attempt is in flight or resting. Progress
+ * is spoken as a percentage rather than only drawn, so the state is available
+ * without sight. */
+function publishStatusMessage(publish: PublishState): string | null {
+  switch (publish.status) {
+    case "reserving":
+      return "Preparing to share…";
+    case "uploading":
+      return `Sharing… ${Math.round(publish.progress * 100)}%`;
+    case "finalizing":
+      return "Finishing up…";
+    case "published":
+      return publish.publishedKind === "archive"
+        ? "Shared to your Archive."
+        : "Shared with your friends.";
+    case "canceled":
+      return "Sharing cancelled. Nothing was shared.";
+    default:
+      return publish.message;
   }
 }
 
@@ -81,6 +114,7 @@ export function ComposerScreen({
   state,
   dispatch,
   onDiscard,
+  publish,
 }: ComposerScreenProps) {
   const draft = state.draft;
   const friends = state.friends ?? [];
@@ -109,6 +143,11 @@ export function ComposerScreen({
   // Only Me cannot tag. Archive has no audience control but does keep tags.
   const canTag = isArchive || draft.audience !== "only_me";
   const remaining = captionCharactersRemaining(draft.caption);
+  const publishing = isPublishInFlight(publish.state);
+  const publishMessage = publishStatusMessage(publish.state);
+  // The button is disabled by the same validation the reducer exposes, so what
+  // the composer refuses and what the server would refuse never drift apart.
+  const canPublish = !publishing && validateComposer(state).ok;
 
   return (
     <ScrollView
@@ -358,11 +397,74 @@ export function ComposerScreen({
         )}
       </View>
 
+      {publishMessage !== null ? (
+        <View
+          accessibilityLiveRegion="polite"
+          style={styles.publishCard}
+          testID="publish-status-card"
+        >
+          <Text style={styles.body} testID="publish-status">
+            {publishMessage}
+          </Text>
+          {publish.state.status === "uploading" ? (
+            // A plain proportional bar. It is decorative: the percentage above
+            // is what actually conveys progress.
+            <View accessibilityElementsHidden style={styles.progressTrack}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: `${Math.round(publish.state.progress * 100)}%` },
+                ]}
+              />
+            </View>
+          ) : null}
+          {canCancelPublish(publish.state) ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={publish.cancel}
+              style={styles.secondaryButton}
+              testID="publish-cancel"
+            >
+              <Text style={styles.secondaryLabel}>Cancel sharing</Text>
+            </Pressable>
+          ) : null}
+          {publish.state.status === "retryable_unknown" ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={publish.checkStatus}
+              style={styles.primaryButton}
+              testID="publish-check-status"
+            >
+              <Text style={styles.primaryLabel}>Check again</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Share this Moment"
+        accessibilityState={{ disabled: !canPublish }}
+        disabled={!canPublish}
+        onPress={publish.publish}
+        style={[
+          styles.primaryButton,
+          canPublish ? null : styles.buttonDisabled,
+        ]}
+        testID="composer-publish"
+      >
+        <Text style={styles.primaryLabel}>Share</Text>
+      </Pressable>
+
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Discard this Moment"
+        disabled={publishing}
         onPress={onDiscard}
-        style={styles.secondaryButton}
+        style={[
+          styles.secondaryButton,
+          publishing ? styles.buttonDisabled : null,
+        ]}
       >
         <Text style={styles.secondaryLabel}>Discard</Text>
       </Pressable>
@@ -451,6 +553,20 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.lg,
   },
+  publishCard: {
+    backgroundColor: color.surfaceSunken,
+    borderRadius: radius.md,
+    gap: spacing.md,
+    padding: spacing.lg,
+  },
+  progressTrack: {
+    backgroundColor: color.border,
+    borderRadius: radius.pill,
+    height: spacing.sm,
+    overflow: "hidden",
+  },
+  progressFill: { backgroundColor: color.brand, height: "100%" },
+  buttonDisabled: { opacity: 0.5 },
   transitionRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   primaryButton: {
     alignItems: "center",

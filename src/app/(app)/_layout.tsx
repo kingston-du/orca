@@ -100,14 +100,10 @@ export default function AppLayout() {
             name="settings/index"
             options={{ headerShown: true, title: "Settings" }}
           />
-          {/* Development-only. `__DEV__` is false in a release bundle, so this
-              screen is unreachable there and nothing links to it. */}
-          <Stack.Protected guard={__DEV__}>
-            <Stack.Screen
-              name="dev/composer"
-              options={{ headerShown: true, title: "Composer harness" }}
-            />
-          </Stack.Protected>
+          <Stack.Screen
+            name="moments/compose"
+            options={{ headerShown: true, title: "New Moment" }}
+          />
         </Stack.Protected>
         <Stack.Screen
           name="support"

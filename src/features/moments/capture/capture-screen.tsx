@@ -36,10 +36,9 @@ import { useMomentDraft } from "@/features/moments/composer/composer-provider";
 /**
  * The Camera tab: shutter, scoped picker, and the review of the single draft.
  *
- * The release path deliberately ends at Retake/Discard. Phase 4 adds the real
- * composer route and Publish action together with the backend that makes them
- * mean something; until then a Publish control would be a dead end, and this
- * screen would be teaching a flow that does not exist.
+ * It deliberately stops at the photo. Retake keeps the draft and returns to the
+ * live camera, Discard removes it, and Next hands the draft to the composer
+ * route, which owns caption, audience, and publication. Nothing here uploads.
  */
 
 type ActiveAction = "camera" | "library" | "permission" | null;
@@ -365,18 +364,16 @@ export function CaptureScreen() {
               >
                 <Text style={styles.secondaryLabel}>Discard</Text>
               </Pressable>
-              {__DEV__ ? (
-                // Development-only entry point. The harness route redirects in
-                // a release build, and nothing in release navigation links to
-                // it, so no Publish surface can be reached from a shipped app.
-                <Link
-                  accessibilityRole="link"
-                  href="/dev/composer"
-                  style={styles.devLink}
-                >
-                  Open composer harness (dev)
-                </Link>
-              ) : null}
+              <Link
+                accessibilityLabel="Continue to the composer"
+                accessibilityRole="button"
+                asChild
+                href="/moments/compose"
+              >
+                <Pressable style={styles.primaryButton} testID="capture-next">
+                  <Text style={styles.primaryLabel}>Next</Text>
+                </Pressable>
+              </Link>
             </View>
           )}
         </View>
@@ -609,7 +606,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.lg,
   },
-  devLink: { ...typeScale.caption, color: color.textInverse },
   primaryButton: {
     alignItems: "center",
     backgroundColor: color.brand,

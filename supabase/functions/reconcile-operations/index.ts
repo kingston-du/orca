@@ -21,6 +21,14 @@ type Metrics = {
   oldest_ready_age_seconds: number;
   active_reservations: number;
   oldest_reservation_age_seconds: number;
+  active_moment_reservations: number;
+  oldest_moment_reservation_age_seconds: number;
+  /** A Moment whose row is still waiting on proof that its bytes are gone. A
+   * rising age here means Orca is telling authors a photo is deleted while the
+   * object is still in the bucket, which is the one thing this worker exists
+   * to prevent. */
+  deleting_moments: number;
+  oldest_deleting_moment_age_seconds: number;
 };
 
 export default {

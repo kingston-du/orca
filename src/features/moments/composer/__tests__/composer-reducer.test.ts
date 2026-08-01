@@ -521,4 +521,63 @@ describe("draft lifecycle", () => {
 
     expect(state.draftOrigin).toBe("restored");
   });
+
+  test("a spent Moment UUID is replaced so the next attempt can reserve", () => {
+    const state = run([
+      { type: "friends_loaded", friends: friendList(3) },
+      { type: "draft_prepared", draft, kind: "recent", origin: "captured" },
+      { type: "draft_rekeyed", draftId: "fresh-moment-id" },
+    ]);
+
+    // The tombstone the server keeps is permanent, so reusing the old ID would
+    // be refused forever. Everything else about the draft is untouched.
+    expect(state.draft?.draftId).toBe("fresh-moment-id");
+    expect(state.draft?.caption).toBe(draft.caption);
+    expect(state.status).toBe("ready");
+  });
+
+  test("a refused publication narrows the draft the same way ageing out does", () => {
+    const state = run([
+      { type: "friends_loaded", friends: friendList(3) },
+      { type: "draft_prepared", draft, kind: "recent", origin: "captured" },
+      { type: "audience_chosen", audience: "selected_friends" },
+      { type: "tag_toggled", friendId: "friend-1" },
+      {
+        type: "publication_refused",
+        draftId: "fresh-moment-id",
+        kind: "archive",
+        message: "Nothing was shared.",
+      },
+    ]);
+
+    expect(state.status).toBe("needs_review");
+    expect(state.reviewReason).toBe("publication_refused");
+    expect(state.draft?.draftId).toBe("fresh-moment-id");
+    // Tags survive because they are who the Moment is about; the direct
+    // audience does not survive a narrowing.
+    expect(state.draft?.tagIds).toEqual(["friend-1"]);
+    expect(state.draft?.recipientIds).toEqual([]);
+    expect(validateComposer(state)).toEqual({
+      ok: false,
+      reason: "needs_review",
+    });
+  });
+
+  test("a refusal that does not narrow the rules keeps the chosen audience", () => {
+    const state = run([
+      { type: "friends_loaded", friends: friendList(3) },
+      { type: "draft_prepared", draft, kind: "recent", origin: "captured" },
+      { type: "audience_chosen", audience: "selected_friends" },
+      {
+        type: "publication_refused",
+        draftId: "fresh-moment-id",
+        kind: "recent",
+        message: "Someone you chose is no longer available.",
+      },
+    ]);
+
+    expect(state.draft?.audience).toBe("selected_friends");
+    expect(state.draft?.recipientIds).toHaveLength(3);
+    expect(state.status).toBe("needs_review");
+  });
 });
