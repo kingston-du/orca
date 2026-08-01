@@ -641,6 +641,27 @@ export type Database = {
           username: string
         }[]
       }
+      list_recent_moments: {
+        Args: { p_limit?: number }
+        Returns: {
+          anchor_at: string
+          author_avatar_path: string
+          author_display_name: string
+          author_id: string
+          author_username: string
+          caption: string
+          caption_updated_at: string
+          capture_evidence: string
+          captured_at: string
+          captured_utc_offset_minutes: number
+          media_height: number
+          media_width: number
+          moment_id: string
+          object_path: string
+          published_at: string
+          session_started_at: string
+        }[]
+      }
       lookup_profile_exact: {
         Args: { p_username: string }
         Returns: {

@@ -82,14 +82,20 @@ async function createMember(name) {
     await client.auth.signInWithPassword({ email, password });
   assert.ifError(signInError);
 
+  const username = `${name[0]}_${suffix.replaceAll("-", "").slice(0, 12)}`;
   const { error: onboardError } = await client.rpc("complete_onboarding", {
     ...legalArgs,
     p_display_name: name[0].toUpperCase() + name.slice(1),
-    p_username: `${name[0]}_${suffix.replaceAll("-", "").slice(0, 12)}`,
+    p_username: username,
   });
   assert.ifError(onboardError);
 
-  return { client, id: created.user.id, token: signedIn.session.access_token };
+  return {
+    client,
+    id: created.user.id,
+    token: signedIn.session.access_token,
+    username,
+  };
 }
 
 async function befriend(from, to) {
@@ -373,6 +379,47 @@ try {
     "a recipient cannot enumerate the rest of the audience",
   );
 
+  // ---------------------------------------------------------------------
+  // The Recent page, over a real token
+  // ---------------------------------------------------------------------
+  // pgTAP proves the rule by switching database roles. This proves the same
+  // rule reached through PostgREST with a genuine JWT, which is the only way
+  // `private.current_user_id()` is exercised the way the app exercises it.
+  const bobRecent = await bob.client.rpc("list_recent_moments", {
+    p_limit: 20,
+  });
+  assert.ifError(bobRecent.error);
+  const bobRow = bobRecent.data.find((row) => row.moment_id === momentId);
+  assert.ok(bobRow, "a current friend's recipient sees the Moment in Recent");
+  assert.equal(bobRow.author_username, alice.username);
+  assert.equal(
+    bobRow.object_path,
+    reservation.object_path,
+    "the page carries the media path the viewer may have signed",
+  );
+  assert.ok(bobRow.session_started_at, "the page reports its session instant");
+  assert.equal(
+    bobRow.anchor_at,
+    bobRow.published_at,
+    "the anchor is the newest publication this viewer may see",
+  );
+
+  const authorRecent = await alice.client.rpc("list_recent_moments", {
+    p_limit: 20,
+  });
+  assert.ifError(authorRecent.error);
+  assert.equal(
+    authorRecent.data.filter((row) => row.moment_id === momentId).length,
+    0,
+    "an author never reads their own Moment back through Recent",
+  );
+
+  const strangerRecent = await dave.client.rpc("list_recent_moments", {
+    p_limit: 20,
+  });
+  assert.ifError(strangerRecent.error);
+  assert.equal(strangerRecent.data.length, 0, "a stranger's Recent is empty");
+
   // Caption editing is optimistic and its no-op preserves the version.
   const published = await alice.client
     .from("moments")
@@ -437,6 +484,16 @@ try {
     "a block revokes Moment media access",
   );
 
+  const blockedRecent = await bob.client.rpc("list_recent_moments", {
+    p_limit: 20,
+  });
+  assert.ifError(blockedRecent.error);
+  assert.equal(
+    blockedRecent.data.filter((row) => row.moment_id === momentId).length,
+    0,
+    "a block removes the author's Moment from Recent as well as from Storage",
+  );
+
   // ---------------------------------------------------------------------
   // The server refuses to reinterpret an audience
   // ---------------------------------------------------------------------
@@ -469,6 +526,31 @@ try {
     p_other_id: carol.id,
   });
   assert.ifError(unfriended.error);
+
+  // Carol's snapshot for the first Moment still exists and still grants her the
+  // historical read. Recent is a different question — "may I share with this
+  // person right now" — and the answer became no the moment the friendship
+  // ended, so the Moment leaves her feed while staying in her history.
+  const formerFriendRows = await carol.client
+    .from("moments")
+    .select("id")
+    .eq("id", momentId);
+  assert.ifError(formerFriendRows.error);
+  assert.equal(
+    formerFriendRows.data.length,
+    1,
+    "a former friend keeps the historical read their snapshot granted",
+  );
+
+  const formerFriendRecent = await carol.client.rpc("list_recent_moments", {
+    p_limit: 20,
+  });
+  assert.ifError(formerFriendRecent.error);
+  assert.equal(
+    formerFriendRecent.data.filter((row) => row.moment_id === momentId).length,
+    0,
+    "but Recent drops it: history is not a live feed",
+  );
 
   const reviewed = await finalizeAsService(
     { authorId: alice.id, id: reviewMomentId },

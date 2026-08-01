@@ -3,6 +3,7 @@ import {
   RECENT_FUTURE_SKEW_MS,
   RECENT_WINDOW_MS,
 } from "@/constants/moments";
+import { formatExactCaptureTime } from "@/features/moments/capture-time";
 
 /**
  * Capture evidence: the only thing Orca keeps from a photo's metadata.
@@ -229,49 +230,18 @@ export function classifyCapture(
     : "archive";
 }
 
-const MONTH_NAMES = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
-
 /**
- * Reconstructs the calendar the photo was actually taken in, from the stored
- * UTC instant plus its recorded offset. The *viewer's* current timezone must
- * never move a travel Moment to another day, so this deliberately does not use
- * the device zone or `Intl`: it shifts the instant by the stored offset and
- * reads the UTC fields.
- *
- * English/12-hour only, matching the V1 iOS beta; localization is a later
- * decision, not an accidental one.
+ * The composer's label for a credible capture time. The arithmetic lives in
+ * `capture-time.ts` because the feed asks the same question and the two must
+ * never drift apart.
  */
 export function formatCaptureLocalTime(
   evidence: CaptureEvidence,
 ): string | null {
   if (!isCredibleCaptureEvidence(evidence)) return null;
 
-  const shifted = new Date(
-    Date.parse(evidence.capturedAt) +
-      evidence.capturedUtcOffsetMinutes * 60_000,
-  );
-  if (Number.isNaN(shifted.getTime())) return null;
-
-  const hours24 = shifted.getUTCHours();
-  const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
-  const minutes = String(shifted.getUTCMinutes()).padStart(2, "0");
-  const meridiem = hours24 < 12 ? "AM" : "PM";
-
-  return (
-    `${MONTH_NAMES[shifted.getUTCMonth()]} ${shifted.getUTCDate()}, ` +
-    `${shifted.getUTCFullYear()} at ${hours12}:${minutes} ${meridiem}`
+  return formatExactCaptureTime(
+    evidence.capturedAt,
+    evidence.capturedUtcOffsetMinutes,
   );
 }
