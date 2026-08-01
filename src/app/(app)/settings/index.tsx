@@ -26,6 +26,7 @@ export default function SettingsRoute() {
     <AccountScreen
       displayName={state.data.display_name ?? "Orca member"}
       email={user.email ?? "Email unavailable"}
+      onEditProfile={() => router.push("/settings/profile")}
       onOpenBlockedUsers={() => router.push("/settings/blocked")}
       onSignOut={signOut}
       username={state.data.username ?? "unavailable"}

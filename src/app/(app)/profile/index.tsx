@@ -17,7 +17,9 @@ export default function ProfileRoute() {
   }
   return (
     <ProfileScreen
+      avatarPath={state.data.avatar_path}
       displayName={state.data.display_name ?? "Orca member"}
+      onEditProfile={() => router.push("/settings/profile")}
       onOpenSettings={() => router.push("/settings")}
       username={state.data.username ?? "unavailable"}
     />

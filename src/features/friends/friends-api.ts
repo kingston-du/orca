@@ -3,8 +3,13 @@ import * as Crypto from "expo-crypto";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/types/database";
 
-export type FriendSummary =
+type GeneratedFriendSummary =
   Database["public"]["Functions"]["list_friends"]["Returns"][number];
+// Generated RPC row types are non-nullable by default; a profile without a
+// published avatar really does return null here.
+export type FriendSummary = Omit<GeneratedFriendSummary, "avatar_path"> & {
+  avatar_path: string | null;
+};
 export type FriendRequestSummary =
   Database["public"]["Functions"]["list_friend_requests"]["Returns"][number];
 type GeneratedProfileLookup =
@@ -27,7 +32,7 @@ export type FriendCommandResult = Omit<
   request_id: string | null;
 };
 
-export async function listFriends() {
+export async function listFriends(): Promise<FriendSummary[]> {
   const { data, error } = await supabase.rpc("list_friends", {
     p_after_id: undefined,
     p_after_username: undefined,
@@ -90,10 +95,17 @@ export async function runFriendOperation(
   return data[0];
 }
 
-export type ProfileSummary =
+type GeneratedProfileSummary =
   Database["public"]["Functions"]["get_profile_summary"]["Returns"][number];
-export type FriendOfFriend =
+// The stranger tier deliberately receives no avatar path at all.
+export type ProfileSummary = Omit<GeneratedProfileSummary, "avatar_path"> & {
+  avatar_path: string | null;
+};
+type GeneratedFriendOfFriend =
   Database["public"]["Functions"]["list_friend_friends"]["Returns"][number];
+export type FriendOfFriend = Omit<GeneratedFriendOfFriend, "avatar_path"> & {
+  avatar_path: string | null;
+};
 type GeneratedBlockedProfile =
   Database["public"]["Functions"]["list_blocked_profiles"]["Returns"][number];
 // A suspended or deleting blocked account keeps its row so the block can still
@@ -115,7 +127,9 @@ export async function getProfileSummary(
   return data[0] ?? null;
 }
 
-export async function listFriendFriends(friendId: string) {
+export async function listFriendFriends(
+  friendId: string,
+): Promise<FriendOfFriend[]> {
   const { data, error } = await supabase.rpc("list_friend_friends", {
     p_after_id: undefined,
     p_after_username: undefined,

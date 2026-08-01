@@ -420,3 +420,18 @@ enabled = true
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# Checkpoint 2C Edge Functions. `finalize-avatar` runs as the signed-in user
+# and elevates only to verify bytes; `reconcile-operations` is secret-only and
+# never sees a user JWT, so its verify_jwt is deliberately false.
+[functions.finalize-avatar]
+enabled = true
+verify_jwt = true
+import_map = "./functions/finalize-avatar/deno.json"
+entrypoint = "./functions/finalize-avatar/index.ts"
+
+[functions.reconcile-operations]
+enabled = true
+verify_jwt = false
+import_map = "./functions/reconcile-operations/deno.json"
+entrypoint = "./functions/reconcile-operations/index.ts"

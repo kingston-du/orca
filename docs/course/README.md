@@ -4,7 +4,7 @@ These lessons explain verified Orca implementation checkpoints through their men
 
 ## Redesign status
 
-Orca's friend-first foundation is implemented on `codex/friend-first-rebaseline`, and Phase 1 is complete. The canonical schema, Home/Camera/People shell, username onboarding, restricted controls, privacy shield, and exact friendship core replace the Circle-era implementation, and that same canonical history now runs on the hosted-development project. Checkpoints 2A and 2B add friend-of-friend browsing, tiered profile summaries, the blocked-user surface, and personal invite links. Physical-iPhone acceptance remains an open gate.
+Orca's friend-first foundation is implemented on `codex/friend-first-rebaseline`, and Phase 1 is complete. The canonical schema, Home/Camera/People shell, username onboarding, restricted controls, privacy shield, and exact friendship core replace the Circle-era implementation, and that same canonical history now runs on the hosted-development project. Checkpoints 2A and 2B add friend-of-friend browsing, tiered profile summaries, the blocked-user surface, and personal invite links. Checkpoint 2C completes Phase 2 with versioned avatars, the shared reserved-object uploader, and the first cleanup worker; its hosted bucket, Vault secrets, Cron schedule, and Edge Function deployment are implemented locally and await their separate promotion approval. Physical-iPhone acceptance remains an open gate.
 
 Only the retained foundations below are current course material. Obsolete and superseded work is separated in the [historical archive](./archive/README.md).
 
@@ -18,12 +18,13 @@ Only the retained foundations below are current course material. Obsolete and su
 - Lesson 17 — [Promoting a canonical schema to a hosted environment](./17-hosted-rebaseline-and-environment-promotion.md)
 - Lesson 18 — [Graph boundaries and access tiers](./18-graph-boundaries-and-access-tiers.md)
 - Lesson 19 — [Capability links and hash-only secrets](./19-capability-links-and-hash-only-secrets.md)
+- Lesson 20 — [Reserved uploads, trusted verification, and the first worker](./20-reserved-uploads-and-the-first-worker.md)
 
 Lesson 11's native camera lifecycle and normalization boundary remain useful. Its references to Circle publishing and fallback picker capture time describe the pre-redesign downstream contract; the friend-first implementation must follow `PROJECT.md` instead.
 
 ## Next lesson
 
-Lesson 20 is created only after Checkpoint 2C's avatars, shared uploader, and first worker are implemented and verified. Course notes never describe speculative code as though it exists.
+Lesson 21 is created only after Phase 3's capture, picker evidence, composer, and recoverable draft are implemented and verified. Course notes never describe speculative code as though it exists.
 
 ## Course progression and checkpoint contract
 

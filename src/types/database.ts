@@ -163,6 +163,17 @@ export type Database = {
           result_state: string
         }[]
       }
+      begin_avatar_verification: {
+        Args: { p_request_id: string; p_user_id: string }
+        Returns: {
+          client_byte_size: number
+          client_sha256: string
+          object_path: string
+          request_id: string
+          status: string
+          user_id: string
+        }[]
+      }
       block_user: {
         Args: { p_command_id: string; p_other_id: string }
         Returns: {
@@ -171,11 +182,17 @@ export type Database = {
           result_state: string
         }[]
       }
+      can_read_avatar: { Args: { p_object_path: string }; Returns: boolean }
+      can_upload_reserved_avatar: {
+        Args: { p_object_path: string }
+        Returns: boolean
+      }
       can_view_friendship: {
         Args: { p_user_high: string; p_user_low: string }
         Returns: boolean
       }
       can_view_profile: { Args: { p_profile_id: string }; Returns: boolean }
+      cancel_avatar_upload: { Args: { p_request_id: string }; Returns: string }
       cancel_friend_request: {
         Args: { p_command_id: string; p_other_id: string; p_request_id: string }
         Returns: {
@@ -183,6 +200,20 @@ export type Database = {
           request_id: string
           result_state: string
         }[]
+      }
+      claim_media_cleanup_batch: {
+        Args: { p_lease_seconds?: number; p_limit?: number }
+        Returns: {
+          attempt_count: number
+          bucket_id: string
+          job_id: string
+          lease_token: string
+          object_path: string
+        }[]
+      }
+      complete_media_cleanup: {
+        Args: { p_job_id: string; p_lease_token: string }
+        Returns: boolean
       }
       complete_onboarding: {
         Args: {
@@ -221,10 +252,32 @@ export type Database = {
           fingerprint: string
         }[]
       }
+      fail_media_cleanup: {
+        Args: { p_error_code: string; p_job_id: string; p_lease_token: string }
+        Returns: string
+      }
+      finalize_avatar_upload: {
+        Args: {
+          p_byte_size: number
+          p_content_sha256: string
+          p_height: number
+          p_object_path: string
+          p_object_version: string
+          p_request_id: string
+          p_user_id: string
+          p_verifier_version: string
+          p_width: number
+        }
+        Returns: {
+          avatar_path: string
+          status: string
+        }[]
+      }
       get_account_control_state: {
         Args: never
         Returns: {
           account_state: string
+          avatar_path: string
           display_name: string
           email_verified: boolean
           has_current_legal: boolean
@@ -234,6 +287,17 @@ export type Database = {
           username: string
         }[]
       }
+      get_avatar_upload_status: {
+        Args: { p_request_id: string }
+        Returns: {
+          avatar_path: string
+          error_code: string
+          expires_at: string
+          object_path: string
+          request_id: string
+          status: string
+        }[]
+      }
       get_invite_status: {
         Args: never
         Returns: {
@@ -241,10 +305,23 @@ export type Database = {
           fingerprint: string
         }[]
       }
+      get_media_operations_metrics: {
+        Args: never
+        Returns: {
+          active_reservations: number
+          dead_jobs: number
+          leased_jobs: number
+          oldest_ready_age_seconds: number
+          oldest_reservation_age_seconds: number
+          ready_jobs: number
+          retry_jobs: number
+        }[]
+      }
       get_profile_summary: {
         Args: { p_profile_id: string }
         Returns: {
           access_tier: string
+          avatar_path: string
           display_name: string
           id: string
           mutual_friend_count: number
@@ -276,6 +353,7 @@ export type Database = {
           p_limit?: number
         }
         Returns: {
+          avatar_path: string
           display_name: string
           id: string
           mutual_friend_count: number
@@ -305,6 +383,7 @@ export type Database = {
           p_limit?: number
         }
         Returns: {
+          avatar_path: string
           display_name: string
           generation_id: string
           id: string
@@ -323,12 +402,26 @@ export type Database = {
           username: string
         }[]
       }
+      reject_avatar_upload: {
+        Args: { p_error_code: string; p_request_id: string; p_user_id: string }
+        Returns: string
+      }
       reject_friend_request: {
         Args: { p_command_id: string; p_other_id: string; p_request_id: string }
         Returns: {
           generation_id: string
           request_id: string
           result_state: string
+        }[]
+      }
+      remove_avatar: { Args: never; Returns: undefined }
+      reserve_avatar_upload: {
+        Args: { p_client_byte_size: number; p_client_sha256: string }
+        Returns: {
+          expires_at: string
+          object_path: string
+          request_id: string
+          status: string
         }[]
       }
       resolve_invite: {
@@ -347,6 +440,17 @@ export type Database = {
         Returns: {
           expires_at: string
           fingerprint: string
+        }[]
+      }
+      run_media_maintenance: {
+        Args: { p_limit?: number }
+        Returns: {
+          expired_reservations: number
+          pruned_friend_requests: number
+          pruned_jobs: number
+          pruned_rate_buckets: number
+          pruned_requests: number
+          pruned_verifications: number
         }[]
       }
       send_friend_request: {

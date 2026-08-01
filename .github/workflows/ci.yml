@@ -86,11 +86,26 @@ jobs:
       - name: Run pgTAP tests
         run: npm run db:test
 
-      - name: Run real Auth and Data API tests
+      - name: Run real Auth, Data API, and Storage tests
         run: npm run db:test:api
 
-      - name: Test bounded JPEG verification
+      - name: Test bounded JPEG and media-cleanup logic
         run: npm run functions:test
+
+      - name: Serve Edge Functions
+        run: |
+          npx supabase functions serve > /tmp/functions.log 2>&1 &
+          # The runtime downloads its image on first start, so poll for the
+          # endpoint instead of guessing a fixed sleep.
+          for _ in $(seq 1 60); do
+            if curl -sf -o /dev/null "http://127.0.0.1:54321/functions/v1/reconcile-operations" \
+              -X POST -d '{}'; then break; fi
+            if grep -q "Serving functions on" /tmp/functions.log; then break; fi
+            sleep 2
+          done
+
+      - name: Run Edge Function orchestration tests
+        run: npm run functions:test:api
 
       - name: Check generated database types
         run: npm run db:types:check

@@ -9,6 +9,10 @@ import {
   runFriendOperation,
 } from "@/features/friends/friends-api";
 
+jest.mock("@/features/profiles/avatar-api", () => ({
+  createAvatarSignedUrl: jest.fn(async () => null),
+}));
+
 jest.mock("@/features/friends/friends-api", () => ({
   listFriendRequests: jest.fn(),
   listFriends: jest.fn(),
@@ -33,6 +37,8 @@ function renderPeople(
         onOpenInviteLink={onOpenInviteLink}
         onOpenMyProfile={onOpenMyProfile}
         onOpenProfile={onOpenProfile}
+        ownAvatarPath={null}
+        ownDisplayName="Me"
       />
     </QueryClientProvider>,
   );

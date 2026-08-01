@@ -13,6 +13,7 @@ type AccountScreenProps = {
   displayName: string;
   email: string;
   username: string;
+  onEditProfile: () => void;
   onOpenBlockedUsers: () => void;
   onSignOut: () => Promise<{ message: string } | null>;
 };
@@ -20,6 +21,7 @@ type AccountScreenProps = {
 export function AccountScreen({
   displayName,
   email,
+  onEditProfile,
   onOpenBlockedUsers,
   onSignOut,
   username,
@@ -72,6 +74,21 @@ export function AccountScreen({
             <Text style={styles.label}>Email</Text>
             <Text style={styles.value}>{email}</Text>
           </View>
+        </View>
+
+        <View style={styles.signOutSection}>
+          <Text style={styles.sectionTitle}>Profile</Text>
+          <Pressable
+            accessibilityHint="Change or remove your profile photo"
+            accessibilityRole="button"
+            onPress={onEditProfile}
+            style={styles.navRow}
+          >
+            <Text style={styles.value}>Edit Profile</Text>
+            <Text accessibilityElementsHidden style={styles.chevron}>
+              ›
+            </Text>
+          </Pressable>
         </View>
 
         <View style={styles.signOutSection}>

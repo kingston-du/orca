@@ -9,6 +9,10 @@ import {
   runFriendOperation,
 } from "@/features/friends/friends-api";
 
+jest.mock("@/features/profiles/avatar-api", () => ({
+  createAvatarSignedUrl: jest.fn(async () => null),
+}));
+
 jest.mock("@/features/friends/friends-api", () => ({
   blockUser: jest.fn(),
   getProfileSummary: jest.fn(),
@@ -32,6 +36,7 @@ async function renderProfile(onOpenProfile = jest.fn()) {
 
 const friendSummary = {
   access_tier: "friend",
+  avatar_path: null,
   display_name: "Bob",
   id: "friend-1",
   mutual_friend_count: 2,
@@ -49,6 +54,7 @@ describe("FriendProfileScreen", () => {
     jest.mocked(getProfileSummary).mockResolvedValue(friendSummary);
     jest.mocked(listFriendFriends).mockResolvedValue([
       {
+        avatar_path: null,
         display_name: "Carol",
         id: "fof-1",
         mutual_friend_count: 1,

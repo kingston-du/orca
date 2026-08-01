@@ -1,12 +1,18 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ProfileAvatar } from "@/components/profile-avatar";
+
 export function ProfileScreen({
+  avatarPath,
   displayName,
+  onEditProfile,
   onOpenSettings,
   username,
 }: {
+  avatarPath: string | null;
   displayName: string;
+  onEditProfile: () => void;
   onOpenSettings: () => void;
   username: string;
 }) {
@@ -14,15 +20,22 @@ export function ProfileScreen({
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <View style={styles.identity}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {displayName.slice(0, 1).toUpperCase()}
-            </Text>
-          </View>
+          <ProfileAvatar
+            avatarPath={avatarPath}
+            displayName={displayName}
+            size={84}
+          />
           <Text accessibilityRole="header" style={styles.title}>
             {displayName}
           </Text>
           <Text style={styles.username}>@{username}</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onEditProfile}
+            style={styles.editButton}
+          >
+            <Text style={styles.editLabel}>Edit Profile</Text>
+          </Pressable>
         </View>
         <Pressable
           accessibilityLabel="Open Settings"
@@ -40,15 +53,17 @@ export function ProfileScreen({
 }
 
 const styles = StyleSheet.create({
-  avatar: {
+  editButton: {
     alignItems: "center",
-    backgroundColor: "#DCEEFB",
-    borderRadius: 42,
-    height: 84,
+    borderColor: "#829AB1",
+    borderRadius: 12,
+    borderWidth: 1,
     justifyContent: "center",
-    width: 84,
+    marginTop: 8,
+    minHeight: 44,
+    paddingHorizontal: 20,
   },
-  avatarText: { color: "#1769AA", fontSize: 32, fontWeight: "900" },
+  editLabel: { color: "#243B53", fontSize: 15, fontWeight: "700" },
   gear: {
     alignItems: "center",
     justifyContent: "center",
@@ -62,7 +77,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     padding: 24,
   },
-  identity: { gap: 6 },
+  identity: { alignItems: "flex-start", gap: 6 },
   safeArea: { backgroundColor: "#F5FAFF", flex: 1 },
   title: { color: "#102A43", fontSize: 30, fontWeight: "900", marginTop: 8 },
   username: { color: "#52606D", fontSize: 16 },

@@ -11,6 +11,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ProfileAvatar } from "@/components/profile-avatar";
+
 import {
   listFriendRequests,
   listFriends,
@@ -23,6 +25,8 @@ const friendsKey = ["friends"] as const;
 const requestsKey = ["friend-requests"] as const;
 
 type PeopleScreenProps = {
+  ownAvatarPath: string | null;
+  ownDisplayName: string;
   onOpenInviteLink: () => void;
   onOpenMyProfile: () => void;
   onOpenProfile: (profileId: string) => void;
@@ -32,6 +36,8 @@ export function PeopleScreen({
   onOpenInviteLink,
   onOpenMyProfile,
   onOpenProfile,
+  ownAvatarPath,
+  ownDisplayName,
 }: PeopleScreenProps) {
   const queryClient = useQueryClient();
   const friends = useQuery({ queryKey: friendsKey, queryFn: listFriends });
@@ -99,9 +105,11 @@ export function PeopleScreen({
           onPress={onOpenMyProfile}
           style={styles.profileCard}
         >
-          <View style={styles.avatarPlaceholder}>
-            <Text style={styles.avatarText}>Me</Text>
-          </View>
+          <ProfileAvatar
+            avatarPath={ownAvatarPath}
+            displayName={ownDisplayName}
+            size={48}
+          />
           <View style={styles.flex}>
             <Text style={styles.cardTitle}>My Profile</Text>
             <Text style={styles.body}>
@@ -231,6 +239,7 @@ export function PeopleScreen({
           {friends.data?.map((friend) => (
             <PersonRow
               action="Unfriend"
+              avatarPath={friend.avatar_path}
               disabled={command.isPending}
               displayName={friend.display_name}
               key={friend.id}
@@ -278,6 +287,7 @@ function lookupExpectedId(lookup: ProfileLookup) {
 
 function PersonRow({
   action,
+  avatarPath,
   disabled,
   displayName,
   onAction,
@@ -287,6 +297,7 @@ function PersonRow({
   username,
 }: {
   action?: string;
+  avatarPath?: string | null;
   disabled: boolean;
   displayName: string;
   onAction: () => void;
@@ -301,6 +312,13 @@ function PersonRow({
 
   return (
     <View style={styles.personRow}>
+      {avatarPath === undefined ? null : (
+        <ProfileAvatar
+          avatarPath={avatarPath}
+          displayName={displayName}
+          size={40}
+        />
+      )}
       <Identity
         accessibilityHint={onOpen ? "Opens this profile" : undefined}
         accessibilityRole={onOpen ? "button" : undefined}
@@ -346,15 +364,6 @@ function Retry({ onRetry }: { onRetry: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  avatarPlaceholder: {
-    alignItems: "center",
-    backgroundColor: "#DCEEFB",
-    borderRadius: 24,
-    height: 48,
-    justifyContent: "center",
-    width: 48,
-  },
-  avatarText: { color: "#1769AA", fontWeight: "800" },
   body: { color: "#52606D", fontSize: 14, lineHeight: 20 },
   cardTitle: { color: "#102A43", fontSize: 16, fontWeight: "800" },
   chevron: { color: "#52606D", fontSize: 32 },

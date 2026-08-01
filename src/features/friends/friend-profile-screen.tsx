@@ -9,6 +9,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ProfileAvatar } from "@/components/profile-avatar";
+
 import {
   blockUser,
   getProfileSummary,
@@ -94,11 +96,11 @@ export function FriendProfileScreen({
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.identity}>
-          <View style={styles.avatarPlaceholder}>
-            <Text style={styles.avatarText}>
-              {initialsFor(profile.display_name)}
-            </Text>
-          </View>
+          <ProfileAvatar
+            avatarPath={profile.avatar_path}
+            displayName={profile.display_name}
+            size={72}
+          />
           <Text accessibilityRole="header" style={styles.title}>
             {profile.display_name}
           </Text>
@@ -156,6 +158,11 @@ export function FriendProfileScreen({
                 onPress={() => onOpenProfile(person.id)}
                 style={styles.personRow}
               >
+                <ProfileAvatar
+                  avatarPath={person.avatar_path}
+                  displayName={person.display_name}
+                  size={40}
+                />
                 <View style={styles.flex}>
                   <Text style={styles.cardTitle}>{person.display_name}</Text>
                   <Text style={styles.body}>
@@ -177,11 +184,6 @@ export function FriendProfileScreen({
   );
 }
 
-function initialsFor(displayName: string) {
-  const trimmed = displayName.trim();
-  return trimmed ? Array.from(trimmed)[0].toUpperCase() : "?";
-}
-
 function mutualLabel(count: number) {
   return count === 1 ? "1 mutual friend" : `${count} mutual friends`;
 }
@@ -197,15 +199,6 @@ function tierDescription(profile: ProfileSummary) {
 
 const styles = StyleSheet.create({
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  avatarPlaceholder: {
-    alignItems: "center",
-    backgroundColor: "#DCEEFB",
-    borderRadius: 36,
-    height: 72,
-    justifyContent: "center",
-    width: 72,
-  },
-  avatarText: { color: "#1769AA", fontSize: 28, fontWeight: "800" },
   body: { color: "#52606D", fontSize: 14, lineHeight: 20 },
   cardTitle: { color: "#102A43", fontSize: 16, fontWeight: "800" },
   centered: {

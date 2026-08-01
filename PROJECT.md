@@ -2,7 +2,7 @@
 
 Status date: 2026-07-31
 
-Implementation state: Phase 1 complete, Checkpoints 2A and 2B implemented; local and hosted run the same four-migration history
+Implementation state: Phase 1 complete, Phase 2 complete locally; hosted runs the four-migration 2B history while Checkpoint 2C's fifth migration, bucket, worker, Cron, and Vault await promotion approval
 
 Product target: production-quality private iOS beta for approximately 100 users
 
@@ -21,8 +21,9 @@ The Circle-era repository was audited at commit `c1ee45d0afd1b15810895543378d3bc
 - The primary app shell is Home, Camera, People. My Profile owns the Settings entry; incomplete, stale-legal, suspended, and deleting accounts are routed to their permitted control surfaces. People supports exact lookup plus request, accept, reject, cancel, and unfriend.
 - Local Supabase, handwritten migrations, generated types, 73 pgTAP assertions, a real two-user Auth/Data API test, native-manifest assertions, app tests, and CI exist. The current verification record is in Lesson 16.
 - The hosted-development project was rebaselined in place to the canonical two-migration history. Its promoted history matches local exactly, its Data API exposes `public` only, `graphql_public` is no longer reachable, remote schema lint is clean, obsolete Circle relations return 404, and the same real two-user Auth/Data API suite passes against the hosted endpoint. The app's `.env` already targets this project with a publishable key. The verification record is in Lesson 17.
+- Checkpoint 2C is implemented locally: the private `avatars` bucket, versioned avatar reservation/exact upload/trusted verification/finalize, the generic `private.media_cleanup_jobs` outbox with leases and dead letters, `private.media_verifications`, the shared Expo FileSystem reserved-object uploader, the `finalize-avatar` and `reconcile-operations` Edge Functions, Edit Profile/avatar UI, and avatar exposure on the self/friend/friend-of-friend profile projections. Its Cron and Vault wiring is versioned in the migration but stays inert until the promotion secrets exist. The verification record is in Lesson 20.
 
-These checks validate Checkpoints 1A and 1B. Moments, media publication, feeds, complete profile/invite/safety surfaces, and release infrastructure remain planned.
+These checks validate Checkpoints 1A, 1B, 2A, 2B, and 2C's local scope. Moments, media publication, feeds, safety surfaces, and release infrastructure remain planned.
 
 ### Preserved foundations requiring later extension
 
@@ -51,13 +52,17 @@ Comments and saved Groups are V1.1 candidates. Android release, public discovery
 
 No database rebaseline, migration-history replacement, hosted project creation/configuration, migration promotion, function deployment, production resource, TestFlight/App Store action, destructive remote action, purchase, or legal/business identity decision is authorized by this document alone.
 
+### Corrected
+
+Checkpoint 1A's `public.profiles` avatar-path check could never match a well-formed path: `'\\.'` is a three-character literal under `standard_conforming_strings`, so the regex demanded a literal backslash before the extension and every avatar write would have raised `23514`. Nothing had ever written the column. Because the migration is promoted, it was not amended; Checkpoint 2C's migration drops the unnamed `profiles_check` constraint and adds `profiles_avatar_path_check` with an exact UUID pattern, and pgTAP now asserts both acceptance and foreign-prefix rejection.
+
 ### Obsolete
 
 Circles, Circle invitations, Circle administration/deletion, the Memories tab, a future Everyone feed, and invitation-gated account signup are not part of the new contract and have been removed from active source/schema. Under Checkpoint 1B the founder directed reuse of the existing hosted-development project and explicitly waived the rollback environment; its ten Circle-era migrations, its single development test account, and its database contents were destroyed by an approved in-place linked reset and are not recoverable. No rollback backend exists. No production Supabase project or external beta exists. The intentional untracked `RefactoringUI.pdf` remains untracked.
 
 ## 2. Redesign status
 
-Checkpoint 1A was explicitly approved and implemented locally. Checkpoint 1B was explicitly approved with a founder-directed change of method — reuse the existing hosted-development project and waive rollback — and is implemented apart from the Auth-email gate recorded in Section 1. Later checkpoints remain planned and require the approvals stated in their phase and in Section 31.
+Checkpoint 1A was explicitly approved and implemented locally. Checkpoint 1B was explicitly approved with a founder-directed change of method — reuse the existing hosted-development project and waive rollback — and is implemented apart from the Auth-email gate recorded in Section 1. Checkpoints 2A and 2B are implemented and promoted. Checkpoint 2C was explicitly approved for local implementation only, with an explicit instruction to stop before creating hosted buckets, Vault secrets, or Cron schedules and before deploying Edge Functions; that boundary was observed. Later checkpoints remain planned and require the approvals stated in their phase and in Section 31.
 
 Truth rules:
 
@@ -1031,7 +1036,18 @@ Phase 2 is implemented as three coherent checkpoints so that every approval-gate
 - **Deferred:** physical-iPhone custom-scheme intake, fragment preservation through the real native path, and process-death recovery. Production HTTPS/AASA association remains 9D's.
 - **Course/Git:** Lesson 19. Migration promoted to hosted development; no bucket, Vault secret, Cron job, or Edge Function created.
 
-### Phase 2 — People, profile, invites, and privacy surfaces (**2A and 2B complete; 2C planned**)
+### Checkpoint 2C — Avatars, the shared reserved-object uploader, and the first worker (**implemented; local gates green; every hosted resource deferred to its own approval**)
+
+- **Outcome:** the reserve → exact upload → trusted verify → finalize → outbox → proven-absence pattern exists end to end for avatars, and the uploader, cleanup outbox, and worker are the generic boundaries Phase 4 reuses for Moment media.
+- **Scope/files:** `20260731230000_avatars_and_media_reconciliation.sql`; the private `avatars` bucket; `private.avatar_publication_requests`, `private.media_verifications`, `private.media_cleanup_jobs`; `reserve_avatar_upload`, `get_avatar_upload_status`, `cancel_avatar_upload`, `remove_avatar`, `can_upload_reserved_avatar`, `can_read_avatar`; service-only `begin_avatar_verification`, `reject_avatar_upload`, `finalize_avatar_upload`, `claim_media_cleanup_batch`, `complete_media_cleanup`, `fail_media_cleanup`, `get_media_operations_metrics`, `run_media_maintenance`; three `storage.objects` policies; `private.dispatch_reconcile_operations` and `private.ensure_reconcile_schedule`; `supabase/functions/{finalize-avatar,reconcile-operations,_shared/verify-avatar.ts,_shared/media-cleanup.ts}`; `src/lib/reserved-object-upload.ts`; `src/features/profiles/*`; `src/components/profile-avatar.tsx`; the `(app)/settings/profile` route with Settings and My Profile entries; avatar exposure added to `get_account_control_state`, `list_friends`, `list_friend_friends`, and `get_profile_summary`.
+- **Corrective:** the promoted 1A avatar-path check could never match a real path (see Section 1 "Corrected"); a new named constraint replaces it without amending promoted history.
+- **Security/failure:** the server owns the version UUID and path; one active reservation is a partial unique index, not application logic; an exact retry returns the same reservation while different bytes raise `23505`; the finalizer measures structure, exact 512×512 dimensions, byte count, and SHA-256 from the downloaded bytes and never trusts the declared content type; a published request replays idempotently; `x-upsert: false` plus no client `UPDATE`/`DELETE` policy makes a reserved path immutable; only a profile's _current_ `avatar_path` is signable, so a superseded version is unreadable the instant the pointer moves; issuance is self/friend/one-hop-FoF with either-direction block checks and the stranger tier receives no path at all; cleanup uses `FOR UPDATE SKIP LOCKED`, 90-second leases, jittered exponential backoff, a dead letter at ten attempts, and refuses completion until `storage.objects` proves absence; the worker never SQL-deletes Storage metadata and logs only counts, ages, and error codes.
+- **Cron/Vault:** versioned in the migration but inert — `ensure_reconcile_schedule()` returns false until both Vault secrets exist, so a clean local reset and CI make no network call and no credential is committed. Verified against the live edge runtime: `withSupabase({ auth: "secret" })` reads the secret key from the `apikey` header, not `Authorization`.
+- **Evidence:** clean five-migration replay; warning-free `db lint` on `public` and `private`; 226 pgTAP assertions; 26 Jest suites / 136 tests; 19 Node function tests; real local Data API/Storage suite (`scripts/test-avatar-media-api.mjs`) and real Edge Function orchestration suite (`scripts/test-avatar-functions.mjs`) covering foreign/unreserved-path denial, duplicate conflict, `x-upsert` refusal, unsignable unverified object, tiered signing, block revocation, verify/publish/replay/reject, and worker deletion with absence proof; no generated-type drift; TypeScript, zero-warning lint, formatting, legal hashes, native manifest, Expo dependency agreement, Expo Doctor 20/20.
+- **Deferred:** hosted promotion of the fifth migration, the `avatars` bucket, both Vault secrets, both Cron schedules, and both Edge Functions; physical-iPhone acceptance of the native upload task's background transfer, cancel, and process-death behaviour; the two/three-account simulator pass and VoiceOver/Dynamic Type audit on a rebuilt client.
+- **Course/Git:** Lesson 20. No hosted resource was created or deployed.
+
+### Phase 2 — People, profile, invites, and privacy surfaces (**complete locally; 2C hosted promotion deferred**)
 
 - **Outcome:** complete the 1A friend core with avatar and full My Profile identity/settings entry, accepted friend's block-filtered friend list/FoF profiles, personal invite creation/intake, and blocked-user/profile/settings surfaces; 1A's exact lookup/request lifecycle is extended, not reimplemented. Diary UI waits for real Moment rows in 5B.
 - **Why/dependencies:** Moments need recipients/tags and block predicates first; depends on 1B.
@@ -1199,16 +1215,23 @@ Installed source/types and pinned CLI `--help` take precedence over generic exam
 
 ## 31. Exact next action
 
-Phase 1, Checkpoint 2A, and Checkpoint 2B are complete. The next action is **Checkpoint 2C — avatars, the shared reserved-object uploader, and the first worker**, exactly as scoped in Section 27. It has not been authorized.
+Phase 1 and all of Phase 2 are implemented. Checkpoint 2C is complete locally with green gates and stopped, as instructed, before every hosted resource. The next action is the **Checkpoint 2C hosted promotion**, which is a short, entirely remote session and needs its own explicit approval.
 
-One gate carried forward from Checkpoint 1B remains open and is independent of Phase 2 approval:
+The promotion, in order, is:
 
-- **Physical-iPhone smoke.** A rebuilt development client on a physical device must exercise the app-switcher privacy shield, absence of an old-user frame on foreground, friend-first camera permission/readiness copy, and a real signup/onboarding/friend regression against hosted. Hosted email now works, so nothing blocks this but device time.
+1. `supabase db push` the fifth migration `20260731230000_avatars_and_media_reconciliation.sql`, which creates the private `avatars` bucket and its `storage.objects` policies on hosted.
+2. Push `supabase/config.toml` so the two `[functions.*]` sections apply, then deploy `finalize-avatar` (JWT-verified) and `reconcile-operations` (secret-only).
+3. Create the two Vault secrets — `orca_functions_base_url` and `orca_worker_secret` — through the dashboard or management API. Their values are never committed; the worker secret must be a secret key, and the dispatcher sends it as `apikey`.
+4. Call `select private.ensure_reconcile_schedule();`, which returns `false` until both secrets exist and otherwise registers `orca-reconcile-operations` (every minute) and `orca-daily-maintenance` (03:17 UTC).
+5. Verify: promoted history equals local; `supabase db lint --linked` clean; `cron.job` shows exactly the two schedules and `cron.job_run_details` shows successful runs; advisors show no new warning category; then rerun both real suites against hosted with `ORCA_TEST_API_URL`, `ORCA_TEST_PUBLISHABLE_KEY`, `ORCA_TEST_SERVICE_ROLE_KEY` (legacy `service_role`), plus `ORCA_TEST_SECRET_KEY` and `ORCA_TEST_FUNCTIONS_URL` for the function suite.
 
-Phase 2 approval needed:
+Approval needed:
 
-> Approve Codex to implement Checkpoint 2C — the shared Expo FileSystem reserved-object uploader, versioned avatar reservation/exact upload/trusted finalize, the private `avatars` bucket, and the first `reconcile-operations` worker with its Cron and Vault consumer — and stop before creating hosted buckets, Vault secrets, Cron schedules, or deploying Edge Functions.
+> Approve Codex to promote Checkpoint 2C to hosted development: push the fifth migration and the versioned `[functions]` config, create the private `avatars` bucket, deploy `finalize-avatar` and `reconcile-operations`, create the `orca_functions_base_url` and `orca_worker_secret` Vault secrets, register the two Cron schedules, and verify with hosted lint, advisors, `cron.job` history, and both real hosted suites.
 
-Checkpoint 2C creates the first bucket, Vault secret, Cron job, and Edge Function, each of which carries its own separate promotion approval beyond the implementation approval above. The uploader it builds is reused by Phase 4's Moment publication.
+Two device gates remain open and are independent of that approval:
 
-Project creation/billing, hosted migration/config promotion, endpoint cutover, old-project deletion, production creation, function deployment, and any external release remain separate approvals. Approval of one does not imply another.
+- **Physical-iPhone smoke (from 1B).** A rebuilt development client must exercise the app-switcher privacy shield, absence of an old-user frame on foreground, friend-first camera permission/readiness copy, and a real signup/onboarding/friend regression against hosted. Hosted email now works, so nothing blocks this but device time.
+- **Physical-iPhone avatar acceptance (from 2C).** The native upload task's real progress, cancel, background transfer, and process-death recovery, plus the two/three-account simulator pass and a VoiceOver/Dynamic Type audit of Edit Profile.
+
+Project creation/billing, endpoint cutover, old-project deletion, production creation, and any external release remain separate approvals. Approval of one does not imply another.
