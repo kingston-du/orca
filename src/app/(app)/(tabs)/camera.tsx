@@ -1,5 +1,5 @@
-import { PhotoCaptureScreen } from "@/features/posts/photo-capture-screen";
+import { CaptureScreen } from "@/features/moments/capture/capture-screen";
 
 export default function CameraScreen() {
-  return <PhotoCaptureScreen />;
+  return <CaptureScreen />;
 }

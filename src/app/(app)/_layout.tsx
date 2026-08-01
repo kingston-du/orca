@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
+import { MomentDraftProvider } from "@/features/moments/composer/composer-provider";
 import { getOnboardingRouteAccess } from "@/features/onboarding/onboarding-route-access";
 import { useOwnOnboardingState } from "@/features/onboarding/use-own-onboarding-state";
 
@@ -76,31 +77,44 @@ export default function AppLayout() {
     );
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={canEnterOnboarding}>
-        <Stack.Screen name="onboarding" />
-      </Stack.Protected>
+    // The draft provider spans the whole authenticated stack because capture
+    // and composition are separate routes that must agree on one draft, and
+    // restart recovery has to run once rather than once per screen.
+    <MomentDraftProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Protected guard={canEnterOnboarding}>
+          <Stack.Screen name="onboarding" />
+        </Stack.Protected>
 
-      <Stack.Protected guard={canEnterRestricted}>
-        <Stack.Screen name="restricted" />
-      </Stack.Protected>
+        <Stack.Protected guard={canEnterRestricted}>
+          <Stack.Screen name="restricted" />
+        </Stack.Protected>
 
-      <Stack.Protected guard={canEnterTabs}>
-        <Stack.Screen name="(tabs)" />
+        <Stack.Protected guard={canEnterTabs}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen
+            name="profile/index"
+            options={{ headerShown: true, title: "My Profile" }}
+          />
+          <Stack.Screen
+            name="settings/index"
+            options={{ headerShown: true, title: "Settings" }}
+          />
+          {/* Development-only. `__DEV__` is false in a release bundle, so this
+              screen is unreachable there and nothing links to it. */}
+          <Stack.Protected guard={__DEV__}>
+            <Stack.Screen
+              name="dev/composer"
+              options={{ headerShown: true, title: "Composer harness" }}
+            />
+          </Stack.Protected>
+        </Stack.Protected>
         <Stack.Screen
-          name="profile/index"
-          options={{ headerShown: true, title: "My Profile" }}
+          name="support"
+          options={{ headerShown: true, title: "Support" }}
         />
-        <Stack.Screen
-          name="settings/index"
-          options={{ headerShown: true, title: "Settings" }}
-        />
-      </Stack.Protected>
-      <Stack.Screen
-        name="support"
-        options={{ headerShown: true, title: "Support" }}
-      />
-    </Stack>
+      </Stack>
+    </MomentDraftProvider>
   );
 }
 

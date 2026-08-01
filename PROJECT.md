@@ -22,13 +22,14 @@ The Circle-era repository was audited at commit `c1ee45d0afd1b15810895543378d3bc
 - Local Supabase, handwritten migrations, generated types, 73 pgTAP assertions, a real two-user Auth/Data API test, native-manifest assertions, app tests, and CI exist. The current verification record is in Lesson 16.
 - The hosted-development project was rebaselined in place to the canonical two-migration history. Its promoted history matches local exactly, its Data API exposes `public` only, `graphql_public` is no longer reachable, remote schema lint is clean, obsolete Circle relations return 404, and the same real two-user Auth/Data API suite passes against the hosted endpoint. The app's `.env` already targets this project with a publishable key. The verification record is in Lesson 17.
 - Checkpoint 2C is implemented and promoted: the private `avatars` bucket, versioned avatar reservation/exact upload/trusted verification/finalize, the generic `private.media_cleanup_jobs` outbox with leases and dead letters, `private.media_verifications`, the shared Expo FileSystem reserved-object uploader, the `finalize-avatar` and `reconcile-operations` Edge Functions, Edit Profile/avatar UI, and avatar exposure on the self/friend/friend-of-friend profile projections. The verification record is in Lesson 20.
+- Phase 3 is implemented locally: the `posts` capture module is now `features/moments/capture` and `features/moments/composer`; capture evidence is a two-key EXIF allowlist (`DateTimeOriginal` plus a mandatory `OffsetTimeOriginal`) with an explicit-offset timezone parser, a shared unknown shape matching the Moment table's null-pairing constraint, and the `now − 24h … now + 5min` Recent/Archive rule; the picker entry point is a Photos-shaped glyph tile that fills only with the author's own current draft; the composer reducer implements the complete audience/tag matrix; caption normalization matches the server contract including code-point counting; and one account-and-environment-scoped cached draft (atomic `.part` write, manifest last, validated on restore) survives restart with Continue/Discard. The generated iOS manifest no longer carries `NSPhotoLibraryUsageDescription` at all. There is no upload or publication side effect and no Publish control in release navigation; the composer is mounted only by a `__DEV__`-gated harness route. The verification record is in Lesson 21.
 - Hosted development now runs the full media stack: the `avatars` bucket with its three `storage.objects` policies, both Edge Functions ACTIVE with `finalize-avatar` JWT-verified and `reconcile-operations` secret-only, the `orca_functions_base_url` and `orca_worker_secret` Vault secrets, `pg_cron` and `pg_net`, and the `orca-reconcile-operations` (every minute) and `orca-daily-maintenance` (03:17 UTC) schedules. `cron.job_run_details` shows successful runs and `net._http_response` shows HTTP 200 from the worker. All three real suites pass against hosted.
 
-These checks validate Checkpoints 1A, 1B, 2A, 2B, and 2C. Moments, media publication, feeds, safety surfaces, and release infrastructure remain planned.
+These checks validate Checkpoints 1A, 1B, 2A, 2B, 2C, and Phase 3's local scope. Moment persistence, media publication, feeds, safety surfaces, and release infrastructure remain planned.
 
 ### Preserved foundations requiring later extension
 
-- Camera normalization is reusable, but the picker currently omits EXIF and falls back to the device's current time. That cannot support the 24-hour Recent rule.
+- Camera normalization is reusable and now carries capture evidence rather than a device-time fallback, so the 24-hour Recent rule has a real input. Whether real iOS photos — HEIC, iCloud-downloaded, edited, screenshotted, third-party camera — actually carry `OffsetTimeOriginal` often enough is an open physical-device measurement, not a code gap.
 - The EAS setup has a development profile only. Physical-iPhone media acceptance, push configuration, universal links, preview/production profiles, and release operations are absent.
 
 ### Known hosted drift
@@ -43,7 +44,7 @@ The 14 Circle/post migrations and related local functions/tests/scripts were rem
 
 ### Planned, not implemented
 
-Personal invites; friend-of-friend browsing; avatars; full block UI; Moments and recipient snapshots; tags; reactions; seen state; Recent/Highlights; diaries; Past Shares; Shared Moments; notification infrastructure; reports and moderation evidence; friend-first deletion; production media backup; universal links; monitoring; Maestro flows; and the beta release process are all planned only.
+Moment rows and recipient snapshots; published tags (draft tag intent exists in the composer); reactions; seen state; Recent/Highlights; diaries; Past Shares; Shared Moments; notification infrastructure; reports and moderation evidence; friend-first deletion; production media backup; universal links; monitoring; Maestro flows; and the beta release process are all planned only.
 
 ### Deferred
 
@@ -1068,14 +1069,14 @@ Phase 2 is implemented as three coherent checkpoints so that every approval-gate
 - **Tests/manual:** pgTAP/Data API/Storage/function races and enumeration; native upload URL/method/auth/apikey/content/cache/x-upsert/progress/cancel/conflict/status tests plus avatar corrupt/replace/cleanup/retention; RNTL People/settings states; two/three-account simulator; physical custom-scheme fragment intake through six-digit verification/onboarding OTP and process death; VoiceOver/Dynamic Type. Production HTTPS universal-link/AASA/landing acceptance is explicitly deferred to 9D.
 - **Course/DoD/Git:** split graph/invite and avatar-worker lessons only if each is a coherent green checkpoint. Complete when implemented entry methods converge on one safe relationship state, avatar cleanup proves absence, and no blocked identity leaks. Bucket/function/Vault/Cron promotion needs explicit approval; production HTTPS domain/AASA/landing association and its native rebuild remain deferred to 9D.
 
-### Phase 3 — Camera, picker evidence, composer, and recoverable draft
+### Phase 3 — Camera, picker evidence, composer, and recoverable draft (**implemented; automated local gates green; physical-iPhone metadata fixtures deferred**)
 
 - **Outcome:** the privacy-safe Photos tile opens the scoped picker (using the current user-selected draft as its thumbnail only after consent); both inputs produce one normalized recoverable Moment draft with credible Recent/Archive classification, preview, caption, and audience/tags, exercised through tests and a development-only harness. The release user path exposes Retake/Discard but no dead Publish control until Phase 4.
 - **Why/dependencies:** settles the privacy/time/audience contract before Storage schema; depends on friends.
 - **Scope:** rename posts→moments capture module; EXIF allowlist/timezone parser; thumbnail; composer reducer/provider/components; one user-scoped cached draft; semantic design/accessibility tokens; a clearly gated development harness excluded from release navigation. Phase 4 activates the real composer route and Publish action with its backend.
 - **Security/failure:** strip metadata/GPS, never log EXIF, bound caption/tag IDs/file, identity-scoped cache, background/kill/missing-file behavior, audience review on age-out.
 - **Tests/manual:** pure/RNTL state matrix; physical iPhone fixtures, permission/interruption, timezone/HEIC/cloud/edited/screenshot/downloaded cases; no broad Photos permission in generated manifest.
-- **Course/DoD/Git:** lesson on media trust/state ownership. Complete only after physical evidence defines which iOS metadata is credible and release navigation contains no placeholder Publish. No upload/publication side effect yet.
+- **Course/DoD/Git:** Lesson 21 covers media trust and state ownership. Implemented on `codex/friend-first-rebaseline`: `features/moments/{capture,composer}` replace `features/posts`; `capture-evidence.ts` owns the two-key EXIF allowlist, the explicit ±HH:MM offset parser, and the Recent/Archive window; `composer-reducer.ts` owns the full audience/tag matrix; `draft-storage.ts` plus `lib/user-scoped-file-cache.ts` own one identity-and-environment-scoped cached draft; `constants/design.ts` and `constants/moments.ts` hold the semantic tokens and bounds; `app/(app)/dev/composer.tsx` is the `__DEV__`-gated harness and redirects in a release build. `app.config.js` sets `photosPermission: false`, so the generated manifest carries no `NSPhotoLibraryUsageDescription`, asserted by `scripts/check-native-config.mjs`. Release navigation contains no Publish control and there is no upload or publication side effect. **Deferred:** the physical-iPhone fixture pass that defines which iOS metadata is credible in practice — HEIC, iCloud-downloaded, edited, screenshotted, third-party-camera, and cross-timezone cases — plus permission/interruption behaviour and the native rebuild the manifest change requires. Phase 3 is complete for its local scope; that device gate is owned here and must close before Phase 4's classification behaviour is trusted in the field.
 
 ### Phase 4 — One-Moment trusted publication vertical
 
@@ -1227,17 +1228,18 @@ Installed source/types and pinned CLI `--help` take precedence over generic exam
 
 ## 31. Exact next action
 
-Phases 1 and 2 are complete and promoted. Local and hosted development run the same six-migration history, and hosted carries the `avatars` bucket, both Edge Functions, both Vault secrets, `pg_cron`/`pg_net`, and both Cron schedules, all verified.
+Phases 1 and 2 are complete and promoted, and Phase 3's local scope is implemented. Local and hosted development run the same six-migration history, and hosted carries the `avatars` bucket, both Edge Functions, both Vault secrets, `pg_cron`/`pg_net`, and both Cron schedules, all verified. Phase 3 added no backend surface: it settled the privacy, capture-time, and audience contract in one recoverable draft, with no upload or publication side effect and no Publish control in release navigation.
 
-The next action is **Phase 3 — camera, picker evidence, composer, and recoverable draft**, exactly as scoped in Section 27. It has not been authorized. It adds no backend surface: it settles the privacy, capture-time, and audience contract in one recoverable draft before Phase 4 gives it a publication path.
+The next action is **Phase 4 — the one-Moment trusted publication vertical**, exactly as scoped in Section 27. It has not been authorized. It is the first checkpoint since 2C to add schema, a bucket, and an Edge Function, so it needs both the implementation approval below and, separately, hosted migration/function promotion when its local gates are green.
 
-Phase 3 approval needed:
+Phase 4 approval needed:
 
-> Approve Codex to implement Phase 3 — the privacy-safe Photos tile and scoped picker, the EXIF allowlist and timezone parser, the composer reducer/provider and one user-scoped cached draft with credible Recent/Archive classification, and a clearly gated development-only harness — with no upload or publication side effect and no dead Publish control in release navigation.
+> Approve Codex to implement Phase 4 — the Moment/recipient/tag/publication/evidence/deletion-receipt migrations, the private `moment-media` bucket and policies, `finalize-moment`, the `reconcile-operations` extension for pending and published Moment cleanup, the activated composer route and Publish action reusing the existing reserved-object uploader, and the real client publish API with its scripts and tests.
 
-Two device gates remain open and are independent of that approval:
+Three device gates remain open and are independent of that approval:
 
 - **Physical-iPhone smoke (from 1B).** A rebuilt development client must exercise the app-switcher privacy shield, absence of an old-user frame on foreground, friend-first camera permission/readiness copy, and a real signup/onboarding/friend regression against hosted. Hosted email now works, so nothing blocks this but device time.
 - **Physical-iPhone avatar acceptance (from 2C).** The native upload task's real progress, cancel, background transfer, and process-death recovery, plus the two/three-account simulator pass and a VoiceOver/Dynamic Type audit of Edit Profile.
+- **Physical-iPhone capture-metadata fixtures (from Phase 3).** Which iOS photos actually carry `OffsetTimeOriginal` — HEIC, iCloud-downloaded, edited, screenshotted, third-party-camera, and cross-timezone cases — plus camera permission/interruption behaviour and a VoiceOver/Dynamic Type pass over capture and composer. This gate also needs the native rebuild that removing `NSPhotoLibraryUsageDescription` requires, and it should confirm the generated manifest in the built app. Phase 4's classification behaviour cannot be trusted in the field until it closes.
 
 Project creation/billing, endpoint cutover, old-project deletion, production creation, and any external release remain separate approvals. Approval of one does not imply another.

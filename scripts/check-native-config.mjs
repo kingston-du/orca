@@ -17,6 +17,12 @@ const cameraCopy =
 assert.equal(config.userInterfaceStyle, "light");
 assert.equal(config.ios.infoPlist.NSCameraUsageDescription, cameraCopy);
 assert.equal(config.ios.infoPlist.NSMicrophoneUsageDescription, undefined);
+
+// Orca opens only the scoped single-image system picker, which grants access to
+// the chosen item alone. A broad photo-library usage string would advertise a
+// permission the app must never request.
+assert.equal(config.ios.infoPlist.NSPhotoLibraryUsageDescription, undefined);
+assert.equal(config.ios.infoPlist.NSPhotoLibraryAddUsageDescription, undefined);
 assert.equal(
   config.android.permissions.includes("android.permission.CAMERA"),
   true,
@@ -38,5 +44,5 @@ for (const permission of [
 }
 
 console.log(
-  "Native config is light-mode and least-privilege for friend-first camera use.",
+  "Native config is light-mode and least-privilege for friend-first camera use, with no broad photo-library permission.",
 );

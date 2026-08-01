@@ -1,14 +1,14 @@
 import { File } from "expo-file-system";
 import { SaveFormat } from "expo-image-manipulator";
 
+import { MAX_PHOTO_BYTES } from "@/constants/moments";
+import { UNKNOWN_CAPTURE_EVIDENCE } from "@/features/moments/capture/capture-evidence";
 import {
   assertNormalizedPhotoBounds,
-  getDeviceCaptureTime,
   getNormalizedDimensions,
-  MAX_PHOTO_BYTES,
   normalizePhoto,
   PhotoNormalizationError,
-} from "@/features/posts/photo-normalizer";
+} from "@/features/moments/capture/photo-normalizer";
 
 const mockResize = jest.fn();
 const mockRenderAsync = jest.fn();
@@ -30,6 +30,12 @@ jest.mock("expo-file-system", () => ({
     },
   })),
 }));
+
+const credibleEvidence = {
+  evidence: "picker_original_with_offset",
+  capturedAt: "2026-07-30T12:00:00.000Z",
+  capturedUtcOffsetMinutes: -420,
+} as const;
 
 describe("photo normalization contract", () => {
   beforeEach(() => {
@@ -54,15 +60,6 @@ describe("photo normalization contract", () => {
     });
   });
 
-  test("records an ISO instant and the device's conventional UTC offset", () => {
-    const date = new Date("2026-07-30T12:00:00.000Z");
-
-    expect(getDeviceCaptureTime(date)).toEqual({
-      capturedAt: "2026-07-30T12:00:00.000Z",
-      capturedUtcOffsetMinutes: -date.getTimezoneOffset(),
-    });
-  });
-
   test("scales the long edge to 2048 while retaining the aspect ratio", () => {
     expect(getNormalizedDimensions(4000, 3000)).toEqual({
       width: 2048,
@@ -84,16 +81,14 @@ describe("photo normalization contract", () => {
     );
   });
 
-  test("always saves a JPEG at the contract compression and returns its measured size", async () => {
+  test("re-encodes to JPEG at the contract compression and measures the result", async () => {
     await expect(
       normalizePhoto({
         uri: "file:///original.png",
         width: 4000,
         height: 3000,
-        source: "library",
-        capturedAt: "2026-07-30T12:00:00.000Z",
-        capturedUtcOffsetMinutes: -420,
-        capturedAtSource: "fallback",
+        source: "picker",
+        evidence: credibleEvidence,
       }),
     ).resolves.toEqual({
       uri: "file:///normalized.jpg",
@@ -101,20 +96,48 @@ describe("photo normalization contract", () => {
       height: 1365,
       byteSize: 456_789,
       mimeType: "image/jpeg",
-      source: "library",
-      capturedAt: "2026-07-30T12:00:00.000Z",
-      capturedUtcOffsetMinutes: -420,
-      capturedAtSource: "fallback",
+      source: "picker",
+      evidence: credibleEvidence,
     });
 
     expect(mockManipulate).toHaveBeenCalledWith("file:///original.png");
     expect(mockResize).toHaveBeenCalledWith({ width: 2048, height: 1536 });
+    // A fresh JPEG write is what actually strips EXIF, GPS, and maker notes:
+    // the manipulator decodes pixels and never copies the metadata across.
     expect(mockSaveAsync).toHaveBeenCalledWith({
       base64: false,
       compress: 0.82,
       format: SaveFormat.JPEG,
     });
     expect(File).toHaveBeenCalledWith("file:///normalized.jpg");
+  });
+
+  test("carries unknown evidence through untouched", async () => {
+    await expect(
+      normalizePhoto({
+        uri: "file:///original.jpg",
+        width: 800,
+        height: 600,
+        source: "picker",
+        evidence: UNKNOWN_CAPTURE_EVIDENCE,
+      }),
+    ).resolves.toMatchObject({ evidence: UNKNOWN_CAPTURE_EVIDENCE });
+  });
+
+  test("rejects a credible claim whose shape the Moment table would refuse", async () => {
+    await expect(
+      normalizePhoto({
+        uri: "file:///original.jpg",
+        width: 800,
+        height: 600,
+        source: "camera",
+        evidence: {
+          evidence: "camera_clock",
+          capturedAt: "not a date",
+          capturedUtcOffsetMinutes: -420,
+        },
+      }),
+    ).rejects.toThrow(PhotoNormalizationError);
   });
 
   test("rejects output outside its dimension or byte bounds", () => {

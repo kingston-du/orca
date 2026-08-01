@@ -10,8 +10,12 @@ module.exports = ({ config }) => ({
     [
       "expo-image-picker",
       {
-        photosPermission:
-          "Orca lets you choose one photo to share privately with friends.",
+        // `false` removes NSPhotoLibraryUsageDescription entirely. Orca only
+        // ever opens the scoped single-image system picker, which grants access
+        // to the chosen item alone and needs no library permission, so shipping
+        // a broad-access usage string would describe a prompt that never
+        // appears. Asserted by `scripts/check-native-config.mjs`.
+        photosPermission: false,
         cameraPermission:
           "Orca uses the camera only when you take a Moment to share privately with friends.",
         microphonePermission: false,

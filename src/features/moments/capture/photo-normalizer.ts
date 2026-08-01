@@ -1,26 +1,43 @@
 import { File } from "expo-file-system";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 
-export const MAX_PHOTO_LONG_EDGE = 2048;
-export const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
+import { MAX_PHOTO_BYTES, MAX_PHOTO_LONG_EDGE } from "@/constants/moments";
+import {
+  isCredibleCaptureEvidence,
+  type CaptureEvidence,
+} from "@/features/moments/capture/capture-evidence";
+
+/**
+ * Every photo entering Orca — shutter or picker — leaves this module as the
+ * same thing: a stripped JPEG within the bounds the Storage verifier enforces.
+ *
+ * Re-encoding is what actually removes metadata. The manipulator decodes pixels
+ * and writes a fresh file, so EXIF, GPS, maker notes, and any embedded thumbnail
+ * are simply not carried across. Capture evidence survives only because
+ * `capture-evidence` already read the two allowlisted fields into a value.
+ */
+
 const JPEG_COMPRESSION = 0.82;
 
-export type PhotoSource = "camera" | "library" | "restored";
-export type CapturedAtSource = "camera" | "metadata" | "user" | "fallback";
+/** Mirrors the Moment table's source enum. */
+export type MomentPhotoSource = "camera" | "picker";
 
 export type PhotoNormalizationInput = {
   uri: string;
   width: number;
   height: number;
-  source: PhotoSource;
-  capturedAt: string;
-  capturedUtcOffsetMinutes: number;
-  capturedAtSource: CapturedAtSource;
+  source: MomentPhotoSource;
+  evidence: CaptureEvidence;
 };
 
-export type NormalizedPhoto = PhotoNormalizationInput & {
+export type NormalizedPhoto = {
+  uri: string;
+  width: number;
+  height: number;
   byteSize: number;
   mimeType: "image/jpeg";
+  source: MomentPhotoSource;
+  evidence: CaptureEvidence;
 };
 
 export class PhotoNormalizationError extends Error {
@@ -28,18 +45,6 @@ export class PhotoNormalizationError extends Error {
     super(message);
     this.name = "PhotoNormalizationError";
   }
-}
-
-export function getDeviceCaptureTime(date = new Date()): {
-  capturedAt: string;
-  capturedUtcOffsetMinutes: number;
-} {
-  return {
-    capturedAt: date.toISOString(),
-    // JavaScript reports minutes west of UTC; Orca stores the conventional
-    // signed offset from UTC, so Los Angeles is -420 during daylight time.
-    capturedUtcOffsetMinutes: -date.getTimezoneOffset(),
-  };
 }
 
 function isValidDimension(value: number): boolean {
@@ -90,17 +95,25 @@ export function assertNormalizedPhotoBounds(
   }
 }
 
-export async function normalizePhoto(
-  input: PhotoNormalizationInput,
-): Promise<NormalizedPhoto> {
+/**
+ * A credible claim must satisfy the same shape the Moment table requires, so an
+ * impossible pairing is downgraded here rather than rejected at publication.
+ */
+export function assertCaptureEvidenceShape(evidence: CaptureEvidence): void {
+  if (!isCredibleCaptureEvidence(evidence)) return;
+
   if (
-    Number.isNaN(Date.parse(input.capturedAt)) ||
-    !Number.isInteger(input.capturedUtcOffsetMinutes) ||
-    input.capturedUtcOffsetMinutes < -840 ||
-    input.capturedUtcOffsetMinutes > 840
+    Number.isNaN(Date.parse(evidence.capturedAt)) ||
+    !Number.isInteger(evidence.capturedUtcOffsetMinutes)
   ) {
     throw new PhotoNormalizationError("The photo capture time is invalid.");
   }
+}
+
+export async function normalizePhoto(
+  input: PhotoNormalizationInput,
+): Promise<NormalizedPhoto> {
+  assertCaptureEvidenceShape(input.evidence);
 
   const dimensions = getNormalizedDimensions(input.width, input.height);
   const context = ImageManipulator.manipulate(input.uri);
@@ -126,8 +139,6 @@ export async function normalizePhoto(
     byteSize,
     mimeType: "image/jpeg",
     source: input.source,
-    capturedAt: input.capturedAt,
-    capturedUtcOffsetMinutes: input.capturedUtcOffsetMinutes,
-    capturedAtSource: input.capturedAtSource,
+    evidence: input.evidence,
   };
 }

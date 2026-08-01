@@ -1,28 +1,46 @@
-import { useCameraPermissions, CameraView } from "expo-camera";
-import { useIsFocused } from "expo-router";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import { Link, useIsFocused } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   AppState,
-  type AppStateStatus,
   Image,
   Linking,
   Pressable,
   StyleSheet,
   Text,
   View,
+  type AppStateStatus,
 } from "react-native";
 
 import {
-  getDeviceCaptureTime,
-  normalizePhoto,
-  type NormalizedPhoto,
-} from "@/features/posts/photo-normalizer";
+  color,
+  MINIMUM_TOUCH_TARGET,
+  radius,
+  spacing,
+  typeScale,
+} from "@/constants/design";
+import {
+  formatCaptureLocalTime,
+  getCameraCaptureEvidence,
+} from "@/features/moments/capture/capture-evidence";
+import { normalizePhoto } from "@/features/moments/capture/photo-normalizer";
 import {
   choosePhoto,
   restorePendingPhoto,
   type PhotoPickerOutcome,
-} from "@/features/posts/photo-picker";
+} from "@/features/moments/capture/photo-picker";
+import { PhotosTile } from "@/features/moments/capture/photos-tile";
+import { useMomentDraft } from "@/features/moments/composer/composer-provider";
+
+/**
+ * The Camera tab: shutter, scoped picker, and the review of the single draft.
+ *
+ * The release path deliberately ends at Retake/Discard. Phase 4 adds the real
+ * composer route and Publish action together with the backend that makes them
+ * mean something; until then a Publish control would be a dead end, and this
+ * screen would be teaching a flow that does not exist.
+ */
 
 type ActiveAction = "camera" | "library" | "permission" | null;
 
@@ -34,27 +52,19 @@ type CaptureError = {
 const CAMERA_PICTURE_OPTIONS = {
   quality: 1,
   base64: false,
+  // Orca records its own capture instant at the shutter and re-encodes the
+  // result, so there is nothing to gain from the camera's own EXIF block.
   exif: false,
   skipProcessing: false,
 } as const;
 
-function libraryErrorForOutcome(outcome: PhotoPickerOutcome): CaptureError {
-  if (outcome.kind === "error") {
-    return {
-      message: "Orca couldn’t prepare that photo. Please choose another one.",
-      showSettings: false,
-    };
-  }
-
-  return null;
-}
-
-export function PhotoCaptureScreen() {
+export function CaptureScreen() {
   const cameraRef = useRef<CameraView>(null);
   const actionInFlight = useRef(false);
   const isMounted = useRef(true);
   const isFocused = useIsFocused();
   const [permission, requestCameraPermission] = useCameraPermissions();
+  const { state, isRestoring, startDraft, discardDraft } = useMomentDraft();
   const [appState, setAppState] = useState<AppStateStatus>(
     AppState.currentState ?? "active",
   );
@@ -62,54 +72,74 @@ export function PhotoCaptureScreen() {
   const [cameraUnavailable, setCameraUnavailable] = useState(false);
   const [facing, setFacing] = useState<"back" | "front">("back");
   const [flash, setFlash] = useState<"auto" | "off">("off");
-  const [photo, setPhoto] = useState<NormalizedPhoto | null>(null);
   const [error, setError] = useState<CaptureError>(null);
   const [readyCameraSession, setReadyCameraSession] = useState<string | null>(
     null,
   );
+  const [continuedDraftId, setContinuedDraftId] = useState<string | null>(null);
+  const [retakingDraftId, setRetakingDraftId] = useState<string | null>(null);
+
+  const draft = state.draft;
+  const needsRecoveryChoice =
+    draft !== null &&
+    state.draftOrigin === "restored" &&
+    continuedDraftId !== draft.draftId;
+
+  // Retake returns to the live camera *without* throwing the photo away: the
+  // author asked for a different shot, not for nothing. Taking or choosing
+  // another photo replaces the draft; Discard is the control that removes it.
+  const isRetaking = draft !== null && retakingDraftId === draft.draftId;
+  const showPreview = draft !== null && !isRetaking;
 
   const cameraIsMounted =
     isFocused &&
     appState === "active" &&
     permission?.granted === true &&
-    photo === null &&
+    !showPreview &&
+    !isRestoring &&
     !cameraUnavailable;
-  const cameraSession = `${isFocused}:${appState}:${photo === null ? "capture" : "preview"}:${cameraUnavailable}:${facing}`;
+  const cameraSession = `${isFocused}:${appState}:${showPreview ? "preview" : "capture"}:${cameraUnavailable}:${facing}`;
 
   useEffect(() => {
     isMounted.current = true;
     const subscription = AppState.addEventListener("change", setAppState);
-
-    void restorePendingPhoto().then((outcome) => {
-      if (isMounted.current && outcome?.kind === "selected") {
-        setPhoto(outcome.photo);
-        void AccessibilityInfo.announceForAccessibility("Photo selected");
-      }
-    });
-
     return () => {
       isMounted.current = false;
       subscription?.remove();
     };
   }, []);
 
+  const applyOutcome = useCallback(
+    (outcome: PhotoPickerOutcome) => {
+      if (outcome.kind === "selected") {
+        startDraft(outcome.photo);
+        setError(null);
+        void AccessibilityInfo.announceForAccessibility("Photo selected");
+        return;
+      }
+
+      if (outcome.kind === "error") {
+        setError({
+          message:
+            "Orca couldn’t prepare that photo. Please choose another one.",
+          showSettings: false,
+        });
+      }
+    },
+    [startDraft],
+  );
+
+  // Android alone can kill the process while the picker is in front.
+  useEffect(() => {
+    void restorePendingPhoto().then((outcome) => {
+      if (isMounted.current && outcome !== null) applyOutcome(outcome);
+    });
+  }, [applyOutcome]);
+
   const handleCameraRef = useCallback((camera: CameraView | null) => {
     cameraRef.current = camera;
     if (!camera) {
       setReadyCameraSession(null);
-    }
-  }, []);
-
-  const applyLibraryOutcome = useCallback((outcome: PhotoPickerOutcome) => {
-    if (outcome.kind === "selected") {
-      setPhoto(outcome.photo);
-      setError(null);
-      void AccessibilityInfo.announceForAccessibility("Photo selected");
-      return;
-    }
-
-    if (outcome.kind !== "canceled") {
-      setError(libraryErrorForOutcome(outcome));
     }
   }, []);
 
@@ -162,7 +192,7 @@ export function PhotoCaptureScreen() {
     runAction("library", async () => {
       const outcome = await choosePhoto();
       if (isMounted.current) {
-        applyLibraryOutcome(outcome);
+        applyOutcome(outcome);
       }
     });
 
@@ -173,7 +203,10 @@ export function PhotoCaptureScreen() {
       }
 
       try {
-        const captureTime = getDeviceCaptureTime();
+        // Recorded before normalization: re-encoding a large photo takes long
+        // enough to move a Moment across the Recent boundary or, near midnight,
+        // onto the wrong capture-local day.
+        const evidence = getCameraCaptureEvidence();
         const captured = await cameraRef.current.takePictureAsync(
           CAMERA_PICTURE_OPTIONS,
         );
@@ -182,12 +215,11 @@ export function PhotoCaptureScreen() {
           width: captured.width,
           height: captured.height,
           source: "camera",
-          ...captureTime,
-          capturedAtSource: "camera",
+          evidence,
         });
 
         if (isMounted.current) {
-          setPhoto(normalizedPhoto);
+          startDraft(normalizedPhoto);
           void AccessibilityInfo.announceForAccessibility("Photo captured");
         }
       } catch {
@@ -213,12 +245,12 @@ export function PhotoCaptureScreen() {
   };
 
   const retake = () => {
-    if (activeAction !== null) {
+    if (activeAction !== null || draft === null) {
       return;
     }
 
     setReadyCameraSession(null);
-    setPhoto(null);
+    setRetakingDraftId(draft.draftId);
     setError(null);
     setCameraUnavailable(false);
   };
@@ -235,6 +267,8 @@ export function PhotoCaptureScreen() {
     cameraIsMounted &&
     readyCameraSession === cameraSession &&
     activeAction === null;
+  const capturedLabel =
+    draft === null ? null : formatCaptureLocalTime(draft.photo.evidence);
 
   return (
     <View style={styles.container}>
@@ -265,42 +299,97 @@ export function PhotoCaptureScreen() {
         />
       ) : null}
 
-      {photo ? (
+      {showPreview && draft !== null ? (
         <View style={styles.previewContainer}>
-          <Image
-            accessibilityLabel="Captured photo preview"
-            resizeMode="contain"
-            source={{ uri: photo.uri }}
-            style={styles.preview}
-            testID="captured-photo-preview"
-          />
-          <View style={styles.previewControls}>
-            <Text style={styles.previewText}>Moment ready to review</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Retake photo"
-              onPress={retake}
-              style={styles.secondaryButton}
-            >
-              <Text style={styles.secondaryButtonText}>Retake</Text>
-            </Pressable>
+          <View style={styles.previewFrame}>
+            <Image
+              accessibilityLabel="Photo in this Moment"
+              resizeMode="contain"
+              source={{ uri: draft.photo.uri }}
+              style={styles.preview}
+              testID="captured-photo-preview"
+            />
           </View>
+
+          <View accessibilityLiveRegion="polite" style={styles.previewMeta}>
+            <Text style={styles.previewTitle}>
+              {state.kind === "archive" ? "Archive Moment" : "Recent Moment"}
+            </Text>
+            <Text style={styles.previewBody} testID="capture-evidence-label">
+              {capturedLabel === null
+                ? "Capture date unavailable. This can go to you and anyone you tag."
+                : `Taken ${capturedLabel}`}
+            </Text>
+          </View>
+
+          {needsRecoveryChoice ? (
+            <View accessibilityRole="alert" style={styles.recoveryCard}>
+              <Text style={styles.previewBody}>
+                You left a Moment in progress. Continue with it, or discard it
+                and start again.
+              </Text>
+              <View style={styles.previewControls}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Continue this Moment"
+                  onPress={() => setContinuedDraftId(draft.draftId)}
+                  style={styles.primaryButton}
+                >
+                  <Text style={styles.primaryLabel}>Continue</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Discard this Moment"
+                  onPress={discardDraft}
+                  style={styles.secondaryButton}
+                >
+                  <Text style={styles.secondaryLabel}>Discard</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.previewControls}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Retake photo"
+                onPress={retake}
+                style={styles.secondaryButton}
+              >
+                <Text style={styles.secondaryLabel}>Retake</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Discard this Moment"
+                onPress={discardDraft}
+                style={styles.secondaryButton}
+              >
+                <Text style={styles.secondaryLabel}>Discard</Text>
+              </Pressable>
+              {__DEV__ ? (
+                // Development-only entry point. The harness route redirects in
+                // a release build, and nothing in release navigation links to
+                // it, so no Publish surface can be reached from a shipped app.
+                <Link
+                  accessibilityRole="link"
+                  href="/dev/composer"
+                  style={styles.devLink}
+                >
+                  Open composer harness (dev)
+                </Link>
+              ) : null}
+            </View>
+          )}
         </View>
       ) : cameraIsMounted ? (
         <View style={styles.cameraControls} pointerEvents="box-none">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Choose photo from library"
-            accessibilityState={{
-              busy: activeAction === "library",
-              disabled: activeAction !== null,
-            }}
-            disabled={activeAction !== null}
-            onPress={() => void chooseFromLibrary()}
-            style={[styles.overlayButton, styles.libraryButton]}
-          >
-            <Text style={styles.overlayButtonText}>Library</Text>
-          </Pressable>
+          <View style={styles.tileSlot}>
+            <PhotosTile
+              busy={activeAction === "library"}
+              disabled={activeAction !== null}
+              onPress={() => void chooseFromLibrary()}
+              previewUri={draft?.photo.uri ?? null}
+            />
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Set flash ${flash === "off" ? "to automatic" : "off"}`}
@@ -368,7 +457,7 @@ export function PhotoCaptureScreen() {
               onPress={() => void requestCamera()}
               style={styles.primaryButton}
             >
-              <Text style={styles.primaryButtonText}>
+              <Text style={styles.primaryLabel}>
                 {activeAction === "permission"
                   ? "Opening camera…"
                   : "Use Camera"}
@@ -381,7 +470,7 @@ export function PhotoCaptureScreen() {
               onPress={() => void openSettings()}
               style={styles.primaryButton}
             >
-              <Text style={styles.primaryButtonText}>Open Settings</Text>
+              <Text style={styles.primaryLabel}>Open Settings</Text>
             </Pressable>
           ) : null}
           {cameraUnavailable && permission?.granted ? (
@@ -390,24 +479,22 @@ export function PhotoCaptureScreen() {
               onPress={retryCamera}
               style={styles.primaryButton}
             >
-              <Text style={styles.primaryButtonText}>Try Camera Again</Text>
+              <Text style={styles.primaryLabel}>Try Camera Again</Text>
             </Pressable>
           ) : null}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Choose photo from library"
-            accessibilityState={{
-              busy: activeAction === "library",
-              disabled: activeAction !== null,
-            }}
-            disabled={activeAction !== null}
-            onPress={() => void chooseFromLibrary()}
-            style={styles.secondaryButton}
-          >
-            <Text style={styles.secondaryButtonText}>
-              {activeAction === "library" ? "Opening library…" : "Choose Photo"}
+          <View style={styles.fallbackTileRow}>
+            <PhotosTile
+              busy={activeAction === "library"}
+              disabled={activeAction !== null}
+              onPress={() => void chooseFromLibrary()}
+              previewUri={draft?.photo.uri ?? null}
+            />
+            <Text style={styles.fallbackText}>
+              {activeAction === "library"
+                ? "Opening your library…"
+                : "Choose one photo"}
             </Text>
-          </Pressable>
+          </View>
         </View>
       )}
 
@@ -434,7 +521,7 @@ export function PhotoCaptureScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#102A43" },
+  container: { backgroundColor: color.cameraCanvas, flex: 1 },
   cameraControls: {
     bottom: 0,
     left: 0,
@@ -442,24 +529,24 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
   },
+  tileSlot: { bottom: spacing.xl, left: spacing.xl, position: "absolute" },
   overlayButton: {
-    position: "absolute",
-    borderRadius: 18,
-    backgroundColor: "rgba(16, 42, 67, 0.72)",
-    minHeight: 44,
+    backgroundColor: color.cameraScrim,
+    borderRadius: radius.lg,
     justifyContent: "center",
-    paddingHorizontal: 16,
+    minHeight: MINIMUM_TOUCH_TARGET,
+    paddingHorizontal: spacing.lg,
+    position: "absolute",
   },
-  overlayButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
-  libraryButton: { bottom: 28, left: 24 },
-  flashButton: { left: 24, top: 20 },
-  flipButton: { right: 24, top: 20 },
+  overlayButtonText: { ...typeScale.label, color: color.textInverse },
+  flashButton: { left: spacing.xl, top: spacing.xl },
+  flipButton: { right: spacing.xl, top: spacing.xl },
   shutter: {
     alignItems: "center",
-    bottom: 18,
-    borderColor: "#FFFFFF",
+    borderColor: color.textInverse,
     borderRadius: 42,
     borderWidth: 4,
+    bottom: 18,
     height: 84,
     justifyContent: "center",
     left: "50%",
@@ -468,7 +555,7 @@ const styles = StyleSheet.create({
     width: 84,
   },
   shutterInner: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: color.textInverse,
     borderRadius: 32,
     height: 64,
     width: 64,
@@ -477,57 +564,88 @@ const styles = StyleSheet.create({
   fallback: {
     alignItems: "stretch",
     flex: 1,
-    gap: 16,
+    gap: spacing.lg,
     justifyContent: "center",
-    padding: 24,
+    padding: spacing.xl,
   },
-  fallbackTitle: { color: "#FFFFFF", fontSize: 30, fontWeight: "700" },
+  fallbackTitle: { ...typeScale.title, color: color.textInverse },
   fallbackText: {
-    color: "#D9E2EC",
-    fontSize: 17,
-    lineHeight: 24,
-    marginBottom: 12,
+    ...typeScale.body,
+    color: color.surfaceSunken,
+    flexShrink: 1,
   },
+  fallbackTileRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.lg,
+  },
+  previewContainer: {
+    flex: 1,
+    gap: spacing.lg,
+    justifyContent: "center",
+    padding: spacing.xl,
+  },
+  previewFrame: {
+    backgroundColor: color.photoBacking,
+    borderRadius: radius.lg,
+    flexShrink: 1,
+    overflow: "hidden",
+    width: "100%",
+  },
+  preview: { aspectRatio: 4 / 5, width: "100%" },
+  previewMeta: { gap: spacing.xs },
+  previewTitle: { ...typeScale.heading, color: color.textInverse },
+  previewBody: { ...typeScale.body, color: color.surfaceSunken },
+  previewControls: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+  },
+  recoveryCard: {
+    backgroundColor: color.cameraScrim,
+    borderRadius: radius.md,
+    gap: spacing.md,
+    padding: spacing.lg,
+  },
+  devLink: { ...typeScale.caption, color: color.textInverse },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: "#208AEF",
-    borderRadius: 14,
+    backgroundColor: color.brand,
+    borderRadius: radius.md,
     justifyContent: "center",
-    minHeight: 52,
-    paddingHorizontal: 20,
+    minHeight: MINIMUM_TOUCH_TARGET,
+    paddingHorizontal: spacing.xl,
   },
-  primaryButtonText: { color: "#FFFFFF", fontSize: 17, fontWeight: "700" },
+  primaryLabel: { ...typeScale.label, color: color.textInverse },
   secondaryButton: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
+    backgroundColor: color.surface,
+    borderRadius: radius.md,
     justifyContent: "center",
-    minHeight: 52,
-    paddingHorizontal: 20,
+    minHeight: MINIMUM_TOUCH_TARGET,
+    paddingHorizontal: spacing.xl,
   },
-  secondaryButtonText: { color: "#1769AA", fontSize: 17, fontWeight: "700" },
-  previewContainer: { flex: 1, justifyContent: "space-between", padding: 24 },
-  preview: { alignSelf: "stretch", flex: 1, marginVertical: 24 },
-  previewControls: { alignItems: "center", gap: 14 },
-  previewText: { color: "#FFFFFF", fontSize: 17, fontWeight: "700" },
+  secondaryLabel: { ...typeScale.label, color: color.brand },
   errorCard: {
-    bottom: 24,
-    gap: 12,
-    left: 24,
+    backgroundColor: color.criticalSurface,
+    borderRadius: radius.md,
+    bottom: spacing.xl,
+    gap: spacing.md,
+    left: spacing.xl,
+    padding: spacing.lg,
     position: "absolute",
-    right: 24,
-    borderRadius: 14,
-    backgroundColor: "#FFF1F0",
-    padding: 16,
+    right: spacing.xl,
   },
-  errorText: { color: "#8A1C1C", fontSize: 16, lineHeight: 22 },
+  errorText: { ...typeScale.body, color: color.criticalText },
   settingsButton: {
     alignSelf: "flex-start",
-    backgroundColor: "#8A1C1C",
-    borderRadius: 10,
+    backgroundColor: color.criticalText,
+    borderRadius: radius.sm,
     justifyContent: "center",
-    minHeight: 44,
-    paddingHorizontal: 16,
+    minHeight: MINIMUM_TOUCH_TARGET,
+    paddingHorizontal: spacing.lg,
   },
-  settingsButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  settingsButtonText: { ...typeScale.label, color: color.textInverse },
 });

@@ -19,12 +19,13 @@ Only the retained foundations below are current course material. Obsolete and su
 - Lesson 18 — [Graph boundaries and access tiers](./18-graph-boundaries-and-access-tiers.md)
 - Lesson 19 — [Capability links and hash-only secrets](./19-capability-links-and-hash-only-secrets.md)
 - Lesson 20 — [Reserved uploads, trusted verification, and the first worker](./20-reserved-uploads-and-the-first-worker.md)
+- Lesson 21 — [Capture evidence, the audience matrix, and one recoverable draft](./21-capture-evidence-and-the-recoverable-draft.md)
 
-Lesson 11's native camera lifecycle and normalization boundary remain useful. Its references to Circle publishing and fallback picker capture time describe the pre-redesign downstream contract; the friend-first implementation must follow `PROJECT.md` instead.
+Lesson 11's native camera lifecycle and normalization boundary remain useful, but its fallback picker capture time is superseded by Lesson 21's capture-evidence allowlist, and its references to Circle publishing describe the pre-redesign downstream contract. Follow Lesson 21 and `PROJECT.md` instead.
 
 ## Next lesson
 
-Lesson 21 is created only after Phase 3's capture, picker evidence, composer, and recoverable draft are implemented and verified. Course notes never describe speculative code as though it exists.
+Lesson 22 is created only after Phase 4's reserve → exact upload → trusted finalize publication vertical is implemented and verified. Course notes never describe speculative code as though it exists.
 
 ## Course progression and checkpoint contract
 
