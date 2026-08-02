@@ -3,6 +3,7 @@ import {
   AccessibilityInfo,
   AppState,
   Linking,
+  StyleSheet,
   type AppStateStatus,
 } from "react-native";
 
@@ -49,6 +50,18 @@ jest.mock("expo-camera", () => {
   return {
     CameraView,
     useCameraPermissions: () => [mockPermission, mockRequestCameraPermission],
+  };
+});
+
+jest.mock("expo-symbols", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { View } = require("react-native");
+  // The glyph itself cannot be asserted on, but which symbol was asked for
+  // can — and that is the part carrying the flash state.
+  return {
+    SymbolView: ({ name, ...props }: Record<string, unknown>) => (
+      <View {...props} testID={`symbol-${name}`} />
+    ),
   };
 });
 
@@ -210,6 +223,53 @@ describe("CaptureScreen", () => {
     await user.press(screen.getByRole("button", { name: "Choose a photo" }));
 
     await waitFor(() => expect(mockStartDraft).toHaveBeenCalledWith(photo));
+  });
+
+  test("keeps the flash and flip controls clear of the status bar", async () => {
+    const screen = await render(<CaptureScreen />);
+    await act(() => mockAppStateListener?.("active"));
+
+    // The mocked device has a 59-point top inset. Anything at or above that
+    // line is underneath the clock and the battery, which is precisely the
+    // defect this asserts against; a hard-coded offset would sit at 24.
+    const controls = screen.getByTestId("camera-overlay-controls");
+    const { top } = StyleSheet.flatten(controls.props.style);
+    expect(top).toBeGreaterThan(59);
+  });
+
+  test("states flash by glyph rather than by colour alone", async () => {
+    const user = userEvent.setup();
+    const screen = await render(<CaptureScreen />);
+    await act(() => mockAppStateListener?.("active"));
+
+    // Off and Auto are two different symbols, so the state survives a viewer
+    // who cannot distinguish the tint. The glyph is hidden from VoiceOver on
+    // purpose — the button's label carries the meaning — so the query has to
+    // ask for hidden elements to see it at all.
+    const hidden = { includeHiddenElements: true };
+    const off = screen.getByRole("button", { name: "Set flash to automatic" });
+    expect(screen.getByTestId("symbol-bolt.slash.fill", hidden)).toBeTruthy();
+
+    await user.press(off);
+
+    expect(
+      screen.getByRole("button", { name: "Set flash off" }),
+    ).toBeOnTheScreen();
+    expect(screen.getByTestId("symbol-bolt.badge.a.fill", hidden)).toBeTruthy();
+  });
+
+  test("draws the shutter as a ring with no centre", async () => {
+    const screen = await render(<CaptureScreen />);
+    await act(() => mockAppStateListener?.("active"));
+
+    const shutter = screen.getByTestId("camera-shutter");
+    const { borderWidth, backgroundColor } = StyleSheet.flatten(
+      shutter.props.style,
+    );
+    expect(borderWidth).toBeGreaterThan(0);
+    // No fill at rest: the ring is the whole control.
+    expect(backgroundColor).toBeUndefined();
+    expect(shutter).not.toHaveTextContent(/./);
   });
 
   test("reviews a draft with Retake and Discard and no Publish control", async () => {

@@ -11,6 +11,13 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
 
 import {
   MINIMUM_TOUCH_TARGET,
@@ -35,6 +42,31 @@ import type { RecentMoment } from "@/features/moments/feed/recent-api";
  * photos. */
 const MEDIA_RADIUS = 1;
 
+/** How much of each neighbouring card stays visible past the focused one. */
+const PEEK = 20;
+
+/** The breathing room between two cards' edges. */
+const GUTTER = spacing.md;
+
+/** How far a neighbour recedes. Small on purpose: the cards behind are context,
+ * and a steep scale reads as a broken layout rather than as depth. */
+const NEIGHBOUR_SCALE = 0.92;
+const NEIGHBOUR_OPACITY = 0.6;
+
+/**
+ * The geometry of one page of the deck.
+ *
+ * `pitch` is what the list snaps by, and it is deliberately *not* the screen
+ * width: a card narrower than the screen is what leaves room for the
+ * neighbours to show at the edges. The side padding centres the first and last
+ * cards, which would otherwise sit against the bezel with nothing opposite
+ * them.
+ */
+export function deckGeometry(width: number) {
+  const card = width - 2 * (PEEK + GUTTER);
+  return { card, pitch: card + GUTTER, sidePadding: PEEK + GUTTER };
+}
+
 type RecentDeckProps = {
   state: DeckState;
   dispatch: (action: DeckAction) => void;
@@ -55,9 +87,17 @@ export function RecentDeck({ state, dispatch, width }: RecentDeckProps) {
   const listRef = useRef<FlatList<RecentMoment>>(null);
   const reducedMotion = useReducedMotion();
   const index = currentIndex(state);
+  const { card, pitch, sidePadding } = deckGeometry(width);
 
   const older = olderId(state);
   const newer = newerId(state);
+
+  // Drives the neighbours' scale and opacity. It follows the finger frame by
+  // frame on the UI thread, so it must not be React state.
+  const scrollX = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler((event) => {
+    scrollX.value = event.contentOffset.x;
+  });
 
   // A control or an access-loss refocus moves the canonical ID first; the list
   // follows it here. A gesture is already where it needs to be, so scrolling to
@@ -69,14 +109,14 @@ export function RecentDeck({ state, dispatch, width }: RecentDeckProps) {
 
   const onSettled = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const settled = Math.round(event.nativeEvent.contentOffset.x / width);
+      const settled = Math.round(event.nativeEvent.contentOffset.x / pitch);
       const moment = state.moments[settled];
       if (moment) {
         markDeckStage("move_settled");
         dispatch({ type: "moved_to", momentId: moment.moment_id });
       }
     },
-    [dispatch, state.moments, width],
+    [dispatch, pitch, state.moments],
   );
 
   const move = useCallback(
@@ -104,35 +144,41 @@ export function RecentDeck({ state, dispatch, width }: RecentDeckProps) {
       onAccessibilityAction={onAccessibilityAction}
       style={styles.deck}
     >
-      <FlatList
+      <AnimatedFlatList
+        contentContainerStyle={{ paddingHorizontal: sidePadding }}
         data={state.moments}
+        // Snapping by the card pitch rather than by the screen is what lets the
+        // neighbours stay on screen; `pagingEnabled` can only page a full
+        // viewport and would hide them.
+        decelerationRate="fast"
+        disableIntervalMomentum
         getItemLayout={(_, itemIndex) => ({
           index: itemIndex,
-          length: width,
-          offset: width * itemIndex,
+          length: pitch,
+          offset: pitch * itemIndex,
         })}
         horizontal
         initialNumToRender={1}
         keyExtractor={(moment) => moment.moment_id}
         maxToRenderPerBatch={2}
         onMomentumScrollEnd={onSettled}
-        pagingEnabled
+        onScroll={onScroll}
         ref={listRef}
         renderItem={({ item, index: itemIndex }) => (
-          // Each card scrolls on its own so that at 200% text the metadata can
-          // extend past the screen instead of being clipped.
-          <ScrollView
-            contentContainerStyle={styles.cardScroll}
-            style={{ width }}
-          >
-            <MomentCard
-              availableWidth={width - spacing.lg * 2}
-              mediaEnabled={Math.abs(itemIndex - index) <= MEDIA_RADIUS}
-              moment={item}
-            />
-          </ScrollView>
+          <DeckCard
+            cardWidth={card}
+            gutter={GUTTER}
+            index={itemIndex}
+            mediaEnabled={Math.abs(itemIndex - index) <= MEDIA_RADIUS}
+            moment={item}
+            pitch={pitch}
+            scrollX={scrollX}
+          />
         )}
+        scrollEventThrottle={16}
         showsHorizontalScrollIndicator={false}
+        snapToAlignment="start"
+        snapToInterval={pitch}
         testID="recent-deck"
         windowSize={3}
       />
@@ -155,6 +201,88 @@ export function RecentDeck({ state, dispatch, width }: RecentDeckProps) {
         />
       </View>
     </View>
+  );
+}
+
+const AnimatedFlatList = Animated.createAnimatedComponent(
+  FlatList<RecentMoment>,
+);
+
+/**
+ * One card in the deck, receding as it leaves focus.
+ *
+ * The focused card is full size and sits above its neighbours; the cards on
+ * either side are smaller, dimmer, and behind. All three values are derived
+ * from the scroll offset rather than from which index is "current", so the
+ * depth tracks the finger continuously instead of snapping when the list
+ * settles.
+ *
+ * This is layout that follows a gesture, not decoration, so it is not
+ * suppressed under Reduce Motion — what that setting governs here is the
+ * animated jump a control triggers, which `scrollToIndex` already honours.
+ */
+function DeckCard({
+  cardWidth,
+  gutter,
+  index,
+  mediaEnabled,
+  moment,
+  pitch,
+  scrollX,
+}: {
+  cardWidth: number;
+  gutter: number;
+  index: number;
+  mediaEnabled: boolean;
+  moment: RecentMoment;
+  pitch: number;
+  scrollX: { value: number };
+}) {
+  const animated = useAnimatedStyle(() => {
+    // Distance from focus, in pages: 0 is centred, 1 is the next card over.
+    const distance = Math.abs(scrollX.value / pitch - index);
+    return {
+      opacity: interpolate(
+        distance,
+        [0, 1],
+        [1, NEIGHBOUR_OPACITY],
+        Extrapolation.CLAMP,
+      ),
+      transform: [
+        {
+          scale: interpolate(
+            distance,
+            [0, 1],
+            [1, NEIGHBOUR_SCALE],
+            Extrapolation.CLAMP,
+          ),
+        },
+      ],
+      // The focused card has to overlap its neighbours, not sit between them.
+      zIndex: distance < 0.5 ? 2 : 1,
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.deckCard,
+        { marginRight: gutter, width: cardWidth },
+        animated,
+      ]}
+    >
+      {/* The card scrolls on its own so that at 200% text the caption can
+       * extend past the screen instead of being clipped. `flexGrow` keeps it
+       * from scrolling at all at ordinary sizes, which is what makes Home read
+       * as one fixed screen rather than a page. */}
+      <ScrollView contentContainerStyle={styles.cardScroll}>
+        <MomentCard
+          availableWidth={cardWidth}
+          mediaEnabled={mediaEnabled}
+          moment={moment}
+        />
+      </ScrollView>
+    </Animated.View>
   );
 }
 
@@ -220,7 +348,21 @@ export function useReducedMotion() {
 }
 
 const styles = StyleSheet.create({
-  cardScroll: { paddingBottom: spacing.lg, paddingTop: spacing.sm },
+  cardScroll: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingBottom: spacing.lg,
+    paddingTop: spacing.sm,
+  },
+  deckCard: {
+    // A restrained lift, so the focused card separates from the ones behind it
+    // without the whole screen looking like it is floating.
+    elevation: 6,
+    shadowColor: "#1F2A2E",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+  },
   control: {
     alignItems: "center",
     backgroundColor: color.brandSurface,

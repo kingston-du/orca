@@ -106,7 +106,7 @@ export function usePhotoFrameSize(availableWidth: number) {
 Three separate rules are encoded there:
 
 - **Roughly 4:5**, which is Section 11's shape.
-- **A ceiling as a fraction of the screen**, because the caption and the controls live outside the image and have to stay reachable on a small phone.
+- **A ceiling as a fraction of the screen**, because the caption and the controls live outside the image and have to stay reachable on a small phone. (Part 6 moves the author and the capture time _onto_ the photo; the caption and the controls stay outside it, and this ceiling is why.)
 - **A smaller ceiling at large text.** Someone who enlarged their type did it on purpose. Clipping their words to protect the photo's size gets the priority exactly backwards, so the photo shrinks and the metadata gets the room.
 
 The image itself is fitted with `contain` onto a warm neutral backing rather than cropped to fill. Cropping a panorama to 4:5 throws away most of what the author shared; letterboxing it keeps the whole photo legible and makes the container's edges honest.
@@ -236,6 +236,71 @@ The fix wraps the buffer in `new Uint8Array(...)` before hashing. The new test c
 
 Both defects share a shape: each sits exactly on a boundary a mock or an idealized render order papers over — a native cast, and a commit-order guarantee neither documentation nor a test runner will violate on your behalf until a real OS schedules things differently than you assumed. That is what the physical-device gates in Section 31 are actually for.
 
+## Part 6 — The restyle, and what a visual change is allowed to touch
+
+After the device pass the founder asked for a different-looking Home: one screen rather than a page, with the Moments as a stack of cards you swipe through, the focused one on top and its neighbours peeking out at the edges. Camera got three corrections at the same time. None of it changed a single authorization rule, and that separation is the point of this part.
+
+### Peeking is a geometry problem, not an animation problem
+
+Section 8 originally specified `pagingEnabled`. That flag pages by exactly one viewport, which is the one width at which no neighbour can be visible — the requirement and the flag are mutually exclusive. The replacement is `snapToInterval` at a pitch the layout derives:
+
+```ts
+export function deckGeometry(width: number) {
+  const card = width - 2 * (PEEK + GUTTER);
+  return { card, pitch: card + GUTTER, sidePadding: PEEK + GUTTER };
+}
+```
+
+Three things follow from that one function. The card is narrower than the screen, which is what leaves room at the edges. The pitch — card plus gutter — is what the list snaps by and what `getItemLayout` and the settle handler must both divide by, or the deck will land on the wrong Moment. And `sidePadding` centres the first and last cards, which would otherwise sit against the bezel with empty space opposite them.
+
+It is a pure function, so the geometry has a unit test that needs no rendering at all: the card is narrower than the screen, the peek is symmetric, and the first card is centred. The mounted test then asserts only the wiring — that the list snaps by exactly that pitch and that `pagingEnabled` has not crept back in.
+
+### Depth belongs on the UI thread
+
+The cards behind the focused one are smaller, dimmer, and underneath. Deriving that from "which index is current" would make the depth snap when the list settles, a beat after the finger has already moved. Deriving it from the scroll offset makes it continuous:
+
+```tsx
+const distance = Math.abs(scrollX.value / pitch - index);
+scale: interpolate(distance, [0, 1], [1, NEIGHBOUR_SCALE], Extrapolation.CLAMP);
+```
+
+`scrollX` is a Reanimated shared value written by an animated scroll handler, so the interpolation runs per frame on the UI thread rather than through a React render. Reanimated was already a dependency; no carousel library was added, which Section 8 forbids.
+
+Worth being precise about Reduce Motion. It is tempting to disable anything that moves, but this is layout following a finger, not decoration — suppressing it would leave the cards at a fixed size while the list still scrolled, which is stranger, not calmer. What that setting governs here is the animated _jump_ a control triggers, and `scrollToIndex({ animated: !reducedMotion })` already honoured it.
+
+### Where text may sit on a photo
+
+Identity moved onto the photo over a scrim; the caption did not. The rule is length. The author's name and the capture time are bounded, so a scrim sized for them is predictable. A caption is not bounded, and arbitrary-length text over someone's face is how this kind of design fails. Above a large-text threshold the overlay is dropped entirely and identity returns above the photo — the same threshold that already shrinks the frame, for the same reason.
+
+The scrim is a solid band rather than a gradient, because a gradient assumes the photo underneath it is dark and Orca has no idea what the photo is. Its alpha turns out to be load-bearing, and this is the part worth copying:
+
+```
+alpha 0.62 over white: white text 4.95:1  muted #E4EAEC 4.08:1
+alpha 0.72 over white: white text 7.01:1  muted #E4EAEC 5.77:1
+```
+
+The first draft of this token used 0.62. It looks fine, it passes for the primary text — and it fails the 4.5:1 target for the muted role, over a bright photo, by a margin no one would notice by eye. The ratios were computed against the scrim composited over **pure white**, which is the worst case a photo can present; over anything darker every pairing only improves. A comment on the token records both the numbers and the fact that lowering the alpha breaks them, because the next person to think "that band is a bit heavy" needs to know what they would be trading.
+
+### Two camera defects, one of them structural
+
+Flash and flip sat at `top: 24` in a screen with no safe-area handling at all. On a notched iPhone the status bar is around 59 points, so the controls were underneath the clock and the battery — visible in any screenshot, invisible to every test, because the test renderer has no notch.
+
+The fix is `useSafeAreaInsets()`. The interesting half is the test, which is only meaningful if the mock reports a notch:
+
+```js
+const insets = { top: 59, right: 0, bottom: 34, left: 0 };
+```
+
+The library's own Jest mock defaults to **zero** insets. Zero is precisely the case where a layout that ignores the safe area still looks correct, so a zero-inset default would let this exact bug pass forever. Defaulting the shared mock to real hardware, and letting a test opt into different metrics, inverts that.
+
+The other two changes are smaller. Flash and flip became SF Symbols via `expo-symbols`, justified because glyphs built from `View` primitives do not scale with Dynamic Type and would be thrown away by Checkpoint 9C's icon system anyway. It is worth checking what a "new dependency" actually costs before writing that sentence: `npm ls expo-symbols` shows it was already in the tree through `expo-router`, and `ExpoSymbols` was already in `ios/Podfile.lock`. Declaring it directly adds no native code and needs no rebuild — the dependency review is about what enters the build, not about what appears in `package.json`. Flash state is carried by two _different symbols_, never by tint, so it survives a viewer who cannot distinguish the colours. And the shutter lost its filled centre. That is worth noticing as a behavioural change and not just a visual one: the fill was the only press feedback the control had, so removing it without adding a pressed state would have produced a button that looks dead when tapped.
+
+### What a restyle may not quietly do
+
+Everything above is layout. The read rule, the canonical-ID position, the signed-URL lifecycle, the absence of every reaction control, and the VoiceOver order are untouched, and the tests that pin them were not edited — they passed unchanged, which is the evidence that the restyle stayed inside its boundary. One new test states that explicitly: identity now renders inside the photo frame, and the reading order is still author → exact capture time → photo → caption. Where the pixels sit is a design decision. The order a screen reader walks them is a contract.
+
+The honest limit: Jest cannot import Reanimated at all, because the real module reaches for a native worklets runtime that does not exist under a test runner. The mock makes the animated components ordinary ones, which means **the interpolation itself is untested here**. Whether the neighbouring cards actually recede is a UI-thread behaviour only a device can answer, and it belongs to the re-run of 5A's device pass — along with VoiceOver over the restacked card, Dynamic Type through the overlay fallback, and scrim contrast over real photos rather than computed ones.
+
 ## Verification
 
 ```
@@ -245,6 +310,14 @@ npm test                                                  # 277 tests, 38 suites
 npm run typecheck && npm run lint && npm run format:check
 npm run native:check && npm run legal:check && npm run functions:test
 npm run db:test:api                                       # 3 real HTTP suites
+```
+
+The restyle re-ran the app gates only, since it touches no database object:
+
+```
+npm test                                                  # 285 tests, 38 suites
+npm run typecheck && npm run lint && npm run format:check
+npm run native:check && npm run legal:check
 ```
 
 ## Exercise

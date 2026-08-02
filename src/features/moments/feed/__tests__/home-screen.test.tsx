@@ -4,7 +4,9 @@ import {
   screen,
   userEvent,
   waitFor,
+  within,
 } from "@testing-library/react-native";
+import { Dimensions, PixelRatio } from "react-native";
 
 import { listFriends } from "@/features/friends/friends-api";
 import { HomeScreen } from "@/features/moments/feed/home-screen";
@@ -13,6 +15,7 @@ import {
   listRecentMoments,
   type RecentMoment,
 } from "@/features/moments/feed/recent-api";
+import { deckGeometry } from "@/features/moments/feed/recent-deck";
 
 jest.mock("@/features/moments/feed/recent-api", () => ({
   createMomentMediaSignedUrl: jest.fn(),
@@ -30,6 +33,10 @@ jest.mock("@/features/profiles/avatar-api", () => ({
 jest.mock("@/features/auth/auth-provider", () => ({
   useAuth: () => ({ user: { id: "viewer" } }),
 }));
+
+// The card's layout branches on the text size, so tests have to be able to
+// state which one they are describing.
+jest.spyOn(PixelRatio, "getFontScale").mockReturnValue(1);
 
 function moment(overrides: Partial<RecentMoment> = {}): RecentMoment {
   return {
@@ -170,6 +177,96 @@ describe("the card", () => {
         "author-a/moment-a/media.jpg",
       );
     });
+  });
+
+  it("keeps the reading order when identity moves onto the photo", async () => {
+    await renderHome();
+    await screen.findByLabelText("Ada, @ada");
+
+    // Where the pixels sit changed; the order VoiceOver walks them did not.
+    // Author, then the exact capture time, then the photo, then the caption.
+    const order = screen
+      .getAllByLabelText(
+        /Ada, @ada|Jan 15, 2026 at 6:07 AM|Moment photo by Ada/,
+      )
+      .map((node) => node.props.accessibilityLabel);
+
+    expect(order).toEqual([
+      "Ada, @ada",
+      "Jan 15, 2026 at 6:07 AM",
+      "Moment photo by Ada",
+    ]);
+  });
+});
+
+describe("the identity overlay", () => {
+  beforeEach(() => {
+    jest.mocked(listRecentMoments).mockResolvedValue({
+      sessionStartedAt: "2026-08-01T12:00:00.000Z",
+      anchorAt: "2026-08-01T11:00:00.000Z",
+      moments: [moment()],
+    });
+  });
+
+  afterEach(() => {
+    jest.mocked(PixelRatio.getFontScale).mockReturnValue(1);
+  });
+
+  it("draws the author on the photo at ordinary text sizes", async () => {
+    jest.mocked(PixelRatio.getFontScale).mockReturnValue(1);
+    await renderHome();
+    await screen.findByLabelText("Ada, @ada");
+
+    const frame = screen.getAllByTestId("moment-photo-frame")[0];
+    expect(within(frame).getByLabelText("Ada, @ada")).toBeOnTheScreen();
+  });
+
+  it("puts the author back above the photo at large text sizes", async () => {
+    // Overlaid text that grows with the type scale eventually covers the
+    // picture it is captioning, so past this threshold the overlay is dropped
+    // rather than allowed to clip or to obscure.
+    jest.mocked(PixelRatio.getFontScale).mockReturnValue(1.5);
+    await renderHome();
+    await screen.findByLabelText("Ada, @ada");
+
+    const frame = screen.getAllByTestId("moment-photo-frame")[0];
+    expect(within(frame).queryByLabelText("Ada, @ada")).toBeNull();
+  });
+});
+
+describe("deck geometry", () => {
+  it("leaves both neighbours visible past the focused card", () => {
+    const width = 393;
+    const { card, pitch, sidePadding } = deckGeometry(width);
+
+    // The card is narrower than the screen — that gap is the whole point, and
+    // it is why the list cannot use `pagingEnabled`, which only pages a full
+    // viewport.
+    expect(card).toBeLessThan(width);
+    expect(pitch).toBeLessThan(width);
+
+    // Symmetric: the same amount of the older and the newer card shows.
+    expect(width - card).toBeCloseTo(sidePadding * 2);
+
+    // And the first card still sits centred rather than against the bezel.
+    expect(sidePadding).toBeCloseTo((width - card) / 2);
+  });
+
+  it("snaps the list by one card rather than by one screen", async () => {
+    jest.mocked(listRecentMoments).mockResolvedValue({
+      sessionStartedAt: "2026-08-01T12:00:00.000Z",
+      anchorAt: "2026-08-01T11:00:00.000Z",
+      moments: [moment(), moment({ moment_id: "moment-b" })],
+    });
+
+    await renderHome();
+    const deck = await screen.findByTestId("recent-deck");
+    const width = Dimensions.get("window").width;
+
+    expect(deck.props.snapToInterval).toBe(deckGeometry(width).pitch);
+    expect(deck.props.snapToInterval).toBeLessThan(width);
+    // `pagingEnabled` would override the interval and hide the neighbours.
+    expect(deck.props.pagingEnabled).toBeFalsy();
   });
 });
 

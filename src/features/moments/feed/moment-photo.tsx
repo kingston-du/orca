@@ -46,9 +46,23 @@ export function usePhotoFrameSize(availableWidth: number) {
   };
 }
 
+/**
+ * Whether the identity overlay may sit on the photo at the current text size.
+ *
+ * It is the same threshold that already shrinks the frame, and for the same
+ * reason: at large text the overlay would grow until it covered the picture it
+ * is captioning. Past this point the card puts identity back above the photo,
+ * where it has the whole width and can wrap freely.
+ */
+export function useOverlayFitsOnPhoto() {
+  return PixelRatio.getFontScale() < LARGE_TEXT_SCALE;
+}
+
 type MomentPhotoFrameProps = {
   availableWidth: number;
   children: ReactNode;
+  /** Drawn over the foot of the photo, inside the frame's rounded clip. */
+  footer?: ReactNode;
 };
 
 /**
@@ -66,9 +80,15 @@ type MomentPhotoFrameProps = {
 export function MomentPhotoFrame({
   availableWidth,
   children,
+  footer,
 }: MomentPhotoFrameProps) {
   const size = usePhotoFrameSize(availableWidth);
-  return <View style={[styles.frame, size]}>{children}</View>;
+  return (
+    <View style={[styles.frame, size]} testID="moment-photo-frame">
+      {children}
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
+    </View>
+  );
 }
 
 type MomentPhotoProps = {
@@ -79,6 +99,8 @@ type MomentPhotoProps = {
    * else stays unmounted so the deck holds a bounded number of decoded
    * images. */
   enabled: boolean;
+  /** Identity, drawn on a scrim over the foot of the photo. */
+  footer?: ReactNode;
 };
 
 /**
@@ -95,6 +117,7 @@ export function MomentPhoto({
   authorDisplayName,
   availableWidth,
   enabled,
+  footer,
 }: MomentPhotoProps) {
   const [decoded, setDecoded] = useState(false);
 
@@ -115,7 +138,7 @@ export function MomentPhoto({
   });
 
   return (
-    <MomentPhotoFrame availableWidth={availableWidth}>
+    <MomentPhotoFrame availableWidth={availableWidth} footer={footer}>
       {signed.data ? (
         <Image
           accessibilityIgnoresInvertColors
@@ -157,6 +180,14 @@ const styles = StyleSheet.create({
     backgroundColor: color.photoBacking,
     borderRadius: radius.lg,
     overflow: "hidden",
+  },
+  footer: {
+    backgroundColor: color.photoScrim,
+    bottom: 0,
+    left: 0,
+    padding: spacing.md,
+    position: "absolute",
+    right: 0,
   },
   image: { height: "100%", width: "100%" },
   overlay: {

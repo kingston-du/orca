@@ -19,8 +19,9 @@ import {
 import { listFriends } from "@/features/friends/friends-api";
 import { markDeckStage } from "@/features/moments/feed/deck-instrumentation";
 import { deckReducer, emptyDeck } from "@/features/moments/feed/deck-state";
+import { CARD_INSET } from "@/features/moments/feed/moment-card";
 import { MomentPhotoFrame } from "@/features/moments/feed/moment-photo";
-import { RecentDeck } from "@/features/moments/feed/recent-deck";
+import { RecentDeck, deckGeometry } from "@/features/moments/feed/recent-deck";
 import { listRecentMoments } from "@/features/moments/feed/recent-api";
 import { useAuth } from "@/features/auth/auth-provider";
 
@@ -120,11 +121,14 @@ export function HomeScreen({ onAddFriend, onOpenCamera }: HomeScreenProps) {
 }
 
 /** A skeleton the exact shape of the real card, so nothing jumps when the page
- * lands and no stale user's data can flash in its place. */
+ * lands and no stale user's data can flash in its place. It takes its width
+ * from the same geometry the deck does, or it would resize the moment the first
+ * real card replaces it. */
 function HomeSkeleton({ width }: { width: number }) {
+  const cardWidth = deckGeometry(width).card;
   return (
     <View style={styles.container}>
-      <View style={styles.skeleton}>
+      <View style={[styles.skeleton, { width: cardWidth }]}>
         <View accessibilityElementsHidden style={styles.skeletonAuthor}>
           <View style={styles.skeletonAvatar} />
           <View style={styles.skeletonLines}>
@@ -132,7 +136,7 @@ function HomeSkeleton({ width }: { width: number }) {
             <View style={[styles.skeletonLine, { width: 90 }]} />
           </View>
         </View>
-        <MomentPhotoFrame availableWidth={width - spacing.lg * 2}>
+        <MomentPhotoFrame availableWidth={cardWidth - CARD_INSET * 2}>
           <View style={styles.skeletonPhoto}>
             <ActivityIndicator
               accessibilityLabel="Loading Moments"
@@ -211,7 +215,12 @@ const styles = StyleSheet.create({
     color: color.textPrimary,
     textAlign: "center",
   },
-  skeleton: { gap: spacing.md, padding: spacing.lg },
+  skeleton: {
+    alignSelf: "center",
+    gap: spacing.md,
+    padding: CARD_INSET,
+    paddingTop: spacing.lg,
+  },
   skeletonAuthor: {
     alignItems: "center",
     flexDirection: "row",

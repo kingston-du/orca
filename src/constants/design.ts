@@ -62,6 +62,25 @@ export const color = {
    * rather than assuming anything about the frame behind them. */
   cameraCanvas: "#14202A",
   cameraScrim: "rgba(20, 32, 42, 0.72)",
+
+  /**
+   * The band the author's identity sits on at the foot of a Moment photo.
+   *
+   * It is opaque enough to stand on its own rather than a gradient that hopes
+   * the photo underneath is dark: a white sky and a black shadow have to give
+   * the same answer. Ratios are computed against the scrim composited over
+   * **pure white**, the worst case a photo can present — over a dark photo
+   * every pairing only improves:
+   *
+   * - `photoScrimText` ≈ 7.0:1 (19:1 over black)
+   * - `photoScrimTextMuted` ≈ 5.8:1 (15:1 over black)
+   *
+   * The alpha is load-bearing. At 0.62 the muted pairing falls to 4.1:1 and
+   * fails the 4.5:1 target outright, so do not lighten it without recomputing.
+   */
+  photoScrim: "rgba(16, 26, 31, 0.72)",
+  photoScrimText: "#FFFFFF",
+  photoScrimTextMuted: "#E4EAEC",
 } as const;
 
 /**

@@ -1,5 +1,6 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Link, useIsFocused } from "expo-router";
+import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
@@ -12,6 +13,7 @@ import {
   View,
   type AppStateStatus,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   color,
@@ -57,7 +59,12 @@ const CAMERA_PICTURE_OPTIONS = {
   skipProcessing: false,
 } as const;
 
+/** The glyph size inside a 44-point control: large enough to read against a
+ * bright frame, small enough to keep the scrim disc from dominating it. */
+const OVERLAY_GLYPH_SIZE = 22;
+
 export function CaptureScreen() {
+  const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
   const actionInFlight = useRef(false);
   const isMounted = useRef(true);
@@ -387,37 +394,38 @@ export function CaptureScreen() {
               previewUri={draft?.photo.uri ?? null}
             />
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Set flash ${flash === "off" ? "to automatic" : "off"}`}
-            accessibilityState={{ disabled: activeAction !== null }}
-            disabled={activeAction !== null}
-            onPress={() =>
-              setFlash((currentFlash) =>
-                currentFlash === "off" ? "auto" : "off",
-              )
-            }
-            style={[styles.overlayButton, styles.flashButton]}
+          {/* The overlay row clears the status bar rather than sitting under
+           * the clock and the battery. `insets.top` is the only number that
+           * knows how tall that bar actually is on this device. */}
+          <View
+            pointerEvents="box-none"
+            style={[styles.overlayRow, { top: insets.top + spacing.lg }]}
+            testID="camera-overlay-controls"
           >
-            <Text style={styles.overlayButtonText}>
-              Flash {flash === "off" ? "Off" : "Auto"}
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Flip camera"
-            accessibilityState={{ disabled: activeAction !== null }}
-            disabled={activeAction !== null}
-            onPress={() => {
-              setReadyCameraSession(null);
-              setFacing((currentFacing) =>
-                currentFacing === "back" ? "front" : "back",
-              );
-            }}
-            style={[styles.overlayButton, styles.flipButton]}
-          >
-            <Text style={styles.overlayButtonText}>Flip</Text>
-          </Pressable>
+            <OverlayControl
+              accessibilityLabel={`Set flash ${flash === "off" ? "to automatic" : "off"}`}
+              disabled={activeAction !== null}
+              onPress={() =>
+                setFlash((currentFlash) =>
+                  currentFlash === "off" ? "auto" : "off",
+                )
+              }
+              // Two distinct glyphs, not two tints of one: the flash state has
+              // to survive a viewer who cannot tell the colours apart.
+              symbol={flash === "off" ? "bolt.slash.fill" : "bolt.badge.a.fill"}
+            />
+            <OverlayControl
+              accessibilityLabel="Flip camera"
+              disabled={activeAction !== null}
+              onPress={() => {
+                setReadyCameraSession(null);
+                setFacing((currentFacing) =>
+                  currentFacing === "back" ? "front" : "back",
+                );
+              }}
+              symbol="arrow.triangle.2.circlepath.camera.fill"
+            />
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Take photo"
@@ -427,11 +435,15 @@ export function CaptureScreen() {
             }}
             disabled={!canTakePicture}
             onPress={() => void takePicture()}
-            style={[styles.shutter, !canTakePicture ? styles.disabled : null]}
+            style={({ pressed }) => [
+              styles.shutter,
+              // The ring has no fill to dim on press, so the press has to show
+              // somewhere or the control reads as dead.
+              pressed ? styles.shutterPressed : null,
+              !canTakePicture ? styles.disabled : null,
+            ]}
             testID="camera-shutter"
-          >
-            <View style={styles.shutterInner} />
-          </Pressable>
+          />
         </View>
       ) : (
         <View style={styles.fallback}>
@@ -517,6 +529,50 @@ export function CaptureScreen() {
   );
 }
 
+/**
+ * A camera overlay control: an SF Symbol on a scrim disc.
+ *
+ * The label is the only thing VoiceOver gets, so it carries the whole meaning
+ * — the glyph is decorative to a screen reader and is hidden from it outright.
+ * The scrim is what makes the glyph legible, because nothing can be assumed
+ * about the frame behind it.
+ */
+function OverlayControl({
+  accessibilityLabel,
+  disabled,
+  onPress,
+  symbol,
+}: {
+  accessibilityLabel: string;
+  disabled: boolean;
+  onPress: () => void;
+  symbol: SymbolViewProps["name"];
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.overlayButton,
+        pressed ? styles.overlayButtonPressed : null,
+        disabled ? styles.disabled : null,
+      ]}
+    >
+      <SymbolView
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+        name={symbol}
+        resizeMode="scaleAspectFit"
+        size={OVERLAY_GLYPH_SIZE}
+        tintColor={color.textInverse}
+      />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { backgroundColor: color.cameraCanvas, flex: 1 },
   cameraControls: {
@@ -527,36 +583,34 @@ const styles = StyleSheet.create({
     top: 0,
   },
   tileSlot: { bottom: spacing.xl, left: spacing.xl, position: "absolute" },
-  overlayButton: {
-    backgroundColor: color.cameraScrim,
-    borderRadius: radius.lg,
-    justifyContent: "center",
-    minHeight: MINIMUM_TOUCH_TARGET,
-    paddingHorizontal: spacing.lg,
+  overlayRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    left: spacing.xl,
     position: "absolute",
+    right: spacing.xl,
   },
-  overlayButtonText: { ...typeScale.label, color: color.textInverse },
-  flashButton: { left: spacing.xl, top: spacing.xl },
-  flipButton: { right: spacing.xl, top: spacing.xl },
-  shutter: {
+  overlayButton: {
     alignItems: "center",
+    backgroundColor: color.cameraScrim,
+    borderRadius: radius.pill,
+    height: MINIMUM_TOUCH_TARGET,
+    justifyContent: "center",
+    width: MINIMUM_TOUCH_TARGET,
+  },
+  overlayButtonPressed: { opacity: 0.7 },
+  shutter: {
     borderColor: color.textInverse,
     borderRadius: 42,
     borderWidth: 4,
     bottom: 18,
     height: 84,
-    justifyContent: "center",
     left: "50%",
     marginLeft: -42,
     position: "absolute",
     width: 84,
   },
-  shutterInner: {
-    backgroundColor: color.textInverse,
-    borderRadius: 32,
-    height: 64,
-    width: 64,
-  },
+  shutterPressed: { backgroundColor: color.cameraScrim, borderWidth: 6 },
   disabled: { opacity: 0.5 },
   fallback: {
     alignItems: "stretch",
