@@ -1,5 +1,5 @@
 import { useIsFocused } from "expo-router";
-import { useEffect, useMemo, useReducer } from "react";
+import { useCallback, useEffect, useMemo, useReducer } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -95,6 +95,16 @@ export function HomeScreen({
     currentId: deck.currentId,
   });
 
+  // Starting a new session must also forget where the old one left off, or the
+  // viewer lands back on the same card: a caught-up session's fresh top page
+  // usually contains exactly what it did before, so "keep my place" and "start
+  // over from the newest card" would otherwise silently disagree.
+  const { startNewSession } = feed;
+  const startOver = useCallback(() => {
+    dispatch({ type: "reset" });
+    startNewSession();
+  }, [startNewSession]);
+
   if (feed.isPending) {
     return <HomeSkeleton width={width} />;
   }
@@ -115,10 +125,7 @@ export function HomeScreen({
     const hasFriends = (friends.data?.length ?? 0) > 0;
     return (
       <View style={styles.container}>
-        <NewMomentsPill
-          count={feed.newMomentCount}
-          onPress={feed.startNewSession}
-        />
+        <NewMomentsPill count={feed.newMomentCount} onPress={startOver} />
         {hasFriends ? (
           <HomeMessage
             action={{ label: "Open camera", onPress: onOpenCamera }}
@@ -155,10 +162,7 @@ export function HomeScreen({
         </Pressable>
       ) : null}
 
-      <NewMomentsPill
-        count={feed.newMomentCount}
-        onPress={feed.startNewSession}
-      />
+      <NewMomentsPill count={feed.newMomentCount} onPress={startOver} />
 
       <RecentDeck
         dispatch={dispatch}
@@ -180,7 +184,7 @@ export function HomeScreen({
           <Pressable
             accessibilityHint="Starts again from the newest Moment"
             accessibilityRole="button"
-            onPress={feed.startNewSession}
+            onPress={startOver}
             style={({ pressed }) => [
               styles.caughtUpAction,
               pressed && styles.caughtUpActionPressed,

@@ -33,7 +33,15 @@ export type DeckAction =
   /** The viewer settled on a card, by gesture or by control. */
   | { type: "moved_to"; momentId: string }
   | { type: "older" }
-  | { type: "newer" };
+  | { type: "newer" }
+  /**
+   * A new session is starting. Without this, `page_loaded` would find the old
+   * current card still present in the freshly fetched top page — a caught-up
+   * session's newest page usually contains exactly what it did before, since
+   * nothing new was published — and "keep the viewer where they were" would
+   * silently defeat "start over from the newest card".
+   */
+  | { type: "reset" };
 
 export const emptyDeck: DeckState = { moments: [], currentId: null };
 
@@ -107,5 +115,8 @@ export function deckReducer(state: DeckState, action: DeckAction): DeckState {
       const next = newerId(state);
       return next ? { ...state, currentId: next } : state;
     }
+
+    case "reset":
+      return emptyDeck;
   }
 }

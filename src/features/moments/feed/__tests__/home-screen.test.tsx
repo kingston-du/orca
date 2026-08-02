@@ -451,6 +451,50 @@ describe("the session", () => {
     ).toBeOnTheScreen();
   });
 
+  it("actually returns to the newest card, not wherever the session left off", async () => {
+    const user = userEvent.setup();
+    // A caught-up session's fresh top page contains the same Moments as
+    // before — that is what "caught up" means. If the deck only reacted to
+    // the incoming page and kept whichever card happened to survive the
+    // refetch, "Back to the top" would silently do nothing.
+    jest
+      .mocked(listRecentMoments)
+      .mockResolvedValue(page([moment(), moment({ moment_id: "moment-b" })]));
+
+    await renderHome();
+    await screen.findByText("1 of 2");
+
+    await user.press(screen.getByLabelText("Older"));
+    await screen.findByText("2 of 2");
+
+    await user.press(
+      await screen.findByRole("button", { name: "Back to the top" }),
+    );
+
+    expect(await screen.findByText("1 of 2")).toBeOnTheScreen();
+    expect(screen.getByLabelText("Newer")).toBeDisabled();
+  });
+
+  it("returns to the newest card from the new-arrivals pill too", async () => {
+    const user = userEvent.setup();
+    jest
+      .mocked(listRecentMoments)
+      .mockResolvedValue(page([moment(), moment({ moment_id: "moment-b" })]));
+    jest.mocked(countNewRecentMoments).mockResolvedValue(1);
+
+    await renderHome();
+    await screen.findByText("1 of 2");
+
+    await user.press(screen.getByLabelText("Older"));
+    await screen.findByText("2 of 2");
+
+    await user.press(
+      await screen.findByRole("button", { name: "1 new Moment" }),
+    );
+
+    expect(await screen.findByText("1 of 2")).toBeOnTheScreen();
+  });
+
   it("keeps the current card when a refresh fails", async () => {
     jest
       .mocked(listRecentMoments)
