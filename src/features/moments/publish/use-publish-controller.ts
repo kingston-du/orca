@@ -126,11 +126,22 @@ export function usePublishController({
         });
 
         if (isMounted.current) settle(outcome);
-      } catch {
-        // Nothing is logged: the only details worth logging here would be a
-        // path, a caption, or an identifier. A thrown reserve or hash step
-        // means no upload was attempted, but the machine still refuses to
-        // claim that on its own — the author can check or try again.
+      } catch (error) {
+        // Content is never logged: a path, a caption, or an identifier are the
+        // only details this layer holds. A development build may surface the
+        // error *code* alone, which Section 30 explicitly permits and which is
+        // the only way to diagnose a failure that happens on a real device.
+        if (__DEV__) {
+          const code =
+            typeof error === "object" && error !== null && "code" in error
+              ? String((error as { code: unknown }).code)
+              : (error as Error)?.name;
+          console.log("[publish] attempt failed, code:", code);
+        }
+
+        // A thrown reserve or hash step means no upload was attempted, but the
+        // machine still refuses to claim that on its own — the author can
+        // check or try again.
         if (isMounted.current) {
           dispatch({
             type: "attempt_failed",

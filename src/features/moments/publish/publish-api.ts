@@ -67,7 +67,11 @@ export async function readMomentMediaFacts(
     sha256: toHex(
       await Crypto.digest(
         Crypto.CryptoDigestAlgorithm.SHA256,
-        await file.arrayBuffer(),
+        // A view, not the bare `ArrayBuffer`. The TypeScript signature accepts
+        // `BufferSource`, but the native module only casts a TypedArray and
+        // rejects a raw buffer with `ERR_ARGUMENT_CAST` — a failure no mocked
+        // test can see, and one that reaches the author as "could not share".
+        new Uint8Array(await file.arrayBuffer()),
       ),
     ),
   };

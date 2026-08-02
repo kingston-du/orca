@@ -90,10 +90,12 @@ export async function prepareAvatar(
   // server can prove later that it received exactly what was reserved. The
   // file is read as an ArrayBuffer rather than base64 so a megabyte of image
   // never becomes a JavaScript string.
+  // A view, not the bare `ArrayBuffer`: the native module only casts a
+  // TypedArray. See the same note in `publish-api.ts`.
   const sha256 = toHex(
     await Crypto.digest(
       Crypto.CryptoDigestAlgorithm.SHA256,
-      await file.arrayBuffer(),
+      new Uint8Array(await file.arrayBuffer()),
     ),
   );
 

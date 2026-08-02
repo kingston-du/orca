@@ -13,7 +13,15 @@ import { purgeUserScopedCache } from "@/lib/user-scoped-file-cache";
  */
 export function clearUserScopedState(queryClient: QueryClient) {
   queryClient.clear();
+  purgeUserScopedFiles();
+}
 
+/**
+ * The local-bytes half on its own. `AppQueryProvider` clears the query cache
+ * during render — it has to beat the incoming identity's first query — and then
+ * purges files afterwards, so the two halves are separately callable.
+ */
+export function purgeUserScopedFiles() {
   try {
     purgeUserScopedCache();
   } catch {

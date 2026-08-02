@@ -66,6 +66,38 @@ describe("AppQueryProvider", () => {
     });
   });
 
+  test("clears the outgoing identity before the incoming one can query", async () => {
+    // The regression this pins: clearing in an effect runs *after* child
+    // effects, so a child that queries on mount had its in-flight query
+    // removed from the cache and its observer left permanently pending — a
+    // loading screen with no error and no retry.
+    const client = createQueryClient();
+    let queryStateWhenChildMounted: unknown = "child never mounted";
+
+    function ChildThatQueriesOnMount() {
+      // Reading during render is what a child's `useQuery` effectively does
+      // before the parent's effects have had a chance to run.
+      queryStateWhenChildMounted = client.getQueryData(["profile", "user-a"]);
+      return <Text>App</Text>;
+    }
+
+    client.setQueryData(["profile", "user-a"], { displayName: "Alice" });
+
+    const screen = await render(
+      <AppQueryProvider client={client} userId="user-a">
+        <Text>App</Text>
+      </AppQueryProvider>,
+    );
+
+    await screen.rerender(
+      <AppQueryProvider client={client} userId="user-b">
+        <ChildThatQueriesOnMount />
+      </AppQueryProvider>,
+    );
+
+    expect(queryStateWhenChildMounted).toBeUndefined();
+  });
+
   test("clears user-scoped cache when the authenticated user changes", async () => {
     const client = createQueryClient();
     client.setQueryData(["profile", "user-a"], { displayName: "Alice" });
