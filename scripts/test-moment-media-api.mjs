@@ -724,10 +724,17 @@ try {
 
   const aliceHighlights = await alice.client.rpc("list_highlight_moments", {});
   assert.ifError(aliceHighlights.error);
+  const ownHighlight = aliceHighlights.data.find(
+    (row) => row.moment_id === momentId,
+  );
+  assert.ok(
+    ownHighlight,
+    "an author sees their own Moment ranked among their friends'",
+  );
   assert.equal(
-    aliceHighlights.data.some((row) => row.moment_id === momentId),
-    false,
-    "an author is never ranked among their own friends' Highlights",
+    ownHighlight.viewer_is_author,
+    true,
+    "and is told it is theirs, so no control is offered for a reaction the server would refuse",
   );
 
   const quota = await carol.client.rpc("get_reaction_quota");

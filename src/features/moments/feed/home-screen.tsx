@@ -100,9 +100,10 @@ export function HomeScreen({
   /**
    * The two sources, reduced to the one shape the deck understands.
    *
-   * `canReact` is answered here because only here is it knowable: a Recent page
-   * can contain the viewer's own Moment, which the server will not accept a
-   * reaction for, while every Highlight is by construction a current friend's.
+   * `canReact` is answered here because only here is it knowable. Both surfaces
+   * contain the viewer's own Moments — Home so the day's sharing is honest
+   * about what you did, Highlights so you can see where yours landed among your
+   * friends' — and the server will not accept a reaction on either.
    */
   const recentCards = useMemo<DeckMoment[]>(
     () =>
@@ -114,7 +115,11 @@ export function HomeScreen({
   );
 
   const highlightCards = useMemo<DeckMoment[]>(
-    () => highlights.moments.map((moment) => ({ ...moment, canReact: true })),
+    () =>
+      highlights.moments.map((moment) => ({
+        ...moment,
+        canReact: !moment.viewer_is_author,
+      })),
     [highlights.moments],
   );
 
@@ -363,7 +368,7 @@ function EmptyHome({
     return (
       <HomeMessage
         action={{ label: "Back to Recent", onPress: onShowRecent }}
-        body="Highlights collects the Moments your friends reacted to most in the last seven days."
+        body="Highlights collects the Moments you and your friends reacted to most in the last seven days."
         title="Nothing to highlight yet"
       />
     );

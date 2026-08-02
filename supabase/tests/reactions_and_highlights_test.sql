@@ -2,7 +2,7 @@ begin;
 set local search_path = public, extensions;
 set local role postgres;
 create extension if not exists pgtap with schema extensions;
-select plan(71);
+select plan(73);
 
 -- ---------------------------------------------------------------------------
 -- Shape and privileges
@@ -287,9 +287,16 @@ select is(
 );
 select results_eq(
   $$ select moment_id from public.list_highlight_moments() $$,
-  $$ values ('aa000000-0000-4000-8000-000000000006'::uuid),
+  $$ values ('aa000000-0000-4000-8000-000000000004'::uuid),
+            ('aa000000-0000-4000-8000-000000000006'::uuid),
             ('aa000000-0000-4000-8000-000000000001'::uuid) $$,
-  'the warm-up is the newest eligible Moments: not bob''s own, not a former friend''s, not an eight-day-old one'
+  'the warm-up is the newest eligible Moments, bob''s own included; not a former friend''s and not an eight-day-old one'
+);
+select is(
+  (select viewer_is_author from public.list_highlight_moments()
+   where moment_id = 'aa000000-0000-4000-8000-000000000004'),
+  true,
+  'an author sees where their own Moment landed, and is told it is theirs so no control is offered'
 );
 
 -- ---------------------------------------------------------------------------
@@ -564,6 +571,12 @@ select results_eq(
   $$ values ('aa000000-0000-4000-8000-000000000006'::uuid),
             ('aa000000-0000-4000-8000-000000000001'::uuid) $$,
   'one Superheart outranks two Hearts, so score decides order and recency only breaks ties'
+);
+select is(
+  (select count(*)::integer from public.list_highlight_moments()
+   where moment_id = 'aa000000-0000-4000-8000-000000000004'),
+  0,
+  'and bob''s own Only Me Moment leaves the ranked list, because nobody can react to it and it can never score'
 );
 select is(
   (select count(*)::integer from public.list_highlight_moments()

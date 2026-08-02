@@ -213,10 +213,21 @@ product deliberately has none. When nothing has scored yet, it says so — the
 newest ten under "Highlights are warming up" — rather than presenting an
 arbitrary order as though it were a ranking.
 
-And a deliberate reading worth knowing about: Highlights excludes your **own**
-Moments, even though Checkpoint 5B put them on Home. Home shows you what you
-just did; Highlights ranks what your friends did. Ranking yourself against your
-friends is a different product.
+Highlights includes your **own** Moments, on the same rule Home uses. The first
+version of this file excluded them — Highlights ranks what your friends did, so
+why rank yourself? — and the founder overruled it before promotion, for a good
+reason: an author who cannot see where their own Moment landed among their
+friends' has no way to tell what actually connected, and being absent from a
+surface everyone else appears in is its own quiet message. The general principle
+is worth carrying: **your own content belongs wherever everyone else's is
+shown.**
+
+One consequence falls straight out of the scoring rule rather than needing a
+branch: an Only Me Moment can never be reacted to by anyone, so it always scores
+zero and can therefore only ever appear in the warm-up list. And because the
+server refuses a reaction on your own Moment, `list_highlight_moments` returns
+`viewer_is_author` so the client can leave the controls off rather than offer a
+refusal.
 
 ## Part 6 — The client half: optimistic, and genuinely reversible
 
@@ -264,7 +275,7 @@ much smaller scale.
 
 ## Part 7 — What the tests prove
 
-`supabase/tests/reactions_and_highlights_test.sql` (71 assertions) covers the
+`supabase/tests/reactions_and_highlights_test.sql` (73 assertions) covers the
 whole transition matrix, but the ones worth reading are:
 
 - **Archive can never carry a reaction** — asserted against a _direct insert_,
@@ -281,12 +292,13 @@ whole transition matrix, but the ones worth reading are:
 `scripts/test-moment-media-api.mjs` proves the same rules through PostgREST with
 real JWTs — including that there is no direct write path to the table at all, and
 that unblocking restores a suppressed reaction rather than resurrecting a
-deleted one.
+deleted one, and that an author sees their own Moment ranked among their
+friends'.
 
 ## Evidence
 
-`npm run db:reset && db:lint && db:test` — 506 pgTAP assertions across nine
-files, 71 of them new — and `db:types:check` clean on a fresh replay. `npm test`
+`npm run db:reset && db:lint && db:test` — 508 pgTAP assertions across nine
+files, 73 of them new — and `db:types:check` clean on a fresh replay. `npm test`
 359 tests / 46 suites. `typecheck`, `lint`, `format:check`, `native:check`,
 `legal:check`, `functions:test` green. `db:test:api` and `functions:test:api`
 pass against real HTTP, Storage, and served Edge Functions.

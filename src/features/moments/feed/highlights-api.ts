@@ -15,6 +15,11 @@ type GeneratedHighlight =
  * `is_warming_up` is constant across the whole page rather than per row — it
  * describes the page, and repeating it per row is what a `returns table`
  * signature costs.
+ *
+ * `viewer_is_author` is here because Highlights contains the viewer's own
+ * Moments: an author needs to see where what they posted landed among their
+ * friends'. They cannot react to it, and the server would refuse them, so the
+ * client uses this to leave the controls off rather than to offer a refusal.
  */
 export type HighlightMoment = Omit<
   GeneratedHighlight,

@@ -802,6 +802,7 @@ export type Database = {
           object_path: string
           published_at: string
           superheart_count: number
+          viewer_is_author: boolean
           viewer_reaction: string
         }[]
       }

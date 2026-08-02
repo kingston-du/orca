@@ -803,19 +803,27 @@ comment on function public.get_moment_detail(uuid) is
 -- come from the filtered helper, so a blocked or suspended actor changes no
 -- ordering and reveals nothing through position.
 --
--- Deliberately excluded: the viewer's own Moments. Section 21 defines the
--- eligible set as friends' Recent Moments, and Checkpoint 5B's change — that an
--- author sees their own Moments — was about Home showing you what you just did,
--- not about ranking you against your friends.
+-- The viewer's own Moments are included, on the same rule Home uses. An author
+-- who cannot see where their own Moment landed among their friends' has no way
+-- to tell what actually connected — which is the whole point of the surface.
+-- Consequence worth stating: an Only Me Moment can never be reacted to by
+-- anyone, so it always scores zero and can therefore only ever appear in the
+-- warm-up list, never in a ranked one.
 --
 -- No score, rank, or ordinal leaves this function. Ranking changes order only.
 -- The eligible set and its score, in one place, because the query has to ask
 -- two questions of it — "has anything scored at all?" and "which rows come
 -- back?" — and a warm-up state that disagreed with the ranking would be a bug
 -- nobody could see.
+--
+-- The membership rule is Home's, narrowed to seven days: a Moment received on a
+-- live friendship generation, or one the viewer wrote themselves. A recipient
+-- row can never name the author, so the two branches are disjoint and
+-- `union all` cannot produce a duplicate.
 create function private.highlight_candidates(p_viewer uuid, p_now timestamptz)
 returns table (
     moment_id uuid,
+    author_id uuid,
     published_at timestamptz,
     heart_count integer,
     superheart_count integer,
@@ -826,27 +834,42 @@ stable
 security invoker
 set search_path = ''
 as $$
+    with eligible as (
+        select m.id, m.author_id, m.published_at
+        from public.moments m
+        join public.moment_recipients r
+          on r.moment_id = m.id and r.recipient_id = p_viewer
+        where m.status = 'published'
+          and m.kind = 'recent'
+          -- Seven server days. A device with a wrong clock cannot widen it.
+          and m.published_at > p_now - interval '7 days'
+          -- The live-generation rule again, unchanged: a former friend's Moment
+          -- leaves Highlights the instant the friendship does.
+          and r.friendship_generation_id
+              = private.friend_generation(m.author_id, p_viewer)
+
+        union all
+
+        select m.id, m.author_id, m.published_at
+        from public.moments m
+        where m.author_id = p_viewer
+          and m.status = 'published'
+          and m.kind = 'recent'
+          and m.published_at > p_now - interval '7 days'
+          and private.is_app_eligible(p_viewer)
+    )
     select
-        m.id,
-        m.published_at,
+        e.id,
+        e.author_id,
+        e.published_at,
         c.heart_count,
         c.superheart_count,
         -- Section 21: Heart is worth one, Superheart three. Both operands are
         -- already viewer-filtered, so a hidden actor contributes nothing to the
         -- order and cannot be inferred from a position.
         c.heart_count + c.superheart_count * 3
-    from public.moments m
-    join public.moment_recipients r
-      on r.moment_id = m.id and r.recipient_id = p_viewer
-    cross join lateral private.visible_reaction_counts(m.id, p_viewer) c
-    where m.status = 'published'
-      and m.kind = 'recent'
-      -- Seven server days. A device with a wrong clock cannot widen the window.
-      and m.published_at > p_now - interval '7 days'
-      -- The live-generation rule again, unchanged: a former friend's Moment
-      -- leaves Highlights the instant the friendship does.
-      and r.friendship_generation_id
-          = private.friend_generation(m.author_id, p_viewer);
+    from eligible e
+    cross join lateral private.visible_reaction_counts(e.id, p_viewer) c;
 $$;
 
 create function public.list_highlight_moments(p_limit integer default 20)
@@ -866,6 +889,7 @@ returns table (
     object_path text,
     media_width integer,
     media_height integer,
+    viewer_is_author boolean,
     heart_count integer,
     superheart_count integer,
     viewer_reaction text
@@ -896,13 +920,18 @@ begin
     select
         not v_scored,
         m.id, m.author_id, p.username, p.display_name,
-        -- Every author here is a current friend by construction, so Section
-        -- 16's avatar rule is already satisfied — but stating it as a condition
-        -- would be restating the join, so it is stated as this comment instead.
-        p.avatar_path,
+        -- Section 16, stated rather than assumed: the eligible set now contains
+        -- the viewer's own Moments as well as current friends', so the avatar
+        -- rule is a condition again instead of a property of the join.
+        case
+            when m.author_id = v_viewer
+              or private.friend_generation(m.author_id, v_viewer) is not null
+            then p.avatar_path
+        end,
         m.captured_at, m.captured_utc_offset_minutes, m.capture_evidence,
         m.caption, m.caption_updated_at, m.published_at, m.object_path,
         m.width, m.height,
+        m.author_id = v_viewer,
         h.heart_count, h.superheart_count,
         (
             select mine.reaction from public.moment_reactions mine
