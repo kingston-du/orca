@@ -222,12 +222,26 @@ The harness draws the **real** components against extreme aspect ratios and long
 
 **Pure tests** cover the reducer's access-loss and nearest-neighbour behaviour, the capture-time arithmetic across a date-line-crossing offset, and the instrumentation being off unless a build explicitly turned it on.
 
+## Part 5 — What 277 passing tests could not see
+
+The checkpoint's own gates were green before a single physical device ran it. Two real defects were sitting behind that green anyway, and both are worth understanding precisely because a normal review would not have caught either.
+
+**A stuck loading screen.** `AppQueryProvider` cleared the previous identity's query cache in a `useEffect`. That reads as ordinary React and every test using it agreed — because every test in this suite mounts the tree already signed in, so there is no identity transition for the ordering to matter. On a real phone, after sign-in, React commits child effects _before_ parent effects. The protected layout's own `useQuery` had already started its request by the time the provider's effect ran and called `client.clear()` on it. A query removed from the cache while its fetch is in flight leaves the observer subscribed to nothing — not an error, not a retry, just permanently `pending`. Nothing in the JavaScript ever threw.
+
+The fix moves the clear out of the effect and into render, using React's documented pattern for adjusting state during render: compare the incoming prop to what was rendered last time, and if it changed, call `setState` (here, effectively `client.clear()`) before returning JSX. React re-renders this component immediately, before any child gets a chance to render at all — so the cache is already empty when the child's `useQuery` first runs. The regression test does not assert timing, because timing is not what's observable from outside; it asserts that a child which reads the cache during its own render never sees the outgoing identity's data. Against the old code, it doesn't just time out — it succeeds, with `Alice`'s cached row, while rendering as a different user. The bug was a hang and a leak.
+
+**A native type mismatch.** `expo-crypto`'s `digest()` is typed to accept `BufferSource`, which structurally includes `ArrayBuffer`. TypeScript accepted `await file.arrayBuffer()` without complaint. The native iOS module underneath only knows how to cast a `TypedArray` — the type declaration is wider than what the native side actually implements. Jest mocks `expo-crypto` entirely, so no test ever crossed that boundary; the mock returns whatever the test tells it to; the type declaration is the only place the mismatch could have been caught, and it wasn't precise enough to catch it. On a real device, the call reached the native cast and failed with `ERR_ARGUMENT_CAST` — one step into the publish flow, before any network request, which is exactly why the fix started by proving hosted had received nothing rather than guessing at a server-side cause.
+
+The fix wraps the buffer in `new Uint8Array(...)` before hashing. The new test cannot reproduce the native cast failure — nothing in Jest can — so it asserts the one thing that _is_ observable from JavaScript: `ArrayBuffer.isView(data)` is true. That is deliberately a weaker assertion than "this works on device." It is the strongest one available without a device, and the comment on it says so.
+
+Both defects share a shape: each sits exactly on a boundary a mock or an idealized render order papers over — a native cast, and a commit-order guarantee neither documentation nor a test runner will violate on your behalf until a real OS schedules things differently than you assumed. That is what the physical-device gates in Section 31 are actually for.
+
 ## Verification
 
 ```
 npm run db:reset && npm run db:lint && npm run db:test   # 351 assertions, 7 files
 npm run db:types:check
-npm test                                                  # 275 tests, 37 suites
+npm test                                                  # 277 tests, 38 suites
 npm run typecheck && npm run lint && npm run format:check
 npm run native:check && npm run legal:check && npm run functions:test
 npm run db:test:api                                       # 3 real HTTP suites
