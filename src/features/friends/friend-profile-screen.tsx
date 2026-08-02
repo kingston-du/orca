@@ -21,11 +21,13 @@ import {
 
 type FriendProfileScreenProps = {
   onOpenProfile: (profileId: string) => void;
+  onOpenSharedMoments: (profileId: string) => void;
   profileId: string;
 };
 
 export function FriendProfileScreen({
   onOpenProfile,
+  onOpenSharedMoments,
   profileId,
 }: FriendProfileScreenProps) {
   const queryClient = useQueryClient();
@@ -138,6 +140,19 @@ export function FriendProfileScreen({
           <Text accessibilityLiveRegion="polite" style={styles.message}>
             That changed. Refresh and try again.
           </Text>
+        ) : null}
+
+        {/* Shared Moments is a current-friend surface only. Offering it to
+         * anyone else would be a claim about what history exists. */}
+        {isFriend ? (
+          <Pressable
+            accessibilityHint="Moments you are both in"
+            accessibilityRole="button"
+            onPress={() => onOpenSharedMoments(profile.id)}
+            style={styles.primaryButton}
+          >
+            <Text style={styles.primaryLabel}>Shared Moments</Text>
+          </Pressable>
         ) : null}
 
         {isFriend ? (

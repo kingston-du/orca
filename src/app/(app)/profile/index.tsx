@@ -3,7 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
 import { useOwnOnboardingState } from "@/features/onboarding/use-own-onboarding-state";
-import { ProfileScreen } from "@/features/settings/profile-screen";
+import { DiaryScreen } from "@/features/moments/history/diary-screen";
 
 export default function ProfileRoute() {
   const { user } = useAuth();
@@ -16,10 +16,12 @@ export default function ProfileRoute() {
     );
   }
   return (
-    <ProfileScreen
+    <DiaryScreen
       avatarPath={state.data.avatar_path}
       displayName={state.data.display_name ?? "Orca member"}
       onEditProfile={() => router.push("/settings/profile")}
+      onOpenMoment={(momentId) => router.push(`/moments/${momentId}`)}
+      onOpenPastShares={() => router.push("/profile/past-shares")}
       onOpenSettings={() => router.push("/settings")}
       username={state.data.username ?? "unavailable"}
     />

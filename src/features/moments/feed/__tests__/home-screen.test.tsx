@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   render,
   screen,
   userEvent,
@@ -11,15 +12,45 @@ import { Dimensions, PixelRatio } from "react-native";
 import { listFriends } from "@/features/friends/friends-api";
 import { HomeScreen } from "@/features/moments/feed/home-screen";
 import {
-  createMomentMediaSignedUrl,
+  countNewRecentMoments,
   listRecentMoments,
+  markMomentsSeen,
   type RecentMoment,
+  type RecentPage,
 } from "@/features/moments/feed/recent-api";
 import { deckGeometry } from "@/features/moments/feed/recent-deck";
 
+// Replaced wholesale rather than partially: the real module reaches the
+// Supabase client, which reaches AsyncStorage's native module. `cursorOf` and
+// the page size are pure, so restating them here costs nothing, and the real
+// ones are exercised against a mocked transport in `use-recent-feed.test.tsx`.
 jest.mock("@/features/moments/feed/recent-api", () => ({
-  createMomentMediaSignedUrl: jest.fn(),
+  RECENT_PAGE_SIZE: 20,
+  cursorOf: (moment: {
+    seen_at_session_start: boolean;
+    published_at: string;
+    moment_id: string;
+  }) => ({
+    seenAtSessionStart: moment.seen_at_session_start,
+    publishedAt: moment.published_at,
+    momentId: moment.moment_id,
+  }),
+  countNewRecentMoments: jest.fn(),
   listRecentMoments: jest.fn(),
+  markMomentsSeen: jest.fn(),
+}));
+
+// The controlled cache has its own suite. Here it only has to hand back a URL,
+// so the card's states can be exercised without a Storage round trip.
+jest.mock("@/features/moments/media/signed-media", () => ({
+  useMomentMediaUrl: (
+    _userId: string | undefined,
+    _path: string,
+    enabled: boolean,
+  ) => ({
+    data: enabled ? "https://example.test/signed" : undefined,
+    isError: false,
+  }),
 }));
 
 jest.mock("@/features/friends/friends-api", () => ({
@@ -32,6 +63,11 @@ jest.mock("@/features/profiles/avatar-api", () => ({
 
 jest.mock("@/features/auth/auth-provider", () => ({
   useAuth: () => ({ user: { id: "viewer" } }),
+}));
+
+let mockScreenIsFocused = true;
+jest.mock("expo-router", () => ({
+  useIsFocused: () => mockScreenIsFocused,
 }));
 
 // The card's layout branches on the text size, so tests have to be able to
@@ -56,36 +92,65 @@ function moment(overrides: Partial<RecentMoment> = {}): RecentMoment {
     object_path: "author-a/moment-a/media.jpg",
     media_width: 1600,
     media_height: 2000,
+    viewer_is_author: false,
+    seen_at_session_start: false,
     ...overrides,
   };
 }
 
-function renderHome() {
+function page(moments: RecentMoment[]): RecentPage {
+  return {
+    session: moments[0]
+      ? {
+          sessionStartedAt: moments[0].session_started_at,
+          anchorAt: moments[0].anchor_at as string,
+        }
+      : null,
+    moments,
+  };
+}
+
+const onOpenMoment = jest.fn();
+
+async function renderHome() {
   const client = new QueryClient({
     defaultOptions: { queries: { gcTime: Infinity, retry: false } },
   });
-  return render(
+  // A fresh element every time: React bails out of a root render given the
+  // identical element object, and focus lives outside React here.
+  const tree = () => (
     <QueryClientProvider client={client}>
-      <HomeScreen onAddFriend={jest.fn()} onOpenCamera={jest.fn()} />
-    </QueryClientProvider>,
+      <HomeScreen
+        onAddFriend={jest.fn()}
+        onOpenCamera={jest.fn()}
+        onOpenMoment={onOpenMoment}
+      />
+    </QueryClientProvider>
   );
+  const view = await render(tree());
+  return {
+    /** Leaving and returning to the Home tab, which is what re-runs the effects
+     * that depend on screen focus. */
+    refocus: async (focused: boolean) => {
+      mockScreenIsFocused = focused;
+      await act(async () => {
+        await view.rerender(tree());
+      });
+    },
+  };
 }
 
 beforeEach(() => {
   jest.resetAllMocks();
+  mockScreenIsFocused = true;
   jest.mocked(listFriends).mockResolvedValue([]);
-  jest
-    .mocked(createMomentMediaSignedUrl)
-    .mockResolvedValue("https://example.test/signed");
+  jest.mocked(countNewRecentMoments).mockResolvedValue(0);
+  jest.mocked(markMomentsSeen).mockResolvedValue(1);
 });
 
 describe("empty states", () => {
   it("sends someone with no friends to add one", async () => {
-    jest.mocked(listRecentMoments).mockResolvedValue({
-      sessionStartedAt: null,
-      anchorAt: null,
-      moments: [],
-    });
+    jest.mocked(listRecentMoments).mockResolvedValue(page([]));
 
     await renderHome();
 
@@ -96,11 +161,7 @@ describe("empty states", () => {
   });
 
   it("sends someone who already has friends to the camera", async () => {
-    jest.mocked(listRecentMoments).mockResolvedValue({
-      sessionStartedAt: null,
-      anchorAt: null,
-      moments: [],
-    });
+    jest.mocked(listRecentMoments).mockResolvedValue(page([]));
     jest.mocked(listFriends).mockResolvedValue([
       {
         id: "friend-a",
@@ -128,10 +189,8 @@ describe("empty states", () => {
 
 describe("the card", () => {
   beforeEach(() => {
-    jest.mocked(listRecentMoments).mockResolvedValue({
-      sessionStartedAt: "2026-08-01T12:00:00.000Z",
-      anchorAt: "2026-08-01T11:00:00.000Z",
-      moments: [
+    jest.mocked(listRecentMoments).mockResolvedValue(
+      page([
         moment(),
         moment({
           moment_id: "moment-b",
@@ -141,8 +200,8 @@ describe("the card", () => {
           object_path: "author-b/moment-b/media.jpg",
           published_at: "2026-08-01T10:00:00.000Z",
         }),
-      ],
-    });
+      ]),
+    );
   });
 
   it("renders the author, the capture time, the photo, and the caption", async () => {
@@ -168,23 +227,15 @@ describe("the card", () => {
     }
   });
 
-  it("asks for a signed URL only for the cards it mounts", async () => {
-    await renderHome();
-    await screen.findByLabelText("Ada, @ada");
-
-    await waitFor(() => {
-      expect(createMomentMediaSignedUrl).toHaveBeenCalledWith(
-        "author-a/moment-a/media.jpg",
-      );
-    });
-  });
-
   it("keeps the reading order when identity moves onto the photo", async () => {
     await renderHome();
     await screen.findByLabelText("Ada, @ada");
 
     // Where the pixels sit changed; the order VoiceOver walks them did not.
     // Author, then the exact capture time, then the photo, then the caption.
+    // The tap target that opens detail is deliberately not in this list: it is
+    // not an accessibility element, so it cannot collapse the card into one
+    // button. VoiceOver reaches detail through the deck's "Open Moment" action.
     const order = screen
       .getAllByLabelText(
         /Ada, @ada|Jan 15, 2026 at 6:07 AM|Moment photo by Ada/,
@@ -201,11 +252,7 @@ describe("the card", () => {
 
 describe("the identity overlay", () => {
   beforeEach(() => {
-    jest.mocked(listRecentMoments).mockResolvedValue({
-      sessionStartedAt: "2026-08-01T12:00:00.000Z",
-      anchorAt: "2026-08-01T11:00:00.000Z",
-      moments: [moment()],
-    });
+    jest.mocked(listRecentMoments).mockResolvedValue(page([moment()]));
   });
 
   afterEach(() => {
@@ -253,11 +300,9 @@ describe("deck geometry", () => {
   });
 
   it("snaps the list by one card rather than by one screen", async () => {
-    jest.mocked(listRecentMoments).mockResolvedValue({
-      sessionStartedAt: "2026-08-01T12:00:00.000Z",
-      anchorAt: "2026-08-01T11:00:00.000Z",
-      moments: [moment(), moment({ moment_id: "moment-b" })],
-    });
+    jest
+      .mocked(listRecentMoments)
+      .mockResolvedValue(page([moment(), moment({ moment_id: "moment-b" })]));
 
     await renderHome();
     const deck = await screen.findByTestId("recent-deck");
@@ -272,10 +317,8 @@ describe("deck geometry", () => {
 
 describe("Older and Newer", () => {
   beforeEach(() => {
-    jest.mocked(listRecentMoments).mockResolvedValue({
-      sessionStartedAt: "2026-08-01T12:00:00.000Z",
-      anchorAt: "2026-08-01T11:00:00.000Z",
-      moments: [
+    jest.mocked(listRecentMoments).mockResolvedValue(
+      page([
         moment(),
         moment({
           moment_id: "moment-b",
@@ -284,8 +327,8 @@ describe("Older and Newer", () => {
           object_path: "author-b/moment-b/media.jpg",
           published_at: "2026-08-01T10:00:00.000Z",
         }),
-      ],
-    });
+      ]),
+    );
   });
 
   it("starts at the newest with Newer unavailable", async () => {
@@ -309,7 +352,7 @@ describe("Older and Newer", () => {
     expect(await screen.findByText("1 of 2")).toBeOnTheScreen();
   });
 
-  it("exposes the same two commands as accessibility actions", async () => {
+  it("exposes the deck's commands as accessibility actions", async () => {
     await renderHome();
     await screen.findByText("1 of 2");
 
@@ -317,6 +360,161 @@ describe("Older and Newer", () => {
     expect(deck?.props.accessibilityActions).toEqual([
       { name: "older", label: "Older Moment" },
       { name: "newer", label: "Newer Moment" },
+      { name: "open", label: "Open Moment" },
     ]);
+  });
+
+  it("opens detail from the accessibility action, not by collapsing the card", async () => {
+    await renderHome();
+    await screen.findByText("1 of 2");
+
+    const deck = screen.getByTestId("recent-deck").parent;
+    await act(async () => {
+      deck?.props.onAccessibilityAction({
+        nativeEvent: { actionName: "open" },
+      });
+    });
+
+    expect(onOpenMoment).toHaveBeenCalledWith("moment-a");
+  });
+});
+
+describe("the session", () => {
+  it("announces arrivals as a count and nothing else", async () => {
+    jest.mocked(listRecentMoments).mockResolvedValue(page([moment()]));
+    jest.mocked(countNewRecentMoments).mockResolvedValue(3);
+
+    await renderHome();
+
+    const pill = await screen.findByRole("button", { name: "3 new Moments" });
+    expect(pill).toBeOnTheScreen();
+    // The pill knows how many. It must not know, or say, who or what.
+    expect(screen.queryByText(/Ben|@ben/)).toBeNull();
+  });
+
+  it("starts a fresh session when the pill is tapped", async () => {
+    const user = userEvent.setup();
+    jest.mocked(listRecentMoments).mockResolvedValue(page([moment()]));
+    jest.mocked(countNewRecentMoments).mockResolvedValue(1);
+
+    await renderHome();
+    await screen.findByRole("button", { name: "1 new Moment" });
+    const before = jest.mocked(listRecentMoments).mock.calls.length;
+
+    await user.press(screen.getByRole("button", { name: "1 new Moment" }));
+
+    // A new session asks for a new envelope rather than reusing the frozen one.
+    await waitFor(() => {
+      const calls = jest.mocked(listRecentMoments).mock.calls;
+      expect(calls.length).toBeGreaterThan(before);
+      expect(calls.at(-1)?.[0].session).toBeNull();
+    });
+  });
+
+  it("revalidates on returning focus and reuses the frozen envelope", async () => {
+    jest.mocked(listRecentMoments).mockResolvedValue(page([moment()]));
+
+    const view = await renderHome();
+    await screen.findByLabelText("Ada, @ada");
+
+    // Leaving and returning to the tab is the access/head check. It must reuse
+    // the instants the server froze, or the window would silently move and a
+    // Moment published since could appear between two already-swiped cards.
+    await view.refocus(false);
+    await view.refocus(true);
+
+    await waitFor(() => {
+      const calls = jest.mocked(listRecentMoments).mock.calls;
+      expect(calls.length).toBeGreaterThan(1);
+      expect(calls.at(-1)?.[0].session).toEqual({
+        sessionStartedAt: "2026-08-01T12:00:00.000Z",
+        anchorAt: "2026-08-01T11:00:00.000Z",
+      });
+    });
+  });
+
+  it("offers the loop back to the top once the last card is reached", async () => {
+    const user = userEvent.setup();
+    jest
+      .mocked(listRecentMoments)
+      .mockResolvedValue(page([moment(), moment({ moment_id: "moment-b" })]));
+
+    await renderHome();
+    await screen.findByText("1 of 2");
+    expect(screen.queryByText("You’re all caught up.")).toBeNull();
+
+    await user.press(screen.getByLabelText("Older"));
+
+    expect(await screen.findByText("You’re all caught up.")).toBeOnTheScreen();
+    expect(
+      screen.getByRole("button", { name: "Back to the top" }),
+    ).toBeOnTheScreen();
+  });
+
+  it("keeps the current card when a refresh fails", async () => {
+    jest
+      .mocked(listRecentMoments)
+      .mockResolvedValueOnce(page([moment()]))
+      .mockRejectedValue(new Error("network"));
+
+    const view = await renderHome();
+    await screen.findByLabelText("Ada, @ada");
+
+    await view.refocus(false);
+    await view.refocus(true);
+
+    expect(
+      await screen.findByText("Could not refresh. Tap to retry."),
+    ).toBeOnTheScreen();
+    // A failed refresh never takes away what the viewer was already reading.
+    expect(screen.getByLabelText("Ada, @ada")).toBeOnTheScreen();
+  });
+});
+
+describe("seen state", () => {
+  beforeEach(() => {
+    jest.mocked(listRecentMoments).mockResolvedValue(page([moment()]));
+  });
+
+  it("records a view only after the card has been settled for a second", async () => {
+    jest.useFakeTimers();
+    try {
+      await renderHome();
+      await waitFor(() =>
+        expect(screen.getByLabelText("Ada, @ada")).toBeTruthy(),
+      );
+
+      // Half a second of dwell is a swipe passing through, not a view.
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+      expect(markMomentsSeen).not.toHaveBeenCalled();
+
+      // A full second, then the two-second batch window.
+      await act(async () => {
+        jest.advanceTimersByTime(600 + 2000);
+      });
+      expect(markMomentsSeen).toHaveBeenCalledWith(["moment-a"]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("records nothing while Home is not the focused screen", async () => {
+    mockScreenIsFocused = false;
+    jest.useFakeTimers();
+    try {
+      await renderHome();
+      await waitFor(() =>
+        expect(screen.getByLabelText("Ada, @ada")).toBeTruthy(),
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(5000);
+      });
+      expect(markMomentsSeen).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

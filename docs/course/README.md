@@ -22,6 +22,9 @@ Only the retained foundations below are current course material. Obsolete and su
 - Lesson 21 — [Capture evidence, the audience matrix, and one recoverable draft](./21-capture-evidence-and-the-recoverable-draft.md)
 - Lesson 22 — [Trusted publication, refusal over reinterpretation, and proof before forgetting](./22-trusted-publication-and-proof-before-forgetting.md)
 - Lesson 23 — [The authorized card: a live generation, a fixed container, and controls a screen reader can use](./23-the-authorized-card-and-the-live-generation.md) (Part 6 covers the founder-directed restyle of the deck and the camera controls)
+- Lesson 24 — [Frozen sessions, seen state, and the history surfaces](./24-frozen-sessions-and-the-history-surfaces.md)
+
+Lesson 23's claim that the viewer's own Moments fail the Recent read rule described Checkpoint 5A only. Checkpoint 5B made own Recent Moments visible on Home by founder direction; Lesson 24 Part 3 explains what changed and why the old behaviour was an accident of the join rather than a decision.
 
 Lesson 11's native camera lifecycle and normalization boundary remain useful, but its fallback picker capture time is superseded by Lesson 21's capture-evidence allowlist, and its references to Circle publishing describe the pre-redesign downstream contract. Follow Lesson 21 and `PROJECT.md` instead. Lesson 21's statement that no Publish control exists described Phase 3 only; Lesson 22 adds the real one.
 

@@ -2,34 +2,47 @@ begin;
 set local search_path = public, extensions;
 set local role postgres;
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(46);
 
 -- ---------------------------------------------------------------------------
 -- Shape and privileges
 -- ---------------------------------------------------------------------------
-select has_function('public', 'list_recent_moments', array['integer'],
-  'the Recent page RPC exists');
+select has_function('public', 'list_recent_moments',
+  array['integer', 'timestamptz', 'timestamptz', 'text', 'boolean',
+        'timestamptz', 'uuid'],
+  'the bidirectional Recent page RPC exists');
+select hasnt_function('public', 'list_recent_moments', array['integer'],
+  'Checkpoint 5A''s single-page signature is gone rather than left alongside it');
 
 select is(
-  (select prosecdef from pg_proc where oid = 'public.list_recent_moments(integer)'::regprocedure),
+  (select prosecdef from pg_proc
+   where oid = 'public.list_recent_moments(integer,timestamptz,timestamptz,text,boolean,timestamptz,uuid)'::regprocedure),
   true,
   'the Recent page is security definer'
 );
 select is(
   (select r.rolname from pg_proc p join pg_roles r on r.oid = p.proowner
-   where p.oid = 'public.list_recent_moments(integer)'::regprocedure),
+   where p.oid = 'public.list_recent_moments(integer,timestamptz,timestamptz,text,boolean,timestamptz,uuid)'::regprocedure),
   'orca_api_owner',
   'it is owned by the non-login API role, not postgres'
 );
 select ok(
-  (select proconfig from pg_proc where oid = 'public.list_recent_moments(integer)'::regprocedure)
+  (select proconfig from pg_proc
+   where oid = 'public.list_recent_moments(integer,timestamptz,timestamptz,text,boolean,timestamptz,uuid)'::regprocedure)
     @> array['search_path=""'],
   'it resolves every object against an empty search path'
 );
 select ok(
-  has_function_privilege('authenticated', 'public.list_recent_moments(integer)', 'execute')
-  and not has_function_privilege('anon', 'public.list_recent_moments(integer)', 'execute'),
+  has_function_privilege('authenticated',
+    'public.list_recent_moments(integer,timestamptz,timestamptz,text,boolean,timestamptz,uuid)', 'execute')
+  and not has_function_privilege('anon',
+    'public.list_recent_moments(integer,timestamptz,timestamptz,text,boolean,timestamptz,uuid)', 'execute'),
   'only a signed-in client may read Recent'
+);
+select ok(
+  has_function_privilege('authenticated', 'public.count_new_recent_moments(timestamptz)', 'execute')
+  and not has_function_privilege('anon', 'public.count_new_recent_moments(timestamptz)', 'execute'),
+  'only a signed-in client may count new arrivals'
 );
 
 select has_index('public', 'moments', 'moments_recent_feed_idx',
@@ -191,6 +204,22 @@ select pg_temp.grant_to('aa000000-0000-4000-8000-000000000009',
   '11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222',
   '0a000000-0000-4000-8000-000000000001');
 
+-- bob's own Only Me Moment. It has no recipient row at all, so Home is the only
+-- surface that could ever show it to him.
+select pg_temp.publish('aa000000-0000-4000-8000-00000000000a',
+  '22222222-2222-4222-8222-222222222222', 'recent', 'only_me',
+  now() - interval '30 minutes');
+
+-- bob's own Archive Moment. Own-authorship is not a bypass of the kind filter.
+select pg_temp.publish('aa000000-0000-4000-8000-00000000000b',
+  '22222222-2222-4222-8222-222222222222', 'archive', 'archive_participants',
+  now() - interval '20 minutes');
+
+-- bob looked at alice's older Moment ten minutes ago.
+insert into public.moment_seen (viewer_id, moment_id, first_seen_at)
+values ('22222222-2222-4222-8222-222222222222',
+        'aa000000-0000-4000-8000-000000000002', now() - interval '10 minutes');
+
 create function pg_temp.act_as(p_user uuid) returns void
 language plpgsql as $$
 begin
@@ -209,49 +238,82 @@ grant execute on function pg_temp.act_as(uuid) to authenticated;
 set local role authenticated;
 select pg_temp.act_as('22222222-2222-4222-8222-222222222222');
 
+-- A session that opened just now: alice's older Moment was already seen ten
+-- minutes ago, so it falls into the seen partition behind everything else.
 select results_eq(
-  $$ select moment_id from public.list_recent_moments(20) $$,
-  $$ values ('aa000000-0000-4000-8000-000000000002'::uuid),
+  $$ select moment_id from public.list_recent_moments(20, now()) $$,
+  $$ values ('aa000000-0000-4000-8000-000000000004'::uuid),
+            ('aa000000-0000-4000-8000-00000000000a'::uuid),
+            ('aa000000-0000-4000-8000-000000000001'::uuid),
+            ('aa000000-0000-4000-8000-000000000002'::uuid) $$,
+  'unseen newest-first, then seen history'
+);
+
+select results_eq(
+  $$ select moment_id from public.list_recent_moments(20, now() - interval '20 minutes') $$,
+  $$ values ('aa000000-0000-4000-8000-000000000004'::uuid),
+            ('aa000000-0000-4000-8000-00000000000a'::uuid),
+            ('aa000000-0000-4000-8000-000000000002'::uuid),
             ('aa000000-0000-4000-8000-000000000001'::uuid) $$,
-  'the page holds exactly the two authorized Moments, newest publication first'
+  'the partition is frozen at the session boundary: a view after it still reads as unseen'
+);
+
+select results_eq(
+  $$ select viewer_is_author, seen_at_session_start
+     from public.list_recent_moments(20, now())
+     where moment_id = 'aa000000-0000-4000-8000-000000000004' $$,
+  $$ values (true, false) $$,
+  'the row says outright that this one is the viewer''s own'
 );
 
 select is(
-  (select count(*) from public.list_recent_moments(20)
+  (select count(*) from public.list_recent_moments(20, now())
+   where moment_id = 'aa000000-0000-4000-8000-000000000004'),
+  1::bigint,
+  'the author now sees their own Recent Moment on Home'
+);
+select is(
+  (select count(*) from public.list_recent_moments(20, now())
+   where moment_id = 'aa000000-0000-4000-8000-00000000000a'),
+  1::bigint,
+  'including an Only Me Moment, which has no other surface at all'
+);
+select is(
+  (select count(*) from public.list_recent_moments(20, now())
+   where moment_id = 'aa000000-0000-4000-8000-00000000000b'),
+  0::bigint,
+  'but not their own Archive Moment: own authorship is not a bypass of the kind filter'
+);
+select is(
+  (select count(*) from public.list_recent_moments(20, now())
    where moment_id = 'aa000000-0000-4000-8000-000000000003'),
   0::bigint,
   'an Archive Moment never enters Recent even with a current grant'
 );
 select is(
-  (select count(*) from public.list_recent_moments(20)
-   where author_id = '22222222-2222-4222-8222-222222222222'),
-  0::bigint,
-  'the viewer never sees their own Moment in Recent'
-);
-select is(
-  (select count(*) from public.list_recent_moments(20)
+  (select count(*) from public.list_recent_moments(20, now())
    where moment_id = 'aa000000-0000-4000-8000-000000000005'),
   0::bigint,
   'a grant stamped with a superseded generation is not access'
 );
 select is(
-  (select count(*) from public.list_recent_moments(20)
+  (select count(*) from public.list_recent_moments(20, now())
    where moment_id = 'aa000000-0000-4000-8000-000000000006'),
   0::bigint,
   'blocking the author removes their Moment from the page'
 );
 select is(
-  (select count(*) from public.list_recent_moments(20)
+  (select count(*) from public.list_recent_moments(20, now())
    where moment_id = 'aa000000-0000-4000-8000-000000000007'),
   0::bigint,
   'a suspended author disappears from the page'
 );
 select is(
-  (select count(*) from public.list_recent_moments(20)
+  (select count(*) from public.list_recent_moments(20, now())
    where moment_id in ('aa000000-0000-4000-8000-000000000008',
                        'aa000000-0000-4000-8000-000000000009')),
   0::bigint,
-  'an Only Me Moment and one already deleting are both absent'
+  'another author''s Only Me Moment and one already deleting are both absent'
 );
 
 -- ---------------------------------------------------------------------------
@@ -262,7 +324,7 @@ select results_eq(
             captured_utc_offset_minutes, capture_evidence, caption,
             media_width, media_height,
             object_path = author_id::text || '/' || moment_id::text || '/media.jpg'
-     from public.list_recent_moments(20)
+     from public.list_recent_moments(20, now())
      where moment_id = 'aa000000-0000-4000-8000-000000000002' $$,
   $$ values ('alice', 'Alice', true, -300, 'camera_clock', 'A caption',
              1600, 2000, true) $$,
@@ -277,8 +339,102 @@ select is(
 select results_eq(
   $$ select distinct anchor_at from public.list_recent_moments(20) $$,
   $$ select published_at from public.moments
-     where id = 'aa000000-0000-4000-8000-000000000002' $$,
-  'the anchor is the newest publication the viewer is authorized to see'
+     where id = 'aa000000-0000-4000-8000-000000000004' $$,
+  'the anchor is the newest publication the viewer is authorized to see, own Moments included'
+);
+
+-- ---------------------------------------------------------------------------
+-- The session window
+-- ---------------------------------------------------------------------------
+-- Replaying an older anchor is what a mid-session page does. Nothing published
+-- after it may enter the page, or a card would appear between two the viewer
+-- has already swiped past.
+select results_eq(
+  $$ select moment_id
+     from public.list_recent_moments(
+       20, now(), (select published_at from public.moments
+                   where id = 'aa000000-0000-4000-8000-000000000002')) $$,
+  $$ values ('aa000000-0000-4000-8000-000000000001'::uuid),
+            ('aa000000-0000-4000-8000-000000000002'::uuid) $$,
+  'an anchor bounds the session: nothing newer than it can enter mid-session'
+);
+
+select is(
+  public.count_new_recent_moments(
+    (select published_at from public.moments
+     where id = 'aa000000-0000-4000-8000-000000000002')),
+  2,
+  'the pill counts exactly the authorized arrivals the session anchor excluded'
+);
+select is(
+  public.count_new_recent_moments(
+    (select published_at from public.moments
+     where id = 'aa000000-0000-4000-8000-000000000004')),
+  0,
+  'a caught-up session has nothing to announce'
+);
+select is(
+  public.count_new_recent_moments(null),
+  4,
+  'a session that opened on an empty feed counts every authorized Moment as new'
+);
+
+-- ---------------------------------------------------------------------------
+-- Paging, both directions
+-- ---------------------------------------------------------------------------
+select results_eq(
+  $$ select moment_id from public.list_recent_moments(2, now()) $$,
+  $$ values ('aa000000-0000-4000-8000-000000000004'::uuid),
+            ('aa000000-0000-4000-8000-00000000000a'::uuid) $$,
+  'the first page honours a smaller limit'
+);
+
+select results_eq(
+  $$ select moment_id from public.list_recent_moments(
+       2, now(),
+       (select published_at from public.moments
+        where id = 'aa000000-0000-4000-8000-000000000004'),
+       'older', false,
+       (select published_at from public.moments
+        where id = 'aa000000-0000-4000-8000-00000000000a'),
+       'aa000000-0000-4000-8000-00000000000a') $$,
+  $$ values ('aa000000-0000-4000-8000-000000000001'::uuid),
+            ('aa000000-0000-4000-8000-000000000002'::uuid) $$,
+  'the next older page resumes after the cursor and crosses into the seen partition'
+);
+
+select results_eq(
+  $$ select moment_id from public.list_recent_moments(
+       2, now(),
+       (select published_at from public.moments
+        where id = 'aa000000-0000-4000-8000-000000000004'),
+       'newer', false,
+       (select published_at from public.moments
+        where id = 'aa000000-0000-4000-8000-000000000001'),
+       'aa000000-0000-4000-8000-000000000001') $$,
+  $$ values ('aa000000-0000-4000-8000-000000000004'::uuid),
+            ('aa000000-0000-4000-8000-00000000000a'::uuid) $$,
+  'paging back recovers the evicted page in canonical order'
+);
+
+select is(
+  (select count(*) from public.list_recent_moments(
+     20, now(),
+     (select published_at from public.moments
+      where id = 'aa000000-0000-4000-8000-000000000004'),
+     'newer', false,
+     (select published_at from public.moments
+      where id = 'aa000000-0000-4000-8000-000000000004'),
+     'aa000000-0000-4000-8000-000000000004')),
+  0::bigint,
+  'there is nothing newer than the session head'
+);
+
+select is(
+  (select count(*) from public.list_recent_moments(
+     20, now(), null, 'newer')),
+  0::bigint,
+  'asking for a newer page without a cursor returns nothing rather than the top'
 );
 
 -- ---------------------------------------------------------------------------
@@ -304,17 +460,26 @@ select is(
 select pg_temp.act_as('55555555-5555-4555-8555-555555555555');
 select is(
   (select count(*) from public.list_recent_moments(20)),
+  1::bigint,
+  'the block hides bob from erin, and leaves erin only her own Moment'
+);
+select is(
+  (select count(*) from public.list_recent_moments(20)
+   where author_id = '22222222-2222-4222-8222-222222222222'),
   0::bigint,
   'the block is symmetric: erin loses bob as well'
 );
 
--- alice is entitled to bob's own Moment, which proves the fixtures are not
--- simply unreadable to everyone.
 select pg_temp.act_as('11111111-1111-4111-8111-111111111111');
 select results_eq(
-  $$ select moment_id from public.list_recent_moments(20) $$,
-  $$ values ('aa000000-0000-4000-8000-000000000004'::uuid) $$,
-  'alice sees the Moment bob shared with her and none of her own'
+  $$ select moment_id from public.list_recent_moments(20)
+     order by published_at desc $$,
+  $$ values ('aa000000-0000-4000-8000-000000000008'::uuid),
+            ('aa000000-0000-4000-8000-000000000005'::uuid),
+            ('aa000000-0000-4000-8000-000000000004'::uuid),
+            ('aa000000-0000-4000-8000-000000000002'::uuid),
+            ('aa000000-0000-4000-8000-000000000001'::uuid) $$,
+  'alice sees the Moment bob shared with her alongside every Recent Moment she authored'
 );
 
 set local role postgres;
@@ -327,6 +492,11 @@ select is(
   0::bigint,
   'a suspended viewer reads an empty feed, not an error'
 );
+select is(
+  public.count_new_recent_moments(null),
+  0,
+  'and is told about no arrivals either'
+);
 set local role postgres;
 update private.account_states set state = 'active'
 where user_id = '22222222-2222-4222-8222-222222222222';
@@ -336,11 +506,6 @@ select pg_temp.act_as('22222222-2222-4222-8222-222222222222');
 -- ---------------------------------------------------------------------------
 -- Bounds
 -- ---------------------------------------------------------------------------
-select is(
-  (select count(*) from public.list_recent_moments(1)),
-  1::bigint,
-  'the page honours a smaller limit'
-);
 select throws_ok(
   $$ select * from public.list_recent_moments(0) $$,
   '22023', null,
@@ -355,6 +520,24 @@ select throws_ok(
   $$ select * from public.list_recent_moments(null) $$,
   '22023', null,
   'a null page size is rejected rather than defaulted'
+);
+select throws_ok(
+  $$ select * from public.list_recent_moments(20, now(), null, 'sideways') $$,
+  '22023', null,
+  'an unknown direction is rejected'
+);
+select throws_ok(
+  $$ select * from public.list_recent_moments(
+       20, now(), null, 'older', false, null,
+       'aa000000-0000-4000-8000-000000000004') $$,
+  '22023', null,
+  'a cursor missing its publication instant is rejected rather than silently ignored'
+);
+select throws_ok(
+  $$ select * from public.list_recent_moments(
+       20, now(), null, 'older', false, now(), null) $$,
+  '22023', null,
+  'a cursor missing its Moment ID is rejected as well'
 );
 
 select * from finish();

@@ -404,21 +404,230 @@ try {
     "the anchor is the newest publication this viewer may see",
   );
 
+  // Checkpoint 5B, by founder direction: Home shows you what you shared today
+  // alongside everyone else's. Leaving the author's own Moment out made Home
+  // lie about what they had just done.
   const authorRecent = await alice.client.rpc("list_recent_moments", {
     p_limit: 20,
   });
   assert.ifError(authorRecent.error);
-  assert.equal(
-    authorRecent.data.filter((row) => row.moment_id === momentId).length,
-    0,
-    "an author never reads their own Moment back through Recent",
-  );
+  const authorRow = authorRecent.data.find((row) => row.moment_id === momentId);
+  assert.ok(authorRow, "an author reads their own Moment back through Recent");
+  assert.equal(authorRow.viewer_is_author, true);
 
   const strangerRecent = await dave.client.rpc("list_recent_moments", {
     p_limit: 20,
   });
   assert.ifError(strangerRecent.error);
   assert.equal(strangerRecent.data.length, 0, "a stranger's Recent is empty");
+
+  // ---------------------------------------------------------------------
+  // Checkpoint 5B — sessions, seen state, and the history surfaces
+  // ---------------------------------------------------------------------
+  // The same rules pgTAP proves by switching database roles, reached through
+  // PostgREST with a genuine JWT.
+  const session = {
+    p_anchor_at: bobRow.anchor_at,
+    p_session_started_at: bobRow.session_started_at,
+  };
+
+  const replayed = await bob.client.rpc("list_recent_moments", {
+    ...session,
+    p_limit: 20,
+  });
+  assert.ifError(replayed.error);
+  assert.ok(
+    replayed.data.some((row) => row.moment_id === momentId),
+    "replaying the frozen envelope returns the same window",
+  );
+
+  const pastCursor = await bob.client.rpc("list_recent_moments", {
+    ...session,
+    p_cursor_id: bobRow.moment_id,
+    p_cursor_published_at: bobRow.published_at,
+    p_cursor_seen: bobRow.seen_at_session_start,
+    p_direction: "older",
+    p_limit: 20,
+  });
+  assert.ifError(pastCursor.error);
+  assert.equal(
+    pastCursor.data.filter((row) => row.moment_id === momentId).length,
+    0,
+    "a keyset cursor never returns the row it points at twice",
+  );
+
+  const badDirection = await bob.client.rpc("list_recent_moments", {
+    p_direction: "sideways",
+    p_limit: 20,
+  });
+  assert.ok(badDirection.error, "an unknown paging direction is rejected");
+
+  const caughtUp = await bob.client.rpc("count_new_recent_moments", {
+    p_anchor_at: bobRow.anchor_at,
+  });
+  assert.ifError(caughtUp.error);
+  assert.equal(caughtUp.data, 0, "a caught-up session has nothing to announce");
+
+  const marked = await bob.client.rpc("mark_moments_seen", {
+    p_moment_ids: [momentId],
+  });
+  assert.ifError(marked.error);
+  assert.equal(
+    marked.data,
+    1,
+    "an authorized Recent Moment can be marked seen",
+  );
+
+  const remarked = await bob.client.rpc("mark_moments_seen", {
+    p_moment_ids: [momentId],
+  });
+  assert.ifError(remarked.error);
+  assert.equal(remarked.data, 0, "seen is first-write-wins, not last");
+
+  const strangerSeen = await dave.client.rpc("mark_moments_seen", {
+    p_moment_ids: [momentId],
+  });
+  assert.ifError(strangerSeen.error);
+  assert.equal(
+    strangerSeen.data,
+    0,
+    "a stranger cannot record a view of a Moment they cannot see",
+  );
+
+  const otherSeen = await alice.client
+    .from("moment_seen")
+    .select("moment_id")
+    .eq("viewer_id", bob.id);
+  assert.ifError(otherSeen.error);
+  assert.equal(otherSeen.data.length, 0, "seen state is private to its viewer");
+
+  const bobDetail = await bob.client.rpc("get_moment_detail", {
+    p_moment_id: momentId,
+  });
+  assert.ifError(bobDetail.error);
+  assert.equal(bobDetail.data[0].viewer_is_tagged, true);
+  assert.equal(bobDetail.data[0].viewer_is_author, false);
+  assert.equal(
+    bobDetail.data[0].audience,
+    null,
+    "only the author learns how widely a Moment was shared",
+  );
+
+  const aliceDetail = await alice.client.rpc("get_moment_detail", {
+    p_moment_id: momentId,
+  });
+  assert.ifError(aliceDetail.error);
+  assert.equal(aliceDetail.data[0].audience, "all_friends");
+  assert.equal(aliceDetail.data[0].recipient_count, 2);
+
+  const strangerDetail = await dave.client.rpc("get_moment_detail", {
+    p_moment_id: momentId,
+  });
+  assert.ifError(strangerDetail.error);
+  assert.equal(
+    strangerDetail.data.length,
+    0,
+    "an unauthorized Moment is indistinguishable from one that never existed",
+  );
+
+  const participants = await bob.client.rpc("list_moment_participants", {
+    p_moment_id: momentId,
+  });
+  assert.ifError(participants.error);
+  assert.deepEqual(
+    participants.data.map((row) => row.user_id),
+    [bob.id],
+  );
+
+  for (const [viewer, name, expected] of [
+    [alice, "the author", true],
+    [bob, "a tagged participant", true],
+    [carol, "a recipient who is not a participant", false],
+  ]) {
+    const diary = await viewer.client.rpc("list_diary_moments", {
+      p_limit: 30,
+    });
+    assert.ifError(diary.error);
+    assert.equal(
+      diary.data.some((row) => row.moment_id === momentId),
+      expected,
+      `Diary should ${expected ? "" : "not "}contain this Moment for ${name}`,
+    );
+  }
+
+  const shared = await bob.client.rpc("list_shared_moments", {
+    p_friend_id: alice.id,
+    p_limit: 30,
+  });
+  assert.ifError(shared.error);
+  assert.ok(
+    shared.data.some((row) => row.moment_id === momentId),
+    "author plus tagged participant is a shared Moment",
+  );
+
+  const sharedWithStranger = await bob.client.rpc("list_shared_moments", {
+    p_friend_id: dave.id,
+    p_limit: 30,
+  });
+  assert.ok(
+    sharedWithStranger.error,
+    "Shared Moments closes on someone who is not a current friend",
+  );
+
+  const carolPastShares = await carol.client.rpc("list_past_shares", {
+    p_limit: 30,
+  });
+  assert.ifError(carolPastShares.error);
+  assert.equal(
+    carolPastShares.data.length,
+    0,
+    "a live-generation grant belongs to Home, not to Past Shares",
+  );
+
+  // Tag self-removal. On a Recent Moment the independent recipient snapshot
+  // survives, so the row stays readable while participation ends.
+  const selfRemoved = await bob.client.rpc("remove_moment_tag", {
+    p_moment_id: momentId,
+  });
+  assert.ifError(selfRemoved.error);
+  assert.equal(selfRemoved.data[0].still_visible, true);
+
+  const diaryAfterRemoval = await bob.client.rpc("list_diary_moments", {
+    p_limit: 30,
+  });
+  assert.ifError(diaryAfterRemoval.error);
+  assert.equal(
+    diaryAfterRemoval.data.filter((row) => row.moment_id === momentId).length,
+    0,
+    "removing the tag removes the Moment from Diary immediately",
+  );
+
+  const sharedAfterRemoval = await bob.client.rpc("list_shared_moments", {
+    p_friend_id: alice.id,
+    p_limit: 30,
+  });
+  assert.ifError(sharedAfterRemoval.error);
+  assert.equal(
+    sharedAfterRemoval.data.filter((row) => row.moment_id === momentId).length,
+    0,
+    "and from Shared Moments, because participation is what it counts",
+  );
+
+  const stillSigned = await bob.client.storage
+    .from(MOMENT_MEDIA_BUCKET)
+    .createSignedUrl(reservation.object_path, 300);
+  assert.ok(
+    stillSigned.data?.signedUrl,
+    "but the recipient grant still authorizes the media",
+  );
+
+  const repeatedRemoval = await bob.client.rpc("remove_moment_tag", {
+    p_moment_id: momentId,
+  });
+  assert.ifError(
+    repeatedRemoval.error,
+    "a retried self-removal after a lost response succeeds",
+  );
 
   // Caption editing is optimistic and its no-op preserves the version.
   const published = await alice.client
@@ -550,6 +759,23 @@ try {
     formerFriendRecent.data.filter((row) => row.moment_id === momentId).length,
     0,
     "but Recent drops it: history is not a live feed",
+  );
+
+  // And the grant becomes reachable again through the one surface that exists
+  // for exactly this case. Without Past Shares it would be unreachable rather
+  // than revoked, which is a quieter kind of lie.
+  const formerFriendPastShares = await carol.client.rpc("list_past_shares", {
+    p_limit: 30,
+  });
+  assert.ifError(formerFriendPastShares.error);
+  const pastShare = formerFriendPastShares.data.find(
+    (row) => row.moment_id === momentId,
+  );
+  assert.ok(pastShare, "Past Shares holds what Home can no longer show");
+  assert.equal(
+    pastShare.author_avatar_path,
+    null,
+    "history-only attribution is a name and a username, never an avatar",
   );
 
   const reviewed = await finalizeAsService(

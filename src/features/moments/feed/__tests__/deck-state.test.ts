@@ -26,6 +26,8 @@ function moment(id: string): RecentMoment {
     object_path: `author-${id}/${id}/media.jpg`,
     media_width: 1600,
     media_height: 2000,
+    viewer_is_author: false,
+    seen_at_session_start: false,
   };
 }
 

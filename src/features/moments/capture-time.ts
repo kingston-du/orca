@@ -27,6 +27,21 @@ const MONTH_NAMES = [
   "Dec",
 ] as const;
 
+const FULL_MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const;
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
@@ -68,6 +83,48 @@ export function formatExactCaptureTime(
     `${MONTH_NAMES[shifted.getUTCMonth()]} ${shifted.getUTCDate()}, ` +
     `${shifted.getUTCFullYear()} at ${formatClock(shifted)}`
   );
+}
+
+/**
+ * When a Moment was *shared*, in the viewer's own local time.
+ *
+ * This is the one timestamp that genuinely belongs to the reader's clock: it
+ * answers "when did this arrive", not "when was this photo taken". Detail may
+ * label it as sharing time. Nothing may ever label it as capture time — that is
+ * the whole reason the two formatters are separate functions with separate
+ * names rather than one with a flag.
+ */
+export function formatSharedTime(publishedAt: string): string | null {
+  const at = new Date(Date.parse(publishedAt));
+  if (Number.isNaN(at.getTime())) return null;
+
+  const hours24 = at.getHours();
+  const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
+  const minutes = String(at.getMinutes()).padStart(2, "0");
+
+  return (
+    `${MONTH_NAMES[at.getMonth()]} ${at.getDate()}, ${at.getFullYear()} at ` +
+    `${hours12}:${minutes} ${hours24 < 12 ? "AM" : "PM"}`
+  );
+}
+
+/**
+ * The month a Moment belongs to in its *own* calendar, which is what Diary
+ * groups by.
+ *
+ * A photo taken at 11pm on 31 January in Tokyo belongs to January, and a viewer
+ * in Toronto must not see it filed under February simply because that is what
+ * their own clock said at that instant. The full month name is spelled out
+ * because a section header has room for it and "Jan" reads as an abbreviation
+ * of data rather than as a heading.
+ */
+export function formatCaptureMonth(
+  capturedAt: string,
+  capturedUtcOffsetMinutes: number,
+): string | null {
+  const shifted = shiftToCaptureOffset(capturedAt, capturedUtcOffsetMinutes);
+  if (!shifted) return null;
+  return `${FULL_MONTH_NAMES[shifted.getUTCMonth()]} ${shifted.getUTCFullYear()}`;
 }
 
 /**

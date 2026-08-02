@@ -7,6 +7,9 @@ export default function HomeRoute() {
     <HomeScreen
       onAddFriend={() => router.push("/people")}
       onOpenCamera={() => router.push("/camera")}
+      // Routes carry an opaque Moment ID only. Detail refetches and the server
+      // reauthorizes on every entry, including cold deep links.
+      onOpenMoment={(momentId) => router.push(`/moments/${momentId}`)}
     />
   );
 }

@@ -1,5 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -11,13 +10,9 @@ import {
 } from "react-native";
 
 import { color, radius, spacing, typeScale } from "@/constants/design";
+import { useAuth } from "@/features/auth/auth-provider";
 import { markDeckStage } from "@/features/moments/feed/deck-instrumentation";
-import { createMomentMediaSignedUrl } from "@/features/moments/feed/recent-api";
-
-/** Signed URLs last five minutes. Refetching a minute early means a rendered
- * photo never depends on a token that is about to expire, and the renewal is
- * also the row's reauthorization. */
-const SIGNED_URL_REFRESH_MS = 4 * 60 * 1000;
+import { useMomentMediaUrl } from "@/features/moments/media/signed-media";
 
 /** Section 11's fixed container: roughly 4:5 where the screen permits. */
 const PHOTO_ASPECT = 4 / 5;
@@ -119,23 +114,17 @@ export function MomentPhoto({
   enabled,
   footer,
 }: MomentPhotoProps) {
+  const { user } = useAuth();
   const [decoded, setDecoded] = useState(false);
 
-  const signed = useQuery({
-    enabled,
-    // The path is an opaque server-issued identifier. The signed URL itself is
-    // never part of a cache key, a route, or a log line.
-    queryKey: ["moment-media-url", objectPath],
-    queryFn: () => {
-      markDeckStage("photo_requested");
-      return createMomentMediaSignedUrl(objectPath);
-    },
-    refetchInterval: SIGNED_URL_REFRESH_MS,
-    staleTime: SIGNED_URL_REFRESH_MS,
-    // One renewal, as Section 10 requires. A second denial is treated as
-    // unavailable rather than retried forever.
-    retry: 1,
-  });
+  // The controlled cache owns the TTL, the renewal margin, the per-tick
+  // batching, and the purge. All this component knows is a path and whether it
+  // is near enough to the viewport to be worth signing.
+  const signed = useMomentMediaUrl(user?.id, objectPath, enabled);
+
+  useEffect(() => {
+    if (enabled) markDeckStage("photo_requested");
+  }, [enabled]);
 
   return (
     <MomentPhotoFrame availableWidth={availableWidth} footer={footer}>

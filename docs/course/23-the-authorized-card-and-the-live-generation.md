@@ -41,6 +41,8 @@ where m.status = 'published'
 
 Reusing that function rather than restating the rule is the actual design decision here. Two copies of an authorization rule are two things that can drift, and the one that drifts is always the one nobody re-read.
 
+> **Superseded in Checkpoint 5B — "or yourself".** Everything above still describes the rule for _other people's_ Moments. The founder later directed that an author sees their own posted Recent Moments on Home, so 5B adds an explicit own-author branch beside this comparison. Note what that reveals about the sentence above: excluding your own Moments was never a decision, it was a side effect of the join — a recipient row can never name the author. Lesson 24 Part 3 covers the change and why behaviour that merely _falls out_ of a mechanism should be written down as such.
+
 ### Historical access still exists — somewhere else
 
 A former friend has _not_ lost the Moment. `public.can_view_moment` — the function behind the row's RLS policy — still authorizes them, because their snapshot is real and Orca does not retroactively un-share things. What they lost is the _feed_.
@@ -214,7 +216,7 @@ The harness draws the **real** components against extreme aspect ratios and long
 
 ## What the tests prove
 
-**pgTAP (`recent_feed_test.sql`, 27 assertions)** builds one viewer and six relationships, then asserts the page contains _exactly_ two Moments. Everything excluded is excluded for a different reason: an Archive Moment with a current grant, the viewer's own Moment, a grant carrying a superseded generation, a blocked author, a suspended author, an Only Me Moment, and one mid-deletion. It also pins the function's configuration — `security definer`, owned by `orca_api_owner`, empty `search_path`, executable by `authenticated` and not `anon` — because an authorization rule that can be reached the wrong way is not a rule.
+**pgTAP (`recent_feed_test.sql`, 27 assertions)** builds one viewer and six relationships, then asserts the page contains _exactly_ two Moments. Everything excluded is excluded for a different reason: an Archive Moment with a current grant, the viewer's own Moment (until Checkpoint 5B, which by founder direction includes it — see Lesson 24), a grant carrying a superseded generation, a blocked author, a suspended author, another author's Only Me Moment, and one mid-deletion. It also pins the function's configuration — `security definer`, owned by `orca_api_owner`, empty `search_path`, executable by `authenticated` and not `anon` — because an authorization rule that can be reached the wrong way is not a rule.
 
 **The real Data API suite** re-proves the same rule through PostgREST with a genuine JWT. That is not redundant: pgTAP switches database roles, which never exercises `private.current_user_id()` reading a real token the way the app does. It also watches a block and an unfriending remove a Moment from Recent while the row itself stays readable.
 

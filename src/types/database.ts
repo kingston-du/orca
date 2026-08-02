@@ -162,6 +162,39 @@ export type Database = {
           },
         ]
       }
+      moment_seen: {
+        Row: {
+          first_seen_at: string
+          moment_id: string
+          viewer_id: string
+        }
+        Insert: {
+          first_seen_at?: string
+          moment_id: string
+          viewer_id: string
+        }
+        Update: {
+          first_seen_at?: string
+          moment_id?: string
+          viewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moment_seen_moment_id_fkey"
+            columns: ["moment_id"]
+            isOneToOne: false
+            referencedRelation: "moments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moment_seen_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       moment_tags: {
         Row: {
           author_id: string
@@ -431,6 +464,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      count_new_recent_moments: {
+        Args: { p_anchor_at?: string }
+        Returns: number
+      }
       create_invite_link: {
         Args: { p_token_sha256: string }
         Returns: {
@@ -556,6 +593,31 @@ export type Database = {
           status: string
         }[]
       }
+      get_moment_detail: {
+        Args: { p_moment_id: string }
+        Returns: {
+          audience: string
+          author_avatar_path: string
+          author_display_name: string
+          author_id: string
+          author_username: string
+          caption: string
+          caption_updated_at: string
+          capture_evidence: string
+          captured_at: string
+          captured_utc_offset_minutes: number
+          kind: string
+          media_height: number
+          media_width: number
+          moment_id: string
+          object_path: string
+          participant_count: number
+          published_at: string
+          recipient_count: number
+          viewer_is_author: boolean
+          viewer_is_tagged: boolean
+        }[]
+      }
       get_moment_upload_status: {
         Args: { p_moment_id: string }
         Returns: {
@@ -594,6 +656,31 @@ export type Database = {
           generation_id: string
           id: string
           username: string
+        }[]
+      }
+      list_diary_moments: {
+        Args: {
+          p_cursor_captured_at?: string
+          p_cursor_id?: string
+          p_cursor_published_at?: string
+          p_limit?: number
+        }
+        Returns: {
+          author_avatar_path: string
+          author_display_name: string
+          author_id: string
+          author_username: string
+          caption: string
+          capture_evidence: string
+          captured_at: string
+          captured_utc_offset_minutes: number
+          kind: string
+          media_height: number
+          media_width: number
+          moment_id: string
+          object_path: string
+          published_at: string
+          viewer_is_author: boolean
         }[]
       }
       list_friend_friends: {
@@ -641,8 +728,50 @@ export type Database = {
           username: string
         }[]
       }
+      list_moment_participants: {
+        Args: { p_moment_id: string }
+        Returns: {
+          avatar_path: string
+          display_name: string
+          user_id: string
+          username: string
+        }[]
+      }
+      list_past_shares: {
+        Args: {
+          p_cursor_captured_at?: string
+          p_cursor_id?: string
+          p_cursor_published_at?: string
+          p_limit?: number
+        }
+        Returns: {
+          author_avatar_path: string
+          author_display_name: string
+          author_id: string
+          author_username: string
+          caption: string
+          capture_evidence: string
+          captured_at: string
+          captured_utc_offset_minutes: number
+          kind: string
+          media_height: number
+          media_width: number
+          moment_id: string
+          object_path: string
+          published_at: string
+          viewer_is_author: boolean
+        }[]
+      }
       list_recent_moments: {
-        Args: { p_limit?: number }
+        Args: {
+          p_anchor_at?: string
+          p_cursor_id?: string
+          p_cursor_published_at?: string
+          p_cursor_seen?: boolean
+          p_direction?: string
+          p_limit?: number
+          p_session_started_at?: string
+        }
         Returns: {
           anchor_at: string
           author_avatar_path: string
@@ -659,7 +788,35 @@ export type Database = {
           moment_id: string
           object_path: string
           published_at: string
+          seen_at_session_start: boolean
           session_started_at: string
+          viewer_is_author: boolean
+        }[]
+      }
+      list_shared_moments: {
+        Args: {
+          p_cursor_captured_at?: string
+          p_cursor_id?: string
+          p_cursor_published_at?: string
+          p_friend_id: string
+          p_limit?: number
+        }
+        Returns: {
+          author_avatar_path: string
+          author_display_name: string
+          author_id: string
+          author_username: string
+          caption: string
+          capture_evidence: string
+          captured_at: string
+          captured_utc_offset_minutes: number
+          kind: string
+          media_height: number
+          media_width: number
+          moment_id: string
+          object_path: string
+          published_at: string
+          viewer_is_author: boolean
         }[]
       }
       lookup_profile_exact: {
@@ -674,6 +831,7 @@ export type Database = {
           username: string
         }[]
       }
+      mark_moments_seen: { Args: { p_moment_ids: string[] }; Returns: number }
       reject_avatar_upload: {
         Args: { p_error_code: string; p_request_id: string; p_user_id: string }
         Returns: string
@@ -691,6 +849,13 @@ export type Database = {
         Returns: string
       }
       remove_avatar: { Args: never; Returns: undefined }
+      remove_moment_tag: {
+        Args: { p_moment_id: string }
+        Returns: {
+          moment_id: string
+          still_visible: boolean
+        }[]
+      }
       reserve_avatar_upload: {
         Args: { p_client_byte_size: number; p_client_sha256: string }
         Returns: {

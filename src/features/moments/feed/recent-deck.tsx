@@ -67,9 +67,19 @@ export function deckGeometry(width: number) {
   return { card, pitch: card + GUTTER, sidePadding: PEEK + GUTTER };
 }
 
+/**
+ * How close to an end the position has to get before the next keyset page is
+ * requested. Two cards is one swipe of warning at the deck's snap rate, which
+ * is enough for the request to land before the viewer arrives.
+ */
+const PREFETCH_MARGIN = 2;
+
 type RecentDeckProps = {
   state: DeckState;
   dispatch: (action: DeckAction) => void;
+  onOpenMoment: (momentId: string) => void;
+  onReachOlder: () => void;
+  onReachNewer: () => void;
   width: number;
 };
 
@@ -83,7 +93,14 @@ type RecentDeckProps = {
  * VoiceOver actions, because a horizontal focus gesture is how VoiceOver moves
  * between elements and must not be overloaded to mean "next Moment".
  */
-export function RecentDeck({ state, dispatch, width }: RecentDeckProps) {
+export function RecentDeck({
+  state,
+  dispatch,
+  onOpenMoment,
+  onReachNewer,
+  onReachOlder,
+  width,
+}: RecentDeckProps) {
   const listRef = useRef<FlatList<RecentMoment>>(null);
   const reducedMotion = useReducedMotion();
   const index = currentIndex(state);
@@ -91,6 +108,17 @@ export function RecentDeck({ state, dispatch, width }: RecentDeckProps) {
 
   const older = olderId(state);
   const newer = newerId(state);
+
+  // Paging is driven by the canonical position, not by a scroll offset: the
+  // controls and VoiceOver actions move without scrolling at all, and a deck
+  // that only paged on a finger gesture would strand a screen-reader user at
+  // the end of the first page.
+  const total = state.moments.length;
+  useEffect(() => {
+    if (index < 0) return;
+    if (index >= total - 1 - PREFETCH_MARGIN) onReachOlder();
+    if (index <= PREFETCH_MARGIN) onReachNewer();
+  }, [index, onReachNewer, onReachOlder, total]);
 
   // Drives the neighbours' scale and opacity. It follows the finger frame by
   // frame on the UI thread, so it must not be React state.
@@ -131,8 +159,11 @@ export function RecentDeck({ state, dispatch, width }: RecentDeckProps) {
     (event: AccessibilityActionEvent) => {
       if (event.nativeEvent.actionName === "older") move("older");
       if (event.nativeEvent.actionName === "newer") move("newer");
+      if (event.nativeEvent.actionName === "open" && state.currentId) {
+        onOpenMoment(state.currentId);
+      }
     },
-    [move],
+    [move, onOpenMoment, state.currentId],
   );
 
   return (
@@ -140,6 +171,7 @@ export function RecentDeck({ state, dispatch, width }: RecentDeckProps) {
       accessibilityActions={[
         { name: "older", label: "Older Moment" },
         { name: "newer", label: "Newer Moment" },
+        { name: "open", label: "Open Moment" },
       ]}
       onAccessibilityAction={onAccessibilityAction}
       style={styles.deck}
@@ -171,6 +203,7 @@ export function RecentDeck({ state, dispatch, width }: RecentDeckProps) {
             index={itemIndex}
             mediaEnabled={Math.abs(itemIndex - index) <= MEDIA_RADIUS}
             moment={item}
+            onOpen={() => onOpenMoment(item.moment_id)}
             pitch={pitch}
             scrollX={scrollX}
           />
@@ -227,6 +260,7 @@ function DeckCard({
   index,
   mediaEnabled,
   moment,
+  onOpen,
   pitch,
   scrollX,
 }: {
@@ -235,6 +269,7 @@ function DeckCard({
   index: number;
   mediaEnabled: boolean;
   moment: RecentMoment;
+  onOpen: () => void;
   pitch: number;
   scrollX: { value: number };
 }) {
@@ -276,11 +311,18 @@ function DeckCard({
        * from scrolling at all at ordinary sizes, which is what makes Home read
        * as one fixed screen rather than a page. */}
       <ScrollView contentContainerStyle={styles.cardScroll}>
-        <MomentCard
-          availableWidth={cardWidth}
-          mediaEnabled={mediaEnabled}
-          moment={moment}
-        />
+        {/* Tapping the card opens detail. Deliberately *not* an accessibility
+         * element: making it one would collapse the card into a single button
+         * and destroy the author → capture time → photo → caption reading order
+         * the contract fixes. VoiceOver reaches detail through the deck's
+         * "Open Moment" action instead, which is equivalent and named. */}
+        <Pressable accessible={false} onPress={onOpen}>
+          <MomentCard
+            availableWidth={cardWidth}
+            mediaEnabled={mediaEnabled}
+            moment={moment}
+          />
+        </Pressable>
       </ScrollView>
     </Animated.View>
   );

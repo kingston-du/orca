@@ -20,6 +20,8 @@ jest.mock("@/features/friends/friends-api", () => ({
   runFriendOperation: jest.fn(),
 }));
 
+const onOpenSharedMoments = jest.fn();
+
 async function renderProfile(onOpenProfile = jest.fn()) {
   const client = new QueryClient({
     defaultOptions: {
@@ -29,7 +31,11 @@ async function renderProfile(onOpenProfile = jest.fn()) {
   });
   return await render(
     <QueryClientProvider client={client}>
-      <FriendProfileScreen onOpenProfile={onOpenProfile} profileId="friend-1" />
+      <FriendProfileScreen
+        onOpenProfile={onOpenProfile}
+        onOpenSharedMoments={onOpenSharedMoments}
+        profileId="friend-1"
+      />
     </QueryClientProvider>,
   );
 }
