@@ -47,6 +47,13 @@ jest.mock("react-native-reanimated", () => {
     useAnimatedScrollHandler: () => () => {},
     useAnimatedStyle: (factory) => factory(),
     useSharedValue: (initial) => ({ value: initial }),
+    // The reaction controls' selection pop. Its *timing* is a UI-thread
+    // behaviour a device pass owns; what tests here own is that pressing a
+    // control does not throw and that Reduce Motion is honoured, so the
+    // animation primitives resolve to their settled value.
+    withSequence: (...steps) => steps[steps.length - 1],
+    withSpring: (toValue) => toValue,
+    withTiming: (toValue) => toValue,
   };
 });
 

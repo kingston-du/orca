@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import type { ReactionType } from "@/features/moments/reactions/reaction-rules";
 import type { Database } from "@/types/database";
 
 /** Section 21 fixes the Recent page at twenty rows. */
@@ -8,11 +9,13 @@ type GeneratedRecentMoment =
   Database["public"]["Functions"]["list_recent_moments"]["Returns"][number];
 
 /**
- * `supabase gen types` renders every returned column as non-nullable. Five of
+ * `supabase gen types` renders every returned column as non-nullable. Six of
  * these genuinely are not: an author without an avatar, a Moment without a
  * caption, and — for an Archive-aged import that never reached this feed but
  * shares the row shape — an unknown capture time and offset. `anchor_at` is
- * null when the viewer has nothing authorized to anchor to.
+ * null when the viewer has nothing authorized to anchor to, and
+ * `viewer_reaction` is null whenever the viewer has not reacted, which is the
+ * ordinary case rather than an exception.
  */
 export type RecentMoment = Omit<
   GeneratedRecentMoment,
@@ -22,6 +25,7 @@ export type RecentMoment = Omit<
   | "caption_updated_at"
   | "captured_at"
   | "captured_utc_offset_minutes"
+  | "viewer_reaction"
 > & {
   anchor_at: string | null;
   author_avatar_path: string | null;
@@ -29,6 +33,7 @@ export type RecentMoment = Omit<
   caption_updated_at: string | null;
   captured_at: string | null;
   captured_utc_offset_minutes: number | null;
+  viewer_reaction: ReactionType | null;
 };
 
 /**

@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
-  AccessibilityInfo,
   FlatList,
   Pressable,
   ScrollView,
@@ -26,16 +25,17 @@ import {
   spacing,
   typeScale,
 } from "@/constants/design";
+import { useReducedMotion } from "@/lib/use-reduced-motion";
 import { markDeckStage } from "@/features/moments/feed/deck-instrumentation";
 import {
   currentIndex,
   newerId,
   olderId,
   type DeckAction,
+  type DeckMoment,
   type DeckState,
 } from "@/features/moments/feed/deck-state";
 import { MomentCard } from "@/features/moments/feed/moment-card";
-import type { RecentMoment } from "@/features/moments/feed/recent-api";
 
 /** Mount the current card and one neighbour each side. Everything further out
  * stays unmounted so a long session never holds more than three decoded
@@ -78,6 +78,7 @@ type RecentDeckProps = {
   state: DeckState;
   dispatch: (action: DeckAction) => void;
   onOpenMoment: (momentId: string) => void;
+  onOpenReactions: (momentId: string) => void;
   onReachOlder: () => void;
   onReachNewer: () => void;
   width: number;
@@ -97,11 +98,12 @@ export function RecentDeck({
   state,
   dispatch,
   onOpenMoment,
+  onOpenReactions,
   onReachNewer,
   onReachOlder,
   width,
 }: RecentDeckProps) {
-  const listRef = useRef<FlatList<RecentMoment>>(null);
+  const listRef = useRef<FlatList<DeckMoment>>(null);
   const reducedMotion = useReducedMotion();
   const index = currentIndex(state);
   const { card, pitch, sidePadding } = deckGeometry(width);
@@ -204,6 +206,7 @@ export function RecentDeck({
             mediaEnabled={Math.abs(itemIndex - index) <= MEDIA_RADIUS}
             moment={item}
             onOpen={() => onOpenMoment(item.moment_id)}
+            onOpenReactions={onOpenReactions}
             pitch={pitch}
             scrollX={scrollX}
           />
@@ -237,9 +240,7 @@ export function RecentDeck({
   );
 }
 
-const AnimatedFlatList = Animated.createAnimatedComponent(
-  FlatList<RecentMoment>,
-);
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList<DeckMoment>);
 
 /**
  * One card in the deck, receding as it leaves focus.
@@ -261,6 +262,7 @@ function DeckCard({
   mediaEnabled,
   moment,
   onOpen,
+  onOpenReactions,
   pitch,
   scrollX,
 }: {
@@ -268,8 +270,9 @@ function DeckCard({
   gutter: number;
   index: number;
   mediaEnabled: boolean;
-  moment: RecentMoment;
+  moment: DeckMoment;
   onOpen: () => void;
+  onOpenReactions: (momentId: string) => void;
   pitch: number;
   scrollX: { value: number };
 }) {
@@ -319,8 +322,10 @@ function DeckCard({
         <Pressable accessible={false} onPress={onOpen}>
           <MomentCard
             availableWidth={cardWidth}
+            canReact={moment.canReact}
             mediaEnabled={mediaEnabled}
             moment={moment}
+            onOpenReactions={onOpenReactions}
           />
         </Pressable>
       </ScrollView>
@@ -362,31 +367,6 @@ function DeckControl({
       </Text>
     </Pressable>
   );
-}
-
-/** Motion must never be the only thing that communicates a change, and a
- * viewer who asked the OS for less of it gets an instant transition. */
-export function useReducedMotion() {
-  const [reduced, setReduced] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    // A platform that does not answer the question has not asked for reduced
-    // motion, so anything other than an explicit `true` means full motion.
-    Promise.resolve(AccessibilityInfo.isReduceMotionEnabled()).then((value) => {
-      if (active) setReduced(value === true);
-    });
-    const subscription = AccessibilityInfo.addEventListener(
-      "reduceMotionChanged",
-      setReduced,
-    );
-    return () => {
-      active = false;
-      subscription?.remove();
-    };
-  }, []);
-
-  return reduced;
 }
 
 const styles = StyleSheet.create({

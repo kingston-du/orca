@@ -4,30 +4,24 @@ import {
   emptyDeck,
   newerId,
   olderId,
+  type DeckMoment,
   type DeckState,
 } from "@/features/moments/feed/deck-state";
-import type { RecentMoment } from "@/features/moments/feed/recent-api";
 
-function moment(id: string): RecentMoment {
+function moment(id: string): DeckMoment {
   return {
-    session_started_at: "2026-08-01T12:00:00.000Z",
-    anchor_at: "2026-08-01T11:00:00.000Z",
     moment_id: id,
-    author_id: `author-${id}`,
     author_username: "ada",
     author_display_name: "Ada",
     author_avatar_path: null,
     captured_at: "2026-08-01T10:00:00.000Z",
     captured_utc_offset_minutes: -300,
-    capture_evidence: "camera_clock",
     caption: null,
-    caption_updated_at: "2026-08-01T11:00:00.000Z",
-    published_at: "2026-08-01T11:00:00.000Z",
     object_path: `author-${id}/${id}/media.jpg`,
-    media_width: 1600,
-    media_height: 2000,
-    viewer_is_author: false,
-    seen_at_session_start: false,
+    heart_count: 0,
+    superheart_count: 0,
+    viewer_reaction: null,
+    canReact: true,
   };
 }
 

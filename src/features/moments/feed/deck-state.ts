@@ -1,4 +1,4 @@
-import type { RecentMoment } from "@/features/moments/feed/recent-api";
+import type { CardMoment } from "@/features/moments/feed/moment-card";
 
 /**
  * Where the deck is, expressed the only way that survives the list changing.
@@ -16,9 +16,18 @@ import type { RecentMoment } from "@/features/moments/feed/recent-api";
  * anything.
  */
 
+/**
+ * A card in the deck, plus the one thing the deck itself has to know about it.
+ *
+ * `canReact` is resolved where the rows come from rather than derived here,
+ * because the two sources answer it differently: a Recent page may contain the
+ * viewer's own Moment and Highlights never can.
+ */
+export type DeckMoment = CardMoment & { canReact: boolean };
+
 export type DeckState = {
-  /** Newest first: the canonical order the server returned. */
-  moments: RecentMoment[];
+  /** The canonical order the server returned — newest first in Recent, ranked in Highlights. */
+  moments: DeckMoment[];
   /** Null only when the deck is empty. */
   currentId: string | null;
 };
@@ -29,7 +38,7 @@ export type DeckAction =
    * deck: a Moment the viewer may no longer read is simply absent from the new
    * page, and the position moves to the nearest row that survived.
    */
-  | { type: "page_loaded"; moments: RecentMoment[] }
+  | { type: "page_loaded"; moments: DeckMoment[] }
   /** The viewer settled on a card, by gesture or by control. */
   | { type: "moved_to"; momentId: string }
   | { type: "older" }
@@ -68,7 +77,7 @@ export function newerId(state: DeckState): string | null {
   return state.moments[index - 1]?.moment_id ?? null;
 }
 
-export function currentMoment(state: DeckState): RecentMoment | null {
+export function currentMoment(state: DeckState): DeckMoment | null {
   const index = currentIndex(state);
   return index < 0 ? null : state.moments[index];
 }

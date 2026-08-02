@@ -539,6 +539,205 @@ try {
     [bob.id],
   );
 
+  // -------------------------------------------------------------------------
+  // Reactions, through PostgREST with real JWTs
+  // -------------------------------------------------------------------------
+  const bobCommand = randomUUID();
+  const bobHeart = await bob.client.rpc("set_moment_reaction", {
+    p_command_id: bobCommand,
+    p_moment_id: momentId,
+    p_reaction: "heart",
+  });
+  assert.ifError(bobHeart.error);
+  assert.equal(bobHeart.data[0].reaction, "heart");
+  assert.equal(bobHeart.data[0].heart_count, 1);
+  assert.equal(
+    bobHeart.data[0].uses_remaining,
+    3,
+    "a Heart spends no Superheart use",
+  );
+
+  const bobRetry = await bob.client.rpc("set_moment_reaction", {
+    p_command_id: bobCommand,
+    p_moment_id: momentId,
+    p_reaction: "heart",
+  });
+  assert.ifError(bobRetry.error);
+  assert.equal(
+    bobRetry.data[0].heart_count,
+    1,
+    "an exact retry returns the prior receipt rather than reacting twice",
+  );
+
+  const reusedCommand = await bob.client.rpc("set_moment_reaction", {
+    p_command_id: bobCommand,
+    p_moment_id: momentId,
+    p_reaction: "superheart",
+  });
+  assert.ok(
+    reusedCommand.error,
+    "a command UUID cannot be reused for a different reaction",
+  );
+
+  const carolSuper = await carol.client.rpc("set_moment_reaction", {
+    p_command_id: randomUUID(),
+    p_moment_id: momentId,
+    p_reaction: "superheart",
+  });
+  assert.ifError(carolSuper.error);
+  assert.equal(
+    carolSuper.data[0].uses_remaining,
+    2,
+    "a Superheart consumes one of three uses",
+  );
+
+  const ownReaction = await alice.client.rpc("set_moment_reaction", {
+    p_command_id: randomUUID(),
+    p_moment_id: momentId,
+    p_reaction: "heart",
+  });
+  assert.ok(ownReaction.error, "an author cannot react to their own Moment");
+
+  const strangerReaction = await dave.client.rpc("set_moment_reaction", {
+    p_command_id: randomUUID(),
+    p_moment_id: momentId,
+    p_reaction: "heart",
+  });
+  assert.ok(
+    strangerReaction.error,
+    "a stranger cannot react to a Moment they cannot read",
+  );
+
+  const directWrite = await bob.client.from("moment_reactions").insert({
+    author_id: alice.id,
+    moment_id: momentId,
+    reaction: "superheart",
+    user_id: bob.id,
+  });
+  assert.ok(
+    directWrite.error,
+    "there is no direct write path to the reaction table",
+  );
+
+  const withReactions = await bob.client.rpc("get_moment_detail", {
+    p_moment_id: momentId,
+  });
+  assert.ifError(withReactions.error);
+  assert.equal(withReactions.data[0].heart_count, 1);
+  assert.equal(withReactions.data[0].superheart_count, 1);
+  assert.equal(withReactions.data[0].viewer_reaction, "heart");
+  assert.equal(withReactions.data[0].can_react, true);
+
+  const people = await bob.client.rpc("list_moment_reactions", {
+    p_moment_id: momentId,
+  });
+  assert.ifError(people.error);
+  assert.deepEqual(
+    [...people.data.map((row) => row.user_id)].sort(),
+    [bob.id, carol.id].sort(),
+    "the people list contains everyone the viewer may know about",
+  );
+  assert.equal(
+    people.data.find((row) => row.user_id === carol.id).avatar_path,
+    null,
+    "a reactor who is not a current friend gets no avatar",
+  );
+
+  // A hidden identity must not leak through a number. Blocking carol has to
+  // remove her from the count as well as from the list.
+  const blockCarol = await bob.client.rpc("block_user", {
+    p_command_id: randomUUID(),
+    p_other_id: carol.id,
+  });
+  assert.ifError(blockCarol.error);
+
+  const filtered = await bob.client.rpc("get_moment_detail", {
+    p_moment_id: momentId,
+  });
+  assert.ifError(filtered.error);
+  assert.equal(
+    filtered.data[0].superheart_count,
+    0,
+    "a blocked actor's reaction disappears from the count, not only from the list",
+  );
+  const filteredPeople = await bob.client.rpc("list_moment_reactions", {
+    p_moment_id: momentId,
+  });
+  assert.ifError(filteredPeople.error);
+  assert.deepEqual(
+    filteredPeople.data.map((row) => row.user_id),
+    [bob.id],
+  );
+
+  const authorStillSees = await alice.client.rpc("get_moment_detail", {
+    p_moment_id: momentId,
+  });
+  assert.ifError(authorStillSees.error);
+  assert.equal(
+    authorStillSees.data[0].superheart_count,
+    1,
+    "the block is one viewer's, not a deletion of someone else's reaction",
+  );
+  assert.equal(
+    authorStillSees.data[0].can_react,
+    false,
+    "and the author still gets no control of their own",
+  );
+
+  const unblockCarol = await bob.client.rpc("unblock_user", {
+    p_block_generation_id: blockCarol.data[0].generation_id,
+    p_command_id: randomUUID(),
+    p_other_id: carol.id,
+  });
+  assert.ifError(unblockCarol.error);
+  const restored = await bob.client.rpc("get_moment_detail", {
+    p_moment_id: momentId,
+  });
+  assert.ifError(restored.error);
+  assert.equal(
+    restored.data[0].superheart_count,
+    1,
+    "unblocking restores the suppressed reaction rather than resurrecting a deleted one",
+  );
+
+  const reactedFeed = await bob.client.rpc("list_recent_moments", {
+    p_limit: 20,
+  });
+  assert.ifError(reactedFeed.error);
+  const reactedCard = reactedFeed.data.find(
+    (row) => row.moment_id === momentId,
+  );
+  assert.equal(reactedCard.heart_count, 1);
+  assert.equal(reactedCard.viewer_reaction, "heart");
+
+  const bobHighlights = await bob.client.rpc("list_highlight_moments", {});
+  assert.ifError(bobHighlights.error);
+  assert.ok(
+    bobHighlights.data.some((row) => row.moment_id === momentId),
+    "a friend's reacted Moment inside the seven-day window is a Highlight",
+  );
+  assert.equal(
+    bobHighlights.data[0].is_warming_up,
+    false,
+    "and Highlights stops warming up once anything has scored",
+  );
+
+  const aliceHighlights = await alice.client.rpc("list_highlight_moments", {});
+  assert.ifError(aliceHighlights.error);
+  assert.equal(
+    aliceHighlights.data.some((row) => row.moment_id === momentId),
+    false,
+    "an author is never ranked among their own friends' Highlights",
+  );
+
+  const quota = await carol.client.rpc("get_reaction_quota");
+  assert.ifError(quota.error);
+  assert.equal(quota.data[0].uses_remaining, 2);
+  assert.ok(
+    quota.data[0].resets_at,
+    "and the quota says when a spent use comes back",
+  );
+
   for (const [viewer, name, expected] of [
     [alice, "the author", true],
     [bob, "a tagged participant", true],

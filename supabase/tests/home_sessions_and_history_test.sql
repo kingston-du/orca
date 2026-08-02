@@ -2,7 +2,7 @@ begin;
 set local search_path = public, extensions;
 set local role postgres;
 create extension if not exists pgtap with schema extensions;
-select plan(67);
+select plan(65);
 
 -- ---------------------------------------------------------------------------
 -- Shape and privileges
@@ -61,18 +61,10 @@ select ok(pg_temp.is_hardened_entry_point('public.remove_moment_tag(uuid)'),
 select ok(pg_temp.is_hardened_entry_point('public.count_new_recent_moments(timestamptz)'),
   'count_new_recent_moments is hardened the same way');
 
--- There is no reaction surface anywhere in this checkpoint, and the cheapest
--- way to keep it that way is to assert it.
-select is(
-  (select count(*) from pg_proc p
-   join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname in ('public', 'private')
-     and (p.proname like '%reaction%' or p.proname like '%heart%')),
-  0::bigint,
-  'no reaction or Heart function exists yet: Phase 6 adds them as one feature'
-);
-select hasnt_table('public', 'moment_reactions',
-  'and no reaction table has been created ahead of it');
+-- Checkpoint 5B shipped with two assertions here that no reaction function or
+-- table existed. Phase 6 has now added both as one working feature, so those
+-- assertions have done their job and are gone; `reactions_and_highlights_test`
+-- owns that surface from here.
 
 -- ---------------------------------------------------------------------------
 -- Fixtures

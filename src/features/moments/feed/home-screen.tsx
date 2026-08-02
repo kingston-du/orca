@@ -1,5 +1,5 @@
 import { useIsFocused } from "expo-router";
-import { useCallback, useEffect, useMemo, useReducer } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -18,7 +18,11 @@ import {
 } from "@/constants/design";
 import { listFriends } from "@/features/friends/friends-api";
 import { markDeckStage } from "@/features/moments/feed/deck-instrumentation";
-import { deckReducer, emptyDeck } from "@/features/moments/feed/deck-state";
+import {
+  deckReducer,
+  emptyDeck,
+  type DeckMoment,
+} from "@/features/moments/feed/deck-state";
 import { CARD_INSET } from "@/features/moments/feed/moment-card";
 import { MomentPhotoFrame } from "@/features/moments/feed/moment-photo";
 import { RecentDeck, deckGeometry } from "@/features/moments/feed/recent-deck";
@@ -28,6 +32,7 @@ import {
   type SeenReporter,
 } from "@/features/moments/feed/seen-reporter";
 import { useAppIsActive } from "@/features/moments/feed/use-app-is-active";
+import { useHighlights } from "@/features/moments/feed/use-highlights";
 import { useRecentFeed } from "@/features/moments/feed/use-recent-feed";
 import { useAuth } from "@/features/auth/auth-provider";
 import { useQuery } from "@tanstack/react-query";
@@ -36,7 +41,11 @@ type HomeScreenProps = {
   onAddFriend: () => void;
   onOpenCamera: () => void;
   onOpenMoment: (momentId: string) => void;
+  onOpenReactions: (momentId: string) => void;
 };
+
+/** The two things Home can be. Both are the same deck over a different set. */
+type HomeMode = "recent" | "highlights";
 
 /**
  * Home.
@@ -49,24 +58,36 @@ type HomeScreenProps = {
  * simply absent from the new page, and the position moves to its nearest
  * surviving neighbour.
  *
- * Three things above the deck belong to the session rather than to any card:
- * the "N new Moments" pill, which is the only way a mid-session arrival reaches
- * the viewer; the caught-up panel, which is the loop back to a fresh session;
- * and the inline refresh error, which never takes away cards the viewer was
- * already reading.
+ * Recent and Highlights are one screen with one deck and two sources. They are
+ * not two tabs and not two routes: switching is a change of what the deck is
+ * showing, so the card anatomy, the gestures, the accessibility actions, and
+ * the reaction controls are all shared by construction rather than by
+ * discipline. Switching resets the position, because "third card of Recent" has
+ * no meaning in a ranked list.
+ *
+ * Three things above the deck belong to the Recent session rather than to any
+ * card: the "N new Moments" pill, which is the only way a mid-session arrival
+ * reaches the viewer; the caught-up panel, which is the loop back to a fresh
+ * session; and the inline refresh error, which never takes away cards the
+ * viewer was already reading.
  */
 export function HomeScreen({
   onAddFriend,
   onOpenCamera,
   onOpenMoment,
+  onOpenReactions,
 }: HomeScreenProps) {
   const { user } = useAuth();
   const { width } = useWindowDimensions();
+  const [mode, setMode] = useState<HomeMode>("recent");
   const [deck, dispatch] = useReducer(deckReducer, emptyDeck);
 
   const feed = useRecentFeed(user?.id);
+  const highlights = useHighlights(user?.id, mode === "highlights");
   const isFocused = useIsFocused();
   const appIsActive = useAppIsActive();
+
+  const showingRecent = mode === "recent";
 
   // Only used to tell two empty states apart: someone with no friends yet needs
   // a different next step from someone whose friends simply have not shared.
@@ -76,11 +97,38 @@ export function HomeScreen({
     queryFn: listFriends,
   });
 
+  /**
+   * The two sources, reduced to the one shape the deck understands.
+   *
+   * `canReact` is answered here because only here is it knowable: a Recent page
+   * can contain the viewer's own Moment, which the server will not accept a
+   * reaction for, while every Highlight is by construction a current friend's.
+   */
+  const recentCards = useMemo<DeckMoment[]>(
+    () =>
+      feed.moments.map((moment) => ({
+        ...moment,
+        canReact: !moment.viewer_is_author,
+      })),
+    [feed.moments],
+  );
+
+  const highlightCards = useMemo<DeckMoment[]>(
+    () => highlights.moments.map((moment) => ({ ...moment, canReact: true })),
+    [highlights.moments],
+  );
+
+  // Two memos rather than one branching memo, because a single memo would
+  // depend on both sources and hand the deck a fresh array on every render of
+  // whichever mode is not showing. The deck reducer keys off that array's
+  // identity, so that is a render loop rather than a wasted allocation.
+  const cards = showingRecent ? recentCards : highlightCards;
+
   useEffect(() => {
-    if (feed.moments.length === 0) return;
+    if (cards.length === 0) return;
     markDeckStage("page_rendered");
-    dispatch({ type: "page_loaded", moments: feed.moments });
-  }, [feed.moments]);
+    dispatch({ type: "page_loaded", moments: cards });
+  }, [cards]);
 
   // The access/head check, run whenever Home comes back into view. The callback
   // is stable, so this fires on a genuine focus or foreground change and not on
@@ -90,6 +138,9 @@ export function HomeScreen({
     if (isFocused && appIsActive) revalidate();
   }, [appIsActive, isFocused, revalidate]);
 
+  // Seen is recorded in both modes. A Highlight the viewer dwelled on is a
+  // Moment they have genuinely seen, and the server re-derives eligibility per
+  // ID anyway, so there is nothing mode-specific to decide here.
   useSeenReporting({
     active: isFocused && appIsActive,
     currentId: deck.currentId,
@@ -105,40 +156,65 @@ export function HomeScreen({
     startNewSession();
   }, [startNewSession]);
 
-  if (feed.isPending) {
-    return <HomeSkeleton width={width} />;
+  const { takeNewSnapshot } = highlights;
+  const switchTo = useCallback(
+    (next: HomeMode) => {
+      setMode((current) => {
+        if (current === next) return current;
+        dispatch({ type: "reset" });
+        // Entering Highlights is what freezes a snapshot. Leaving and coming
+        // back deliberately re-ranks; staying put deliberately does not.
+        if (next === "highlights") takeNewSnapshot();
+        return next;
+      });
+    },
+    [takeNewSnapshot],
+  );
+
+  const switcher = <ModeSwitch mode={mode} onChange={switchTo} />;
+
+  if (showingRecent ? feed.isPending : highlights.isPending) {
+    return <HomeSkeleton switcher={switcher} width={width} />;
   }
 
   // A recoverable error keeps whatever the viewer was already authorized to
   // see. Only a first load with nothing on screen becomes a full error state.
-  if (feed.isError && deck.moments.length === 0) {
+  const failedOutright =
+    (showingRecent ? feed.isError : highlights.isError) &&
+    deck.moments.length === 0;
+
+  if (failedOutright) {
     return (
-      <HomeMessage
-        action={{ label: "Try again", onPress: feed.refetch }}
-        body="Moments could not be loaded right now."
-        title="Something went wrong"
-      />
+      <View style={styles.container}>
+        {switcher}
+        <HomeMessage
+          action={{
+            label: "Try again",
+            onPress: showingRecent
+              ? feed.refetch
+              : () => void highlights.refetch(),
+          }}
+          body="Moments could not be loaded right now."
+          title="Something went wrong"
+        />
+      </View>
     );
   }
 
   if (deck.moments.length === 0) {
-    const hasFriends = (friends.data?.length ?? 0) > 0;
     return (
       <View style={styles.container}>
-        <NewMomentsPill count={feed.newMomentCount} onPress={startOver} />
-        {hasFriends ? (
-          <HomeMessage
-            action={{ label: "Open camera", onPress: onOpenCamera }}
-            body="When you or a friend shares a Moment, it will appear here."
-            title="Nothing new yet"
-          />
-        ) : (
-          <HomeMessage
-            action={{ label: "Add a friend", onPress: onAddFriend }}
-            body="Orca shows your own Moments and your friends’, so start by adding one."
-            title="No Moments yet"
-          />
-        )}
+        {switcher}
+        {showingRecent ? (
+          <NewMomentsPill count={feed.newMomentCount} onPress={startOver} />
+        ) : null}
+        <EmptyHome
+          hasFriends={(friends.data?.length ?? 0) > 0}
+          mode={mode}
+          onAddFriend={onAddFriend}
+          onOpenCamera={onOpenCamera}
+          onShowRecent={() => switchTo("recent")}
+        />
       </View>
     );
   }
@@ -149,7 +225,9 @@ export function HomeScreen({
 
   return (
     <View style={styles.container}>
-      {feed.isError ? (
+      {switcher}
+
+      {showingRecent && feed.isError ? (
         <Pressable
           accessibilityHint="Reloads Recent without losing your place"
           accessibilityRole="button"
@@ -162,21 +240,39 @@ export function HomeScreen({
         </Pressable>
       ) : null}
 
-      <NewMomentsPill count={feed.newMomentCount} onPress={startOver} />
+      {showingRecent ? (
+        <NewMomentsPill count={feed.newMomentCount} onPress={startOver} />
+      ) : null}
+
+      {/* The warm-up state. Ranking has nothing to work with yet, so these are
+       * simply the newest few and the screen says exactly that rather than
+       * presenting an arbitrary order as a ranking. */}
+      {!showingRecent && highlights.isWarmingUp ? (
+        <Text
+          accessibilityLiveRegion="polite"
+          accessibilityRole="header"
+          style={styles.warmingUp}
+        >
+          Highlights are warming up
+        </Text>
+      ) : null}
 
       <RecentDeck
         dispatch={dispatch}
         onOpenMoment={onOpenMoment}
-        onReachNewer={feed.fetchNewer}
-        onReachOlder={feed.fetchOlder}
+        onOpenReactions={onOpenReactions}
+        onReachNewer={showingRecent ? feed.fetchNewer : noop}
+        onReachOlder={showingRecent ? feed.fetchOlder : noop}
         state={deck}
         width={width}
       />
 
       {/* The caught-up loop. Reaching the last card of a session is the moment
        * to offer a new one, because a session cannot show anything published
-       * after its anchor and the viewer has now read everything before it. */}
-      {atOldest && feed.isCaughtUp ? (
+       * after its anchor and the viewer has now read everything before it.
+       * Highlights has no equivalent: it is a finite ranked list, not a walk
+       * backwards through time. */}
+      {showingRecent && atOldest && feed.isCaughtUp ? (
         <View style={styles.caughtUp}>
           <Text accessibilityLiveRegion="polite" style={styles.caughtUpText}>
             You’re all caught up.
@@ -195,6 +291,96 @@ export function HomeScreen({
         </View>
       ) : null}
     </View>
+  );
+}
+
+/** Highlights is a fixed snapshot, so its deck has no page to reach for. */
+const noop = () => {};
+
+/**
+ * The in-screen switch.
+ *
+ * Two segments rather than a route, because Highlights is a view of Home and
+ * not a place: pushing a screen would give it a back button, its own header,
+ * and its own scroll position, all of which say "you have gone somewhere" about
+ * something the viewer thinks of as flipping a card over. Both segments are
+ * always visible and always at least 44 points high, and the selected one is
+ * carried by `selected` state as well as by tint.
+ */
+function ModeSwitch({
+  mode,
+  onChange,
+}: {
+  mode: HomeMode;
+  onChange: (mode: HomeMode) => void;
+}) {
+  return (
+    <View accessibilityRole="tablist" style={styles.switcher}>
+      {(["recent", "highlights"] as const).map((value) => {
+        const selected = mode === value;
+        return (
+          <Pressable
+            accessibilityLabel={value === "recent" ? "Recent" : "Highlights"}
+            accessibilityRole="tab"
+            accessibilityState={{ selected }}
+            key={value}
+            onPress={() => onChange(value)}
+            style={({ pressed }) => [
+              styles.segment,
+              selected && styles.segmentSelected,
+              pressed && !selected && styles.segmentPressed,
+            ]}
+          >
+            <Text
+              style={[
+                styles.segmentLabel,
+                selected && styles.segmentLabelSelected,
+              ]}
+            >
+              {value === "recent" ? "Recent" : "Highlights"}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function EmptyHome({
+  hasFriends,
+  mode,
+  onAddFriend,
+  onOpenCamera,
+  onShowRecent,
+}: {
+  hasFriends: boolean;
+  mode: HomeMode;
+  onAddFriend: () => void;
+  onOpenCamera: () => void;
+  onShowRecent: () => void;
+}) {
+  if (mode === "highlights") {
+    return (
+      <HomeMessage
+        action={{ label: "Back to Recent", onPress: onShowRecent }}
+        body="Highlights collects the Moments your friends reacted to most in the last seven days."
+        title="Nothing to highlight yet"
+      />
+    );
+  }
+
+  return hasFriends ? (
+    <HomeMessage
+      action={{ label: "Open camera", onPress: onOpenCamera }}
+      body="When you or a friend shares a Moment, it will appear here."
+      title="Nothing new yet"
+    />
+  ) : (
+    <HomeMessage
+      action={{ label: "Add a friend", onPress: onAddFriend }}
+      body="Orca shows your own Moments and your friends’, so start by adding one."
+      title="No Moments yet"
+    />
   );
 }
 
@@ -264,10 +450,17 @@ function NewMomentsPill({
  * lands and no stale user's data can flash in its place. It takes its width
  * from the same geometry the deck does, or it would resize the moment the first
  * real card replaces it. */
-function HomeSkeleton({ width }: { width: number }) {
+function HomeSkeleton({
+  switcher,
+  width,
+}: {
+  switcher: React.ReactNode;
+  width: number;
+}) {
   const cardWidth = deckGeometry(width).card;
   return (
     <View style={styles.container}>
+      {switcher}
       <View style={[styles.skeleton, { width: cardWidth }]}>
         <View accessibilityElementsHidden style={styles.skeletonAuthor}>
           <View style={styles.skeletonAvatar} />
@@ -299,7 +492,7 @@ function HomeMessage({
   title: string;
 }) {
   return (
-    <View style={[styles.container, styles.message]}>
+    <View style={styles.message}>
       <Text accessibilityRole="header" style={styles.messageTitle}>
         {title}
       </Text>
@@ -347,6 +540,7 @@ const styles = StyleSheet.create({
   inlineErrorText: { ...typeScale.caption, color: color.criticalText },
   message: {
     alignItems: "center",
+    flex: 1,
     gap: spacing.md,
     justifyContent: "center",
     padding: spacing.xl,
@@ -383,6 +577,18 @@ const styles = StyleSheet.create({
   pillLabel: { ...typeScale.label, color: color.textInverse },
   pillPressed: { backgroundColor: color.brandPressed },
   pillRow: { alignItems: "center", paddingTop: spacing.sm },
+  segment: {
+    alignItems: "center",
+    borderRadius: radius.pill,
+    flexGrow: 1,
+    justifyContent: "center",
+    minHeight: MINIMUM_TOUCH_TARGET,
+    paddingHorizontal: spacing.lg,
+  },
+  segmentLabel: { ...typeScale.label, color: color.textSecondary },
+  segmentLabelSelected: { color: color.brand },
+  segmentPressed: { backgroundColor: color.border },
+  segmentSelected: { backgroundColor: color.surface },
   skeleton: {
     alignSelf: "center",
     gap: spacing.md,
@@ -410,5 +616,19 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
+  },
+  switcher: {
+    alignSelf: "center",
+    backgroundColor: color.surfaceSunken,
+    borderRadius: radius.pill,
+    flexDirection: "row",
+    marginTop: spacing.sm,
+    padding: spacing.xs,
+  },
+  warmingUp: {
+    ...typeScale.caption,
+    color: color.textSecondary,
+    paddingTop: spacing.sm,
+    textAlign: "center",
   },
 });

@@ -49,6 +49,7 @@ import {
   deleteMoment,
   editMomentCaption,
 } from "@/features/moments/publish/publish-api";
+import { ReactionBar } from "@/features/moments/reactions/reaction-bar";
 
 /**
  * Moment detail.
@@ -59,19 +60,23 @@ import {
  * viewer's produces one indistinguishable "no longer available" state.
  *
  * Three actions live here and nowhere else — the author's caption edit, the
- * author's delete, and a tagged person's self-removal. There is no Heart, no
- * Superheart, no reaction count, and no reaction people list: Phase 6 adds
- * those as one working feature, and a control that does nothing would teach
- * every early user that Orca ships dead buttons.
+ * author's delete, and a tagged person's self-removal.
+ *
+ * Reactions live here too, and the server decides whether their controls
+ * appear: `can_react` is the same predicate `set_moment_reaction` enforces, so
+ * an Archive Moment, a Moment held only as history, and the viewer's own
+ * Moment all show the count without offering a control that would be refused.
  */
 export function MomentDetailScreen({
   momentId,
   onClose,
   onOpenProfile,
+  onOpenReactions,
 }: {
   momentId: string;
   onClose: () => void;
   onOpenProfile: (profileId: string) => void;
+  onOpenReactions: (momentId: string) => void;
 }) {
   const { user } = useAuth();
   const client = useQueryClient();
@@ -195,6 +200,17 @@ export function MomentDetailScreen({
         {moment.caption ? (
           <Text style={styles.caption}>{moment.caption}</Text>
         ) : null}
+
+        <ReactionBar
+          canReact={moment.can_react}
+          momentId={moment.moment_id}
+          onOpenPeople={() => onOpenReactions(moment.moment_id)}
+          summary={{
+            heartCount: moment.heart_count,
+            superheartCount: moment.superheart_count,
+            viewerReaction: moment.viewer_reaction,
+          }}
+        />
 
         {moment.viewer_is_author ? (
           <Text style={styles.audience}>

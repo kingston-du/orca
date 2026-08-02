@@ -10,6 +10,9 @@ export default function HomeRoute() {
       // Routes carry an opaque Moment ID only. Detail refetches and the server
       // reauthorizes on every entry, including cold deep links.
       onOpenMoment={(momentId) => router.push(`/moments/${momentId}`)}
+      onOpenReactions={(momentId) =>
+        router.push(`/moments/${momentId}/reactions`)
+      }
     />
   );
 }

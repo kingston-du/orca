@@ -38,6 +38,28 @@ jest.mock("@/features/moments/media/signed-media", () => ({
   }),
 }));
 
+// The reaction transport reaches the Supabase client, which reaches
+// AsyncStorage's native module. The reaction rules and the cache patchers are
+// pure and have their own suites; here the bar only needs a transport that
+// resolves.
+jest.mock("@/features/moments/reactions/reaction-api", () => ({
+  REACTION_PAGE_SIZE: 30,
+  SUPERHEART_LIMIT_MESSAGE: "Superheart limit reached",
+  isSuperheartLimitError: (error: unknown) =>
+    (error as { message?: string } | null)?.message ===
+    "Superheart limit reached",
+  getReactionQuota: jest.fn(async () => ({ usesRemaining: 3, resetsAt: null })),
+  listMomentReactions: jest.fn(async () => []),
+  setMomentReaction: jest.fn(),
+}));
+
+jest.mock("expo-symbols", () => {
+  const { Text } = jest.requireActual("react-native");
+  return {
+    SymbolView: ({ name }: { name: string }) => <Text>{`sf:${name}`}</Text>,
+  };
+});
+
 jest.mock("@/features/profiles/avatar-api", () => ({
   createAvatarSignedUrl: jest.fn(async () => null),
 }));
@@ -70,6 +92,10 @@ function detail(overrides: Partial<MomentDetail> = {}): MomentDetail {
     participant_count: 0,
     audience: null,
     recipient_count: null,
+    can_react: true,
+    heart_count: 0,
+    superheart_count: 0,
+    viewer_reaction: null,
     ...overrides,
   };
 }
@@ -86,6 +112,7 @@ async function renderDetail() {
         momentId="m1"
         onClose={onClose}
         onOpenProfile={jest.fn()}
+        onOpenReactions={jest.fn()}
       />
     </QueryClientProvider>,
   );
@@ -150,22 +177,26 @@ describe("what detail shows", () => {
     expect(screen.getByText(/may have been deleted/)).toBeOnTheScreen();
   });
 
-  it("renders no reaction control of any kind", async () => {
+  it("shows an author their counts without offering them a control", async () => {
     jest.mocked(getMomentDetail).mockResolvedValue(
       detail({
         viewer_is_author: true,
+        can_react: false,
         audience: "all_friends",
         recipient_count: 3,
+        heart_count: 2,
+        superheart_count: 1,
       }),
     );
 
     await renderDetail();
     await screen.findByText("Caption");
 
-    for (const dead of [/heart/i, /superheart/i, /react/i, /like/i]) {
-      expect(screen.queryByLabelText(dead)).toBeNull();
-      expect(screen.queryByText(dead)).toBeNull();
-    }
+    // The server said no, so there is no control to press — but what other
+    // people did is still theirs to see.
+    expect(screen.getByText("2 Hearts · 1 Superheart")).toBeOnTheScreen();
+    expect(screen.queryByLabelText("Heart")).toBeNull();
+    expect(screen.queryByLabelText("Superheart")).toBeNull();
   });
 
   it("gives the audience summary to the author and to nobody else", async () => {

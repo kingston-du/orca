@@ -120,6 +120,45 @@ export type Database = {
         }
         Relationships: []
       }
+      moment_reactions: {
+        Row: {
+          author_id: string
+          moment_id: string
+          reacted_at: string
+          reaction: string
+          user_id: string
+        }
+        Insert: {
+          author_id: string
+          moment_id: string
+          reacted_at?: string
+          reaction: string
+          user_id: string
+        }
+        Update: {
+          author_id?: string
+          moment_id?: string
+          reacted_at?: string
+          reaction?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moment_reactions_moment_id_author_id_fkey"
+            columns: ["moment_id", "author_id"]
+            isOneToOne: false
+            referencedRelation: "moments"
+            referencedColumns: ["id", "author_id"]
+          },
+          {
+            foreignKeyName: "moment_reactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       moment_recipients: {
         Row: {
           author_id: string
@@ -405,6 +444,10 @@ export type Database = {
         Returns: boolean
       }
       can_view_moment: { Args: { p_moment_id: string }; Returns: boolean }
+      can_view_moment_reaction: {
+        Args: { p_moment_id: string; p_user_id: string }
+        Returns: boolean
+      }
       can_view_moment_tag: {
         Args: { p_moment_id: string; p_tagged_user_id: string }
         Returns: boolean
@@ -601,11 +644,13 @@ export type Database = {
           author_display_name: string
           author_id: string
           author_username: string
+          can_react: boolean
           caption: string
           caption_updated_at: string
           capture_evidence: string
           captured_at: string
           captured_utc_offset_minutes: number
+          heart_count: number
           kind: string
           media_height: number
           media_width: number
@@ -614,8 +659,10 @@ export type Database = {
           participant_count: number
           published_at: string
           recipient_count: number
+          superheart_count: number
           viewer_is_author: boolean
           viewer_is_tagged: boolean
+          viewer_reaction: string
         }[]
       }
       get_moment_upload_status: {
@@ -640,6 +687,13 @@ export type Database = {
           mutual_friend_count: number
           relationship_state: string
           username: string
+        }[]
+      }
+      get_reaction_quota: {
+        Args: never
+        Returns: {
+          resets_at: string
+          uses_remaining: number
         }[]
       }
       is_account_active: { Args: never; Returns: boolean }
@@ -728,11 +782,50 @@ export type Database = {
           username: string
         }[]
       }
+      list_highlight_moments: {
+        Args: { p_limit?: number }
+        Returns: {
+          author_avatar_path: string
+          author_display_name: string
+          author_id: string
+          author_username: string
+          caption: string
+          caption_updated_at: string
+          capture_evidence: string
+          captured_at: string
+          captured_utc_offset_minutes: number
+          heart_count: number
+          is_warming_up: boolean
+          media_height: number
+          media_width: number
+          moment_id: string
+          object_path: string
+          published_at: string
+          superheart_count: number
+          viewer_reaction: string
+        }[]
+      }
       list_moment_participants: {
         Args: { p_moment_id: string }
         Returns: {
           avatar_path: string
           display_name: string
+          user_id: string
+          username: string
+        }[]
+      }
+      list_moment_reactions: {
+        Args: {
+          p_cursor_reacted_at?: string
+          p_cursor_user_id?: string
+          p_limit?: number
+          p_moment_id: string
+        }
+        Returns: {
+          avatar_path: string
+          display_name: string
+          reacted_at: string
+          reaction: string
           user_id: string
           username: string
         }[]
@@ -783,6 +876,7 @@ export type Database = {
           capture_evidence: string
           captured_at: string
           captured_utc_offset_minutes: number
+          heart_count: number
           media_height: number
           media_width: number
           moment_id: string
@@ -790,7 +884,9 @@ export type Database = {
           published_at: string
           seen_at_session_start: boolean
           session_started_at: string
+          superheart_count: number
           viewer_is_author: boolean
+          viewer_reaction: string
         }[]
       }
       list_shared_moments: {
@@ -915,6 +1011,7 @@ export type Database = {
           pruned_jobs: number
           pruned_moment_requests: number
           pruned_rate_buckets: number
+          pruned_reaction_commands: number
           pruned_requests: number
           pruned_verifications: number
         }[]
@@ -925,6 +1022,17 @@ export type Database = {
           generation_id: string
           request_id: string
           result_state: string
+        }[]
+      }
+      set_moment_reaction: {
+        Args: { p_command_id: string; p_moment_id: string; p_reaction?: string }
+        Returns: {
+          heart_count: number
+          previous_reaction: string
+          reaction: string
+          superheart_consumed: boolean
+          superheart_count: number
+          uses_remaining: number
         }[]
       }
       unblock_user: {

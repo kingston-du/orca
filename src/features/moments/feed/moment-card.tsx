@@ -11,6 +11,7 @@ import {
   useOverlayFitsOnPhoto,
 } from "@/features/moments/feed/moment-photo";
 import type { RecentMoment } from "@/features/moments/feed/recent-api";
+import { ReactionBar } from "@/features/moments/reactions/reaction-bar";
 
 const AVATAR_SIZE = 36;
 
@@ -32,25 +33,56 @@ export const CARD_INSET = 8;
  * The reading order above is unchanged by any of that. Where the pixels sit is
  * a layout decision; the order VoiceOver walks them is a contract.
  *
- * What is *not* here matters as much as what is. No Heart or Superheart
- * control, no reaction count, no tag list, no audience badge, no rank. Phase 6
- * adds reactions as a working feature; rendering a disabled heart now would
- * teach every early user that Orca ships controls that do nothing.
+ * Below the photo sit the caption, then the reaction summary, then the Heart
+ * and Superheart controls — that order, because it is the order VoiceOver has
+ * to read them in. Still absent, and deliberately: any tag list, audience
+ * badge, ordinal rank, or Highlights score. Ranking changes order only.
  */
 
+/**
+ * The fields a card draws.
+ *
+ * Expressed structurally rather than as `RecentMoment`, because Highlights
+ * returns the same anatomy from a different RPC and a card that only understood
+ * one of them would have to be written twice.
+ */
+export type CardMoment = Pick<
+  RecentMoment,
+  | "author_avatar_path"
+  | "author_display_name"
+  | "author_username"
+  | "caption"
+  | "captured_at"
+  | "captured_utc_offset_minutes"
+  | "heart_count"
+  | "moment_id"
+  | "object_path"
+  | "superheart_count"
+  | "viewer_reaction"
+>;
+
 type MomentCardProps = {
-  moment: RecentMoment;
+  moment: CardMoment;
   availableWidth: number;
+  /**
+   * False on the viewer's own Moment. Everything reaching a card is a published
+   * Recent Moment held on a live friendship generation, so authorship is the
+   * only remaining reason the server would refuse.
+   */
+  canReact: boolean;
   /** Only the current card and its neighbours load media. */
   mediaEnabled: boolean;
   now?: Date;
+  onOpenReactions: (momentId: string) => void;
 };
 
 export function MomentCard({
   moment,
   availableWidth,
+  canReact,
   mediaEnabled,
   now = new Date(),
+  onOpenReactions,
 }: MomentCardProps) {
   const overlaid = useOverlayFitsOnPhoto();
 
@@ -72,6 +104,17 @@ export function MomentCard({
         objectPath={moment.object_path}
       />
       <MomentCaption caption={moment.caption} />
+      <ReactionBar
+        canReact={canReact}
+        compact
+        momentId={moment.moment_id}
+        onOpenPeople={() => onOpenReactions(moment.moment_id)}
+        summary={{
+          heartCount: moment.heart_count,
+          superheartCount: moment.superheart_count,
+          viewerReaction: moment.viewer_reaction,
+        }}
+      />
     </View>
   );
 }

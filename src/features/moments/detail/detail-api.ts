@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import type { ReactionType } from "@/features/moments/reactions/reaction-rules";
 import type { Database } from "@/types/database";
 
 type GeneratedDetail =
@@ -22,6 +23,7 @@ export type MomentDetail = Omit<
   | "captured_at"
   | "captured_utc_offset_minutes"
   | "recipient_count"
+  | "viewer_reaction"
 > & {
   audience: string | null;
   author_avatar_path: string | null;
@@ -29,6 +31,7 @@ export type MomentDetail = Omit<
   captured_at: string | null;
   captured_utc_offset_minutes: number | null;
   recipient_count: number | null;
+  viewer_reaction: ReactionType | null;
 };
 
 export type MomentParticipant = Omit<GeneratedParticipant, "avatar_path"> & {

@@ -25,6 +25,9 @@ export default function MomentDetailRoute() {
         else router.replace("/");
       }}
       onOpenProfile={(profileId) => router.push(`/profile/${profileId}`)}
+      onOpenReactions={(momentId) =>
+        router.push(`/moments/${momentId}/reactions`)
+      }
     />
   );
 }

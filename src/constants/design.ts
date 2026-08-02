@@ -58,6 +58,19 @@ export const color = {
   criticalSurface: "#FFF1F0",
   criticalText: "#8A1C1C",
 
+  /**
+   * The Superheart accent. It is the only role in the palette that is not
+   * teal-family, because a Superheart has to read as categorically different
+   * from a Heart at a glance — but colour is never the only carrier: the two
+   * controls also use different SF Symbols and different selected states.
+   *
+   * - `superheart` on `surface` ≈ 6.0:1
+   * - `superheart` on `superheartSurface` ≈ 5.5:1
+   */
+  superheart: "#C2185B",
+  superheartPressed: "#9E1350",
+  superheartSurface: "#FDECF2",
+
   /** The live camera is its own dark surface; overlay controls sit on a scrim
    * rather than assuming anything about the frame behind them. */
   cameraCanvas: "#14202A",

@@ -53,6 +53,36 @@ jest.mock("@/features/moments/media/signed-media", () => ({
   }),
 }));
 
+// The reaction transport reaches the Supabase client, which reaches
+// AsyncStorage's native module. The reaction rules and the cache patchers are
+// pure and have their own suites; here the bar only needs a transport that
+// resolves.
+jest.mock("@/features/moments/reactions/reaction-api", () => ({
+  REACTION_PAGE_SIZE: 30,
+  SUPERHEART_LIMIT_MESSAGE: "Superheart limit reached",
+  isSuperheartLimitError: (error: unknown) =>
+    (error as { message?: string } | null)?.message ===
+    "Superheart limit reached",
+  getReactionQuota: jest.fn(async () => ({ usesRemaining: 3, resetsAt: null })),
+  listMomentReactions: jest.fn(async () => []),
+  setMomentReaction: jest.fn(),
+}));
+
+jest.mock("expo-symbols", () => {
+  const { Text } = jest.requireActual("react-native");
+  return {
+    SymbolView: ({ name }: { name: string }) => <Text>{`sf:${name}`}</Text>,
+  };
+});
+
+// Highlights has its own suite; Home only needs it to answer.
+jest.mock("@/features/moments/feed/highlights-api", () => ({
+  listHighlightMoments: jest.fn(async () => ({
+    isWarmingUp: false,
+    moments: [],
+  })),
+}));
+
 jest.mock("@/features/friends/friends-api", () => ({
   listFriends: jest.fn(),
 }));
@@ -94,6 +124,9 @@ function moment(overrides: Partial<RecentMoment> = {}): RecentMoment {
     media_height: 2000,
     viewer_is_author: false,
     seen_at_session_start: false,
+    heart_count: 0,
+    superheart_count: 0,
+    viewer_reaction: null,
     ...overrides,
   };
 }
@@ -111,6 +144,7 @@ function page(moments: RecentMoment[]): RecentPage {
 }
 
 const onOpenMoment = jest.fn();
+const onOpenReactions = jest.fn();
 
 async function renderHome() {
   const client = new QueryClient({
@@ -124,6 +158,7 @@ async function renderHome() {
         onAddFriend={jest.fn()}
         onOpenCamera={jest.fn()}
         onOpenMoment={onOpenMoment}
+        onOpenReactions={onOpenReactions}
       />
     </QueryClientProvider>
   );
@@ -217,14 +252,28 @@ describe("the card", () => {
     expect(screen.getByText("Cold morning")).toBeOnTheScreen();
   });
 
-  it("renders no reaction control anywhere", async () => {
+  it("offers both reaction controls on a friend's Moment", async () => {
     await renderHome();
     await screen.findByLabelText("Ada, @ada");
 
-    for (const dead of [/heart/i, /superheart/i, /react/i, /like/i]) {
-      expect(screen.queryByLabelText(dead)).toBeNull();
-      expect(screen.queryByText(dead)).toBeNull();
-    }
+    expect(screen.getByLabelText("Heart")).toBeOnTheScreen();
+    expect(screen.getByLabelText("Superheart")).toBeOnTheScreen();
+    // Neither is selected, and that is announced rather than only drawn.
+    expect(screen.getByLabelText("Heart").props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: false }),
+    );
+  });
+
+  it("offers no reaction control on the viewer's own Moment", async () => {
+    jest
+      .mocked(listRecentMoments)
+      .mockResolvedValue(page([moment({ viewer_is_author: true })]));
+
+    await renderHome();
+    await screen.findByLabelText("Ada, @ada");
+
+    expect(screen.queryByLabelText("Heart")).toBeNull();
+    expect(screen.queryByLabelText("Superheart")).toBeNull();
   });
 
   it("keeps the reading order when identity moves onto the photo", async () => {
