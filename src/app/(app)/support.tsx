@@ -1,22 +1,15 @@
-import { StyleSheet, Text, View } from "react-native";
+import { useAuth } from "@/features/auth/auth-provider";
+import { SupportScreen } from "@/features/safety/support-screen";
+import { useOwnOnboardingState } from "@/features/onboarding/use-own-onboarding-state";
 
+/**
+ * Support is reachable from the restricted branch as well as from Settings, so
+ * it reads only narrow control-plane state and never profile, graph, or Moment
+ * rows. A suspended user seeing this screen is the appeal path.
+ */
 export default function SupportRoute() {
-  return (
-    <View style={styles.container}>
-      <Text accessibilityRole="header" style={styles.title}>
-        Support
-      </Text>
-      <Text style={styles.body}>
-        During founder-only development, contact the project owner through the
-        existing development channel. A reviewed public support contact is
-        required before external testing.
-      </Text>
-    </View>
-  );
-}
+  const { user } = useAuth();
+  const state = useOwnOnboardingState(user?.id);
 
-const styles = StyleSheet.create({
-  body: { color: "#52606D", fontSize: 16, lineHeight: 24 },
-  container: { backgroundColor: "#F5FAFF", flex: 1, gap: 16, padding: 24 },
-  title: { color: "#102A43", fontSize: 30, fontWeight: "900" },
-});
+  return <SupportScreen accountState={state.data?.account_state} />;
+}

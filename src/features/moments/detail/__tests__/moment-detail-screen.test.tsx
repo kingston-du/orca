@@ -101,6 +101,7 @@ function detail(overrides: Partial<MomentDetail> = {}): MomentDetail {
 }
 
 const onClose = jest.fn();
+const onReport = jest.fn();
 
 async function renderDetail() {
   const client = new QueryClient({
@@ -113,6 +114,7 @@ async function renderDetail() {
         onClose={onClose}
         onOpenProfile={jest.fn()}
         onOpenReactions={jest.fn()}
+        onReport={onReport}
       />
     </QueryClientProvider>,
   );
@@ -322,5 +324,31 @@ describe("tag self-removal", () => {
     expect(
       screen.queryByRole("button", { name: "Remove me from this Moment" }),
     ).toBeNull();
+  });
+});
+
+describe("reporting", () => {
+  test("a viewer can report the Moment they are looking at", async () => {
+    jest.mocked(getMomentDetail).mockResolvedValue(detail());
+
+    const screen = await renderDetail();
+    await waitFor(() =>
+      expect(screen.getByText("Report this Moment")).toBeOnTheScreen(),
+    );
+    await userEvent.press(screen.getByText("Report this Moment"));
+
+    // The route is handed opaque identity plus the name already on screen.
+    expect(onReport).toHaveBeenCalledWith("m1", "Ada");
+  });
+
+  test("an author is not offered a report of their own Moment", async () => {
+    jest
+      .mocked(getMomentDetail)
+      .mockResolvedValue(detail({ viewer_is_author: true }));
+
+    const screen = await renderDetail();
+    await waitFor(() => expect(screen.getByText("Caption")).toBeOnTheScreen());
+
+    expect(screen.queryByText("Report this Moment")).toBeNull();
   });
 });

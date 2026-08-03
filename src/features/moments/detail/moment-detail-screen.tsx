@@ -72,11 +72,13 @@ export function MomentDetailScreen({
   onClose,
   onOpenProfile,
   onOpenReactions,
+  onReport,
 }: {
   momentId: string;
   onClose: () => void;
   onOpenProfile: (profileId: string) => void;
   onOpenReactions: (momentId: string) => void;
+  onReport: (momentId: string, authorDisplayName: string) => void;
 }) {
   const { user } = useAuth();
   const client = useQueryClient();
@@ -286,6 +288,19 @@ export function MomentDetailScreen({
           </Pressable>
         ) : null}
 
+        {!moment.viewer_is_author ? (
+          <Pressable
+            accessibilityHint="Sends this Moment to Orca’s safety operator for review"
+            accessibilityRole="button"
+            onPress={() =>
+              onReport(moment.moment_id, moment.author_display_name)
+            }
+            style={styles.dangerAction}
+          >
+            <Text style={styles.dangerLabel}>Report this Moment</Text>
+          </Pressable>
+        ) : null}
+
         {removeSelf.isError || remove.isError ? (
           <Text accessibilityLiveRegion="polite" style={styles.errorText}>
             That didn’t work. Refresh and try again.
@@ -434,7 +449,7 @@ function AuthorActions({
 
       {save.isError ? (
         <Text accessibilityLiveRegion="polite" style={styles.errorText}>
-          This caption changed somewhere else. Reopen the Moment and try again.
+          {captionFailureMessage(save.error)}
         </Text>
       ) : null}
 
@@ -448,6 +463,22 @@ function AuthorActions({
       </Pressable>
     </View>
   );
+}
+
+/**
+ * The server refuses a caption for two quite different reasons, and telling an
+ * author "someone else changed this" when they wrote something prohibited would
+ * be both confusing and untrue.
+ */
+function captionFailureMessage(error: unknown): string {
+  const message =
+    typeof error === "object" && error !== null && "message" in error
+      ? String((error as { message: unknown }).message)
+      : "";
+  if (message === "Caption not allowed") {
+    return "That caption can’t be used here. Edit it and try again.";
+  }
+  return "This caption changed somewhere else. Reopen the Moment and try again.";
 }
 
 function audienceSummary(

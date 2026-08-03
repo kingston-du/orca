@@ -34,6 +34,7 @@ async function renderProfile(onOpenProfile = jest.fn()) {
       <FriendProfileScreen
         onOpenProfile={onOpenProfile}
         onOpenSharedMoments={onOpenSharedMoments}
+        onReport={jest.fn()}
         profileId="friend-1"
       />
     </QueryClientProvider>,

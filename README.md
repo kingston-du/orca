@@ -37,6 +37,15 @@ npm run typecheck
 
 Copy `.env.example` to `.env` and supply only the local or approved environment's publishable Supabase values. Never place a secret or service-role key in the app.
 
+## Safety and moderation
+
+Reporting, blocking, and evidence handling are implemented and documented:
+
+- [Safety policy decisions](docs/operations/2026-08-02-safety-policy-decisions.md) — operator identity, retention, appeals, support contact, and the hosted Auth settings they need.
+- [Moderation runbook](docs/operations/moderation-runbook.md) — on-call ownership, provisioning, working a case, evidence handling, appeals, and emergency revocation.
+
+The operator console is `npm run moderate`. It is the only moderation surface: an interactive, TOTP-protected sign-in that calls one Edge Function and never holds a service key.
+
 ## Learning notes
 
 The numbered [course lessons](docs/course/README.md) explain completed checkpoints. Historical Circle-era lessons are preserved under `docs/course/archive/` and are not current implementation guidance.

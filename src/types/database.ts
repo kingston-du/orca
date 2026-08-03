@@ -396,6 +396,24 @@ export type Database = {
           result_state: string
         }[]
       }
+      apply_moderation_action: {
+        Args: {
+          p_action: string
+          p_command_id: string
+          p_expected_status: string
+          p_operator_id: string
+          p_reason: string
+          p_report_id: string
+        }
+        Returns: {
+          action_id: string
+          already_applied: boolean
+          receipt: Json
+          report_status: string
+          result: string
+          subject_profile_id: string
+        }[]
+      }
       begin_avatar_verification: {
         Args: { p_request_id: string; p_user_id: string }
         Returns: {
@@ -405,6 +423,22 @@ export type Database = {
           request_id: string
           status: string
           user_id: string
+        }[]
+      }
+      begin_evidence_view: {
+        Args: {
+          p_command_id: string
+          p_operator_id: string
+          p_reason: string
+          p_report_id: string
+        }
+        Returns: {
+          action_id: string
+          already_recorded: boolean
+          bucket_id: string
+          byte_size: number
+          content_sha256: string
+          object_path: string
         }[]
       }
       begin_moment_verification: {
@@ -463,6 +497,20 @@ export type Database = {
         }[]
       }
       cancel_moment_upload: { Args: { p_moment_id: string }; Returns: string }
+      claim_evidence_capture_batch: {
+        Args: { p_lease_seconds?: number; p_limit?: number }
+        Returns: {
+          attempt_count: number
+          bucket_id: string
+          expected_byte_size: number
+          expected_content_sha256: string
+          lease_token: string
+          object_path: string
+          report_id: string
+          source_bucket_id: string
+          source_object_path: string
+        }[]
+      }
       claim_media_cleanup_batch: {
         Args: { p_lease_seconds?: number; p_limit?: number }
         Returns: {
@@ -472,6 +520,15 @@ export type Database = {
           lease_token: string
           object_path: string
         }[]
+      }
+      complete_evidence_capture: {
+        Args: {
+          p_byte_size: number
+          p_content_sha256: string
+          p_lease_token: string
+          p_report_id: string
+        }
+        Returns: boolean
       }
       complete_media_cleanup: {
         Args: { p_job_id: string; p_lease_token: string }
@@ -535,6 +592,14 @@ export type Database = {
           caption: string
           caption_updated_at: string
         }[]
+      }
+      fail_evidence_capture: {
+        Args: {
+          p_error_code: string
+          p_lease_token: string
+          p_report_id: string
+        }
+        Returns: string
       }
       fail_media_cleanup: {
         Args: { p_error_code: string; p_job_id: string; p_lease_token: string }
@@ -627,6 +692,30 @@ export type Database = {
           retry_jobs: number
         }[]
       }
+      get_moderation_case: {
+        Args: { p_operator_id: string; p_report_id: string }
+        Returns: {
+          blocked_subject: boolean
+          category: string
+          closed_at: string
+          created_at: string
+          details: string
+          evidence_sha256: string
+          evidence_status: string
+          legal_hold: boolean
+          priority: string
+          purge_after: string
+          recent_actions: Json
+          report_id: string
+          status: string
+          subject_account_state: string
+          subject_kind: string
+          subject_moment_id: string
+          subject_moment_status: string
+          subject_profile_id: string
+          subject_snapshot: Json
+        }[]
+      }
       get_moment_deletion_status: {
         Args: { p_moment_id: string }
         Returns: {
@@ -694,6 +783,31 @@ export type Database = {
         Returns: {
           resets_at: string
           uses_remaining: number
+        }[]
+      }
+      get_report_status: {
+        Args: { p_report_id: string }
+        Returns: {
+          evidence_status: string
+          report_id: string
+          status: string
+          submitted_at: string
+        }[]
+      }
+      get_safety_operations_metrics: {
+        Args: never
+        Returns: {
+          evidence_awaiting_purge: number
+          legal_holds: number
+          normal_sla_breaches: number
+          oldest_open_normal_age_seconds: number
+          oldest_open_urgent_age_seconds: number
+          oldest_pending_evidence_age_seconds: number
+          open_normal_reports: number
+          open_urgent_reports: number
+          pending_evidence: number
+          unavailable_evidence: number
+          urgent_sla_breaches: number
         }[]
       }
       is_account_active: { Args: never; Returns: boolean }
@@ -804,6 +918,29 @@ export type Database = {
           superheart_count: number
           viewer_is_author: boolean
           viewer_reaction: string
+        }[]
+      }
+      list_moderation_cases: {
+        Args: {
+          p_before_created_at?: string
+          p_before_id?: string
+          p_limit?: number
+          p_operator_id: string
+          p_status?: string
+        }
+        Returns: {
+          action_count: number
+          age_seconds: number
+          category: string
+          created_at: string
+          evidence_status: string
+          legal_hold: boolean
+          priority: string
+          report_id: string
+          status: string
+          subject_kind: string
+          subject_moment_id: string
+          subject_profile_id: string
         }[]
       }
       list_moment_participants: {
@@ -1005,16 +1142,21 @@ export type Database = {
       run_media_maintenance: {
         Args: { p_limit?: number }
         Returns: {
+          expired_evidence_captures: number
           expired_moment_reservations: number
           expired_reservations: number
           pruned_deletion_receipts: number
           pruned_friend_requests: number
           pruned_jobs: number
+          pruned_moderation_actions: number
           pruned_moment_requests: number
           pruned_rate_buckets: number
           pruned_reaction_commands: number
+          pruned_reports: number
           pruned_requests: number
           pruned_verifications: number
+          purged_evidence: number
+          redacted_reports: number
         }[]
       }
       send_friend_request: {
@@ -1034,6 +1176,23 @@ export type Database = {
           superheart_consumed: boolean
           superheart_count: number
           uses_remaining: number
+        }[]
+      }
+      submit_report: {
+        Args: {
+          p_block_subject?: boolean
+          p_category: string
+          p_command_id: string
+          p_details?: string
+          p_subject_id: string
+          p_subject_kind: string
+        }
+        Returns: {
+          already_submitted: boolean
+          blocked_subject: boolean
+          evidence_status: string
+          report_id: string
+          submitted_at: string
         }[]
       }
       unblock_user: {

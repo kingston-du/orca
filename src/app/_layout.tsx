@@ -4,7 +4,12 @@ import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { AuthProvider, useAuth } from "@/features/auth/auth-provider";
 import { getAuthRouteAccess } from "@/features/auth/auth-route-access";
 import { PrivacyShield } from "@/features/privacy/privacy-shield";
+import { initializeObservability } from "@/lib/observability";
 import { AppQueryProvider } from "@/lib/query-provider";
+
+// Before the first render, and outside any component, so a crash during
+// startup is still captured. Without a configured DSN this does nothing at all.
+initializeObservability();
 
 function RootNavigator() {
   const { session, isPasswordRecovery, isRestoring } = useAuth();

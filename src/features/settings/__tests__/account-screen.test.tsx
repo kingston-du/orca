@@ -11,6 +11,7 @@ describe("AccountScreen", () => {
 
         onEditProfile={jest.fn()}
         onOpenBlockedUsers={jest.fn()}
+        onOpenSupport={jest.fn()}
         onSignOut={jest.fn()}
         username="kingston"
       />,
@@ -38,6 +39,7 @@ describe("AccountScreen", () => {
 
         onEditProfile={jest.fn()}
         onOpenBlockedUsers={jest.fn()}
+        onOpenSupport={jest.fn()}
         onSignOut={onSignOut}
         username="kingston"
       />,
@@ -65,6 +67,7 @@ describe("AccountScreen", () => {
 
         onEditProfile={jest.fn()}
         onOpenBlockedUsers={jest.fn()}
+        onOpenSupport={jest.fn()}
         onSignOut={jest.fn().mockResolvedValue(new Error("Sensitive detail"))}
         username="kingston"
       />,
@@ -91,6 +94,7 @@ describe("AccountScreen", () => {
 
         onEditProfile={jest.fn()}
         onOpenBlockedUsers={jest.fn()}
+        onOpenSupport={jest.fn()}
         onSignOut={jest.fn().mockRejectedValue(new Error("Sensitive detail"))}
         username="kingston"
       />,

@@ -21,7 +21,7 @@ async function renderBlocked() {
   });
   return await render(
     <QueryClientProvider client={client}>
-      <BlockedUsersScreen />
+      <BlockedUsersScreen onReport={jest.fn()} />
     </QueryClientProvider>,
   );
 }

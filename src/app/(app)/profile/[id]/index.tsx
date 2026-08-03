@@ -22,6 +22,12 @@ export default function FriendProfileRoute() {
       onOpenSharedMoments={(profileId) =>
         router.push(`/profile/${profileId}/shared`)
       }
+      onReport={(profileId, displayName) =>
+        router.push({
+          params: { id: profileId, kind: "profile", label: displayName },
+          pathname: "/report",
+        })
+      }
       profileId={id}
     />
   );

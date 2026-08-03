@@ -28,6 +28,7 @@ export default function SettingsRoute() {
       email={user.email ?? "Email unavailable"}
       onEditProfile={() => router.push("/settings/profile")}
       onOpenBlockedUsers={() => router.push("/settings/blocked")}
+      onOpenSupport={() => router.push("/support")}
       onSignOut={signOut}
       username={state.data.username ?? "unavailable"}
     />

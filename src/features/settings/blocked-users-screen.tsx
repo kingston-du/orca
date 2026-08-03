@@ -16,7 +16,11 @@ import {
 
 const blockedKey = ["blocked-profiles"] as const;
 
-export function BlockedUsersScreen() {
+export function BlockedUsersScreen({
+  onReport,
+}: {
+  onReport: (profileId: string, displayName: string | null) => void;
+}) {
   const queryClient = useQueryClient();
   const blocked = useQuery({
     queryFn: listBlockedProfiles,
@@ -82,6 +86,16 @@ export function BlockedUsersScreen() {
                 {entry.username ? `@${entry.username}` : "Still blocked"}
               </Text>
             </View>
+            {/* The safety path from the block list: someone who blocked first
+             * and wants a review afterwards has nowhere else to start. */}
+            <Pressable
+              accessibilityLabel={`Report ${entry.display_name ?? "this account"}`}
+              accessibilityRole="button"
+              onPress={() => onReport(entry.id, entry.display_name)}
+              style={styles.smallOutlineButton}
+            >
+              <Text style={styles.smallOutlineLabel}>Report</Text>
+            </Pressable>
             <Pressable
               accessibilityLabel={`Unblock ${entry.display_name ?? "this account"}`}
               accessibilityRole="button"
@@ -131,5 +145,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   smallButtonLabel: { color: "#FFFFFF", fontWeight: "800" },
+  smallOutlineButton: {
+    alignItems: "center",
+    borderColor: "#BA2525",
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 44,
+    minWidth: 72,
+    paddingHorizontal: 12,
+  },
+  smallOutlineLabel: { color: "#BA2525", fontWeight: "800" },
   title: { color: "#102A43", fontSize: 34, fontWeight: "900" },
 });

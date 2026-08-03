@@ -28,6 +28,12 @@ export default function MomentDetailRoute() {
       onOpenReactions={(momentId) =>
         router.push(`/moments/${momentId}/reactions`)
       }
+      onReport={(momentId, authorDisplayName) =>
+        router.push({
+          params: { id: momentId, kind: "moment", label: authorDisplayName },
+          pathname: "/report",
+        })
+      }
     />
   );
 }

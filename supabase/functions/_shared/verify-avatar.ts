@@ -1,3 +1,4 @@
+import { sha256Hex } from "./hash.ts";
 import { InvalidJpegError, verifyJpeg } from "./verify-jpeg.ts";
 
 /** Bumped whenever the rules below change, so a stored verification fact can
@@ -24,11 +25,8 @@ export class InvalidAvatarError extends Error {
   }
 }
 
-export function sha256Hex(digest: ArrayBuffer): string {
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
+// Re-exported so `verify-moment.ts` keeps its single verification import.
+export { sha256Hex };
 
 /**
  * Measures downloaded bytes against Orca's avatar contract. Nothing the client

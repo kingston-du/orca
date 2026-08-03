@@ -15,6 +15,7 @@ type AccountScreenProps = {
   username: string;
   onEditProfile: () => void;
   onOpenBlockedUsers: () => void;
+  onOpenSupport: () => void;
   onSignOut: () => Promise<{ message: string } | null>;
 };
 
@@ -23,6 +24,7 @@ export function AccountScreen({
   email,
   onEditProfile,
   onOpenBlockedUsers,
+  onOpenSupport,
   onSignOut,
   username,
 }: AccountScreenProps) {
@@ -100,6 +102,20 @@ export function AccountScreen({
             style={styles.navRow}
           >
             <Text style={styles.value}>Blocked Users</Text>
+            <Text accessibilityElementsHidden style={styles.chevron}>
+              ›
+            </Text>
+          </Pressable>
+          {/* Apple requires a reachable contact channel for user-generated
+           * content, and an appeal path is the other half of a system that can
+           * restrict an account. Both live behind this row. */}
+          <Pressable
+            accessibilityHint="Contact support, appeal a decision, and read what Orca keeps"
+            accessibilityRole="button"
+            onPress={onOpenSupport}
+            style={styles.navRow}
+          >
+            <Text style={styles.value}>Support &amp; Safety</Text>
             <Text accessibilityElementsHidden style={styles.chevron}>
               ›
             </Text>

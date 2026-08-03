@@ -139,15 +139,26 @@ export function usePublishController({
           console.log("[publish] attempt failed, code:", code);
         }
 
-        // A thrown reserve or hash step means no upload was attempted, but the
-        // machine still refuses to claim that on its own — the author can
-        // check or try again.
+        // A caption the server will not accept is the one failure retrying
+        // cannot fix. It is refused at reservation, before a single byte is
+        // uploaded, so the author edits and shares again with nothing spent.
+        const captionRefused =
+          typeof error === "object" &&
+          error !== null &&
+          "message" in error &&
+          String((error as { message: unknown }).message) ===
+            "Caption not allowed";
+
+        // Any other thrown reserve or hash step means no upload was attempted,
+        // but the machine still refuses to claim that on its own — the author
+        // can check or try again.
         if (isMounted.current) {
           dispatch({
             type: "attempt_failed",
-            recoverable: true,
-            message:
-              "Orca could not share this Moment. Check your connection and try again.",
+            recoverable: !captionRefused,
+            message: captionRefused
+              ? "That caption can’t be used here. Edit it and share again — nothing was shared."
+              : "Orca could not share this Moment. Check your connection and try again.",
           });
         }
       }

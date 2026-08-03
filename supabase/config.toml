@@ -308,8 +308,8 @@ max_enrolled_factors = 10
 
 # Control MFA via App Authenticator (TOTP)
 [auth.mfa.totp]
-enroll_enabled = false
-verify_enabled = false
+enroll_enabled = true
+verify_enabled = true
 
 # Configure MFA via Phone Messaging
 [auth.mfa.phone]
@@ -435,6 +435,12 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/finalize-moment/deno.json"
 entrypoint = "./functions/finalize-moment/index.ts"
+
+[functions.moderate-report]
+enabled = true
+verify_jwt = true
+import_map = "./functions/moderate-report/deno.json"
+entrypoint = "./functions/moderate-report/index.ts"
 
 [functions.reconcile-operations]
 enabled = true

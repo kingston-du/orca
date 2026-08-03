@@ -104,6 +104,10 @@ export default function AppLayout() {
             name="moments/compose"
             options={{ headerShown: true, title: "New Moment" }}
           />
+          <Stack.Screen
+            name="report"
+            options={{ headerShown: true, title: "Report" }}
+          />
         </Stack.Protected>
         <Stack.Screen
           name="support"

@@ -22,12 +22,14 @@ import {
 type FriendProfileScreenProps = {
   onOpenProfile: (profileId: string) => void;
   onOpenSharedMoments: (profileId: string) => void;
+  onReport: (profileId: string, displayName: string) => void;
   profileId: string;
 };
 
 export function FriendProfileScreen({
   onOpenProfile,
   onOpenSharedMoments,
+  onReport,
   profileId,
 }: FriendProfileScreenProps) {
   const queryClient = useQueryClient();
@@ -132,6 +134,17 @@ export function FriendProfileScreen({
               style={styles.dangerButton}
             >
               <Text style={styles.dangerLabel}>Block</Text>
+            </Pressable>
+            {/* Reporting is offered beside blocking rather than behind it: a
+             * reporter who blocks first must still be able to report, and the
+             * report screen carries its own optional block. */}
+            <Pressable
+              accessibilityHint="Sends this person to Orca’s safety operator for review"
+              accessibilityRole="button"
+              onPress={() => onReport(profile.id, profile.display_name)}
+              style={styles.dangerButton}
+            >
+              <Text style={styles.dangerLabel}>Report</Text>
             </Pressable>
           </View>
         ) : null}
