@@ -4,7 +4,7 @@ These lessons explain verified Orca implementation checkpoints through their men
 
 ## Redesign status
 
-Orca's friend-first foundation, Phases 1–8, and Checkpoint 9A are implemented on `codex/friend-first-rebaseline`. Local development runs fifteen migrations; hosted development still runs the first thirteen, because Phase 8 and 9A promotions are separate approvals. Phase 7's real hosted TOTP/AAL2 moderation drill passed after the migrations, `moderate-report`, the updated worker, and Auth settings were promoted. The disposable operator/cases/evidence were removed and the content-free audit trail remains by design. Founder-owned release operations still need the real support mailbox, permanent operator identity/TOTP device, Sentry project/source-map verification, legal text, and the documented physical-iPhone gates.
+Orca's friend-first foundation, Phases 1–8, and Checkpoints 9A–9B are implemented on `codex/friend-first-rebaseline`. Local development runs sixteen migrations; hosted development still runs the first thirteen, because Phase 8, 9A, and 9B promotions are separate approvals. The 9B local restore drill creates and destroys a second synthetic-only Supabase project; no production backup provider or remote recovery resource exists yet. Phase 7's real hosted TOTP/AAL2 moderation drill passed after the migrations, `moderate-report`, the updated worker, and Auth settings were promoted. The disposable operator/cases/evidence were removed and the content-free audit trail remains by design. Founder-owned release operations still need the real support mailbox, permanent operator identity/TOTP device, Sentry project/source-map verification, legal text, and the documented physical-iPhone gates.
 
 Only the retained foundations below are current course material. Obsolete and superseded work is separated in the [historical archive](./archive/README.md).
 
@@ -28,6 +28,7 @@ Only the retained foundations below are current course material. Obsolete and su
 - Lesson 27 — [SQLSTATE is an API contract](./27-sqlstate-is-an-api-contract.md)
 - Lesson 28 — [The transactional outbox, and telling someone something without saying anything](./28-the-outbox-and-best-effort-push.md)
 - Lesson 29 — [Auth last: deleting a person across database, Storage, and identity](./29-auth-last-account-deletion.md)
+- Lesson 30 — [Restoring multi-system privacy](./30-restoring-multi-system-privacy.md)
 
 Lesson 23's claim that the viewer's own Moments fail the Recent read rule described Checkpoint 5A only. Checkpoint 5B made own Recent Moments visible on Home by founder direction; Lesson 24 Part 3 explains what changed and why the old behaviour was an accident of the join rather than a decision. Lessons 23 and 24 also state that no reaction control, count, or people list exists anywhere; that described Phases 5A and 5B only. Phase 6 adds all three, and Lesson 25 covers them.
 
@@ -37,7 +38,7 @@ Lessons 20 and 22 describe the media worker as the only outbox and say that publ
 
 ## Next lesson
 
-Lesson 30 is created only after Checkpoint 9B's backup and restore boundary is implemented and verified. Course notes never describe speculative code as though it exists.
+Lesson 31 is created only after Checkpoint 9C's visual and accessibility polish is implemented and verified. Course notes never describe speculative code as though it exists.
 
 ## Course progression and checkpoint contract
 

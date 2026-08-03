@@ -560,6 +560,22 @@ export type Database = {
           source_object_path: string
         }[]
       }
+      claim_media_backup_batch: {
+        Args: { p_lease_seconds?: number; p_limit?: number; p_scope: string }
+        Returns: {
+          action: string
+          attempt_count: number
+          bucket_id: string
+          byte_size: number
+          content_sha256: string
+          job_id: string
+          lease_token: string
+          object_path: string
+          object_version: string
+          source_observed_at: string
+          tombstoned_at: string
+        }[]
+      }
       claim_media_cleanup_batch: {
         Args: { p_lease_seconds?: number; p_limit?: number }
         Returns: {
@@ -602,6 +618,23 @@ export type Database = {
           p_content_sha256: string
           p_lease_token: string
           p_report_id: string
+        }
+        Returns: boolean
+      }
+      complete_media_backup_copy: {
+        Args: {
+          p_archive_key_id: string
+          p_archive_locator: string
+          p_job_id: string
+          p_lease_token: string
+        }
+        Returns: boolean
+      }
+      complete_media_backup_purge: {
+        Args: {
+          p_archive_locator: string
+          p_job_id: string
+          p_lease_token: string
         }
         Returns: boolean
       }
@@ -682,6 +715,10 @@ export type Database = {
           p_lease_token: string
           p_report_id: string
         }
+        Returns: string
+      }
+      fail_media_backup_job: {
+        Args: { p_error_code: string; p_job_id: string; p_lease_token: string }
         Returns: string
       }
       fail_media_cleanup: {
@@ -775,6 +812,22 @@ export type Database = {
           object_path: string
           request_id: string
           status: string
+        }[]
+      }
+      get_backup_operations_metrics: {
+        Args: never
+        Returns: {
+          dead_jobs: number
+          evidence_privacy_breaches: number
+          evidence_rpo_breaches: number
+          latest_evidence_snapshot_age_seconds: number
+          latest_ordinary_snapshot_age_seconds: number
+          oldest_pending_copy_age_seconds: number
+          oldest_tombstone_age_seconds: number
+          ordinary_privacy_breaches: number
+          ordinary_rpo_breaches: number
+          pending_copies: number
+          pending_purges: number
         }[]
       }
       get_deletion_receipt: {
@@ -1063,6 +1116,26 @@ export type Database = {
           viewer_reaction: string
         }[]
       }
+      list_media_backup_manifest: {
+        Args: {
+          p_after_id?: string
+          p_database_point_at: string
+          p_limit?: number
+          p_scope: string
+        }
+        Returns: {
+          archive_key_id: string
+          archive_locator: string
+          bucket_id: string
+          byte_size: number
+          content_sha256: string
+          copied_at: string
+          job_id: string
+          object_path: string
+          object_version: string
+          source_observed_at: string
+        }[]
+      }
       list_moderation_cases: {
         Args: {
           p_before_created_at?: string
@@ -1209,6 +1282,19 @@ export type Database = {
         }[]
       }
       mark_moments_seen: { Args: { p_moment_ids: string[] }; Returns: number }
+      record_backup_snapshot: {
+        Args: {
+          p_archive_key_id: string
+          p_database_point_at: string
+          p_environment: string
+          p_manifest_sha256: string
+          p_newest_source_at: string
+          p_object_count: number
+          p_scope: string
+          p_snapshot_id: string
+        }
+        Returns: boolean
+      }
       record_notification_receipts: {
         Args: { p_results: Json }
         Returns: number
@@ -1312,6 +1398,14 @@ export type Database = {
           pruned_deletion_receipts: number
           reclaimed_leases: number
           released_usernames: number
+        }[]
+      }
+      run_backup_maintenance: {
+        Args: { p_limit?: number }
+        Returns: {
+          pruned_snapshots: number
+          pruned_tombstones: number
+          reclaimed_leases: number
         }[]
       }
       run_media_maintenance: {

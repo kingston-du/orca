@@ -68,15 +68,18 @@
     "moderate": "node scripts/moderation.mjs",
     "expo:check": "expo install --check",
     "native:check": "node scripts/check-native-config.mjs",
+    "backup": "node scripts/media-backup.mjs",
+    "backup:test": "node --test scripts/tests/*.test.mjs",
+    "backup:test:restore": "node scripts/test-isolated-restore.mjs",
     "db:start": "supabase start",
     "db:reset": "supabase db reset --local",
     "db:lint": "supabase db lint --local --schema public --schema private --level warning --fail-on warning",
     "db:test": "supabase test db --local supabase/tests",
     "db:test:api": "node scripts/test-friend-foundation-api.mjs && node scripts/test-avatar-media-api.mjs && node scripts/test-moment-media-api.mjs && node scripts/test-safety-api.mjs && node scripts/test-notifications-api.mjs",
     "functions:test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test supabase/functions/tests/*.test.mjs",
-    "functions:test:api": "node scripts/test-avatar-functions.mjs && node scripts/test-moment-functions.mjs && node scripts/test-moderation-functions.mjs && node scripts/test-account-deletion-functions.mjs",
+    "functions:test:api": "node scripts/test-avatar-functions.mjs && node scripts/test-moment-functions.mjs && node scripts/test-moderation-functions.mjs && node scripts/test-account-deletion-functions.mjs && node scripts/test-backup-functions.mjs",
     "db:types": "supabase gen types --local --schema public > src/types/database.ts",
-    "db:types:check": "supabase gen types --local --schema public | diff -u src/types/database.ts -"
+    "db:types:check": "node scripts/check-database-types.mjs"
   },
   "jest": {
     "preset": "jest-expo",

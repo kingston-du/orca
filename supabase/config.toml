@@ -447,3 +447,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/reconcile-operations/deno.json"
 entrypoint = "./functions/reconcile-operations/index.ts"
+
+[functions.backup-media]
+enabled = true
+verify_jwt = false
+import_map = "./functions/backup-media/deno.json"
+entrypoint = "./functions/backup-media/index.ts"

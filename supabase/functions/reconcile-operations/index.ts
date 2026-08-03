@@ -108,6 +108,22 @@ type PushMetrics = {
   invalid_devices_last_day: number;
 };
 
+/** Backup dashboards remain content-free: only queue counts, ages, breached
+ * clocks, and snapshot freshness cross the worker boundary. */
+type BackupMetrics = {
+  pending_copies: number;
+  pending_purges: number;
+  dead_jobs: number;
+  oldest_pending_copy_age_seconds: number;
+  oldest_tombstone_age_seconds: number;
+  ordinary_rpo_breaches: number;
+  ordinary_privacy_breaches: number;
+  evidence_rpo_breaches: number;
+  evidence_privacy_breaches: number;
+  latest_ordinary_snapshot_age_seconds: number;
+  latest_evidence_snapshot_age_seconds: number;
+};
+
 export default {
   // `auth: "secret"` means only a caller holding the service credential gets
   // this far. The worker never derives an end user from a JWT.
@@ -136,6 +152,16 @@ export default {
       if (accountError) {
         console.error("Account maintenance failed", {
           code: accountError.code,
+        });
+        return json({ error: "Maintenance failed" }, 500);
+      }
+      const { error: backupError } = await ctx.supabaseAdmin.rpc(
+        "run_backup_maintenance",
+        { p_limit: 500 },
+      );
+      if (backupError) {
+        console.error("Backup maintenance failed", {
+          code: backupError.code,
         });
         return json({ error: "Maintenance failed" }, 500);
       }
@@ -237,10 +263,14 @@ export default {
     const { data: deletionRow } = await ctx.supabaseAdmin.rpc(
       "get_account_deletion_metrics",
     );
+    const { data: backupRow } = await ctx.supabaseAdmin.rpc(
+      "get_backup_operations_metrics",
+    );
     const metrics = firstRow<Metrics>(metricsRow);
     const safety = firstRow<SafetyMetrics>(safetyRow);
     const pushMetrics = firstRow<PushMetrics>(pushRow);
     const deletionMetrics = firstRow<DeletionMetrics>(deletionRow);
+    const backupMetrics = firstRow<BackupMetrics>(backupRow);
     // `pushMetrics` is nested rather than spread: it has its own
     // `oldest_ready_age_seconds`, and flattening it would silently overwrite
     // the media queue's age with the notification queue's.
@@ -254,6 +284,7 @@ export default {
       // `oldest_open_age_seconds`, and flattening would let one queue's age
       // silently overwrite another's.
       accountDeletions: deletionMetrics,
+      backups: backupMetrics,
       notifications: pushMetrics,
       ...metrics,
       ...safety,
@@ -283,12 +314,18 @@ export default {
       deletions.dead > 0 ||
       (deletionMetrics?.dead_deletions ?? 0) > 0 ||
       (deletionMetrics?.oldest_open_age_seconds ?? 0) > 3600 ||
+      (backupMetrics?.dead_jobs ?? 0) > 0 ||
+      (backupMetrics?.ordinary_rpo_breaches ?? 0) > 0 ||
+      (backupMetrics?.ordinary_privacy_breaches ?? 0) > 0 ||
+      (backupMetrics?.evidence_rpo_breaches ?? 0) > 0 ||
+      (backupMetrics?.evidence_privacy_breaches ?? 0) > 0 ||
       (safety?.urgent_sla_breaches ?? 0) > 0 ||
       (safety?.normal_sla_breaches ?? 0) > 0 ||
       (pushMetrics?.oldest_ready_age_seconds ?? 0) > 300;
     return json(
       {
         ...outcome,
+        backupMetrics,
         deletionMetrics,
         deletions,
         evidence,
