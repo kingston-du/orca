@@ -134,6 +134,39 @@ export const color = {
 } as const;
 
 /**
+ * One native continuous gradient, rather than stacked translucent views. The
+ * eased curve stays almost invisible at its top, crosses the contrast-proven
+ * strength through the text row, and keeps changing all the way to the bottom.
+ * That last detail matters: a repeated terminal alpha reads as a pasted-on
+ * rectangle even when the transition above it is smooth.
+ */
+export const PHOTO_SCRIM_GRADIENT_STOPS = [
+  { position: 0, alpha: 0 },
+  { position: 10, alpha: 0.01 },
+  { position: 20, alpha: 0.03 },
+  { position: 30, alpha: 0.08 },
+  { position: 35, alpha: 0.14 },
+  { position: 40, alpha: 0.23 },
+  { position: 45, alpha: 0.37 },
+  { position: 50, alpha: 0.56 },
+  { position: 55, alpha: 0.61 },
+  { position: 65, alpha: 0.65 },
+  { position: 75, alpha: 0.68 },
+  { position: 88, alpha: 0.71 },
+  { position: 100, alpha: 0.74 },
+] as const;
+
+export const PHOTO_SCRIM_GRADIENT = `linear-gradient(to bottom, ${PHOTO_SCRIM_GRADIENT_STOPS.map(
+  ({ position, alpha }) => `rgba(16, 26, 31, ${alpha}) ${position}%`,
+).join(", ")})`;
+
+/** The transparent lead-in before the full-strength identity row, in points. */
+export const PHOTO_SCRIM_FADE_HEIGHT = 40;
+
+/** Stable Home-deck portrait frame; media itself may have any verified ratio. */
+export const MOMENT_PHOTO_ASPECT = 3 / 4;
+
+/**
  * Sizes only. Nothing here caps `maxFontSizeMultiplier`, because the contract
  * requires Dynamic Type to at least 200% — layouts must scroll or reflow rather
  * than clamp the text. The one documented exception is the tab bar, which caps

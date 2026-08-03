@@ -36,46 +36,63 @@ describe("PrivacyShield", () => {
       });
   });
 
-  test("covers content before foreground identity and access revalidation", async () => {
-    mockGetUser.mockResolvedValue({ error: null });
+  function renderShield() {
     const client = new QueryClient({
       defaultOptions: { queries: { gcTime: Infinity, retry: false } },
     });
-    const screen = await render(
+    return render(
       <QueryClientProvider client={client}>
         <PrivacyShield>
           <Text>Private content</Text>
         </PrivacyShield>
       </QueryClientProvider>,
     );
+  }
 
-    expect(screen.getByTestId("privacy-shield")).toBeOnTheScreen();
+  // The cover is gone by the founder's decision: it cost the app its continuity
+  // on every app switch. Revalidation is what it was actually for, and that has
+  // to survive the cover's removal intact.
+  test("revalidates identity on foreground without covering content", async () => {
+    mockGetUser.mockResolvedValue({ error: null });
+    const screen = await renderShield();
+
+    expect(screen.getByText("Private content")).toBeOnTheScreen();
+    expect(screen.queryByTestId("privacy-shield")).toBeNull();
+
     await waitFor(() => expect(appStateListener).toBeDefined());
     await act(() => appStateListener?.("active"));
     await waitFor(() => expect(mockGetUser).toHaveBeenCalledTimes(1));
-    await waitFor(() =>
-      expect(screen.queryByTestId("privacy-shield")).toBeNull(),
-    );
+
+    expect(screen.queryByTestId("privacy-shield")).toBeNull();
 
     await act(() => appStateListener?.("inactive"));
-    expect(screen.getByTestId("privacy-shield")).toBeOnTheScreen();
+    expect(screen.queryByTestId("privacy-shield")).toBeNull();
   });
 
-  test("does not reveal content while validation is unresolved", async () => {
-    mockGetUser.mockImplementation(() => new Promise(() => undefined));
-    const client = new QueryClient({
-      defaultOptions: { queries: { gcTime: Infinity } },
-    });
-    const screen = await render(
-      <QueryClientProvider client={client}>
-        <PrivacyShield>
-          <Text>Private content</Text>
-        </PrivacyShield>
-      </QueryClientProvider>,
-    );
+  test("a session that comes back bad still takes the screen", async () => {
+    mockGetUser.mockResolvedValue({ error: new Error("no session") });
+    const screen = await renderShield();
+
     await waitFor(() => expect(appStateListener).toBeDefined());
     await act(() => appStateListener?.("active"));
-    await waitFor(() => expect(mockGetUser).toHaveBeenCalledTimes(1));
-    expect(screen.getByTestId("privacy-shield")).toBeOnTheScreen();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("privacy-shield")).toBeOnTheScreen(),
+    );
+    expect(screen.getByText("Orca couldn’t safely unlock.")).toBeOnTheScreen();
+  });
+
+  test("leaving the foreground clears a stale failure", async () => {
+    mockGetUser.mockResolvedValue({ error: new Error("no session") });
+    const screen = await renderShield();
+
+    await waitFor(() => expect(appStateListener).toBeDefined());
+    await act(() => appStateListener?.("active"));
+    await waitFor(() =>
+      expect(screen.getByTestId("privacy-shield")).toBeOnTheScreen(),
+    );
+
+    await act(() => appStateListener?.("background"));
+    expect(screen.queryByTestId("privacy-shield")).toBeNull();
   });
 });

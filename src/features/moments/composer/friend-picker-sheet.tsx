@@ -53,7 +53,7 @@ export function FriendPickerSheet({
   return (
     <Sheet
       onClose={onClose}
-      title={tagging ? "Who’s here?" : "Who can see this"}
+      title={tagging ? "Tagged" : "Who can see this"}
       visible={visible}
     >
       {friends.length === 0 ? (

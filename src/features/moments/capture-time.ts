@@ -43,6 +43,8 @@ const FULL_MONTH_NAMES = [
 ] as const;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
 
 /**
  * The capture instant expressed as a UTC date whose fields read as the original
@@ -86,6 +88,21 @@ export function formatExactCaptureTime(
 }
 
 /**
+ * The capture date without a clock. Once a Moment is no longer recent enough
+ * for elapsed time to be useful, the calendar day is the whole answer — adding
+ * a time makes quiet metadata read like a receipt.
+ */
+export function formatCaptureDate(
+  capturedAt: string,
+  capturedUtcOffsetMinutes: number,
+): string | null {
+  const shifted = shiftToCaptureOffset(capturedAt, capturedUtcOffsetMinutes);
+  if (!shifted) return null;
+
+  return `${MONTH_NAMES[shifted.getUTCMonth()]} ${shifted.getUTCDate()}, ${shifted.getUTCFullYear()}`;
+}
+
+/**
  * When a Moment was *shared*, in the viewer's own local time.
  *
  * This is the one timestamp that genuinely belongs to the reader's clock: it
@@ -94,18 +111,11 @@ export function formatExactCaptureTime(
  * the whole reason the two formatters are separate functions with separate
  * names rather than one with a flag.
  */
-export function formatSharedTime(publishedAt: string): string | null {
+export function formatSharedDate(publishedAt: string): string | null {
   const at = new Date(Date.parse(publishedAt));
   if (Number.isNaN(at.getTime())) return null;
 
-  const hours24 = at.getHours();
-  const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
-  const minutes = String(at.getMinutes()).padStart(2, "0");
-
-  return (
-    `${MONTH_NAMES[at.getMonth()]} ${at.getDate()}, ${at.getFullYear()} at ` +
-    `${hours12}:${minutes} ${hours24 < 12 ? "AM" : "PM"}`
-  );
+  return `${MONTH_NAMES[at.getMonth()]} ${at.getDate()}, ${at.getFullYear()}`;
 }
 
 /**
@@ -128,34 +138,68 @@ export function formatCaptureMonth(
 }
 
 /**
- * The glanceable form shown on the card. "Today" and "Yesterday" are decided
- * against the *viewer's* current day, because that is the question a reader is
- * actually asking; the clock beside them stays in the capture offset, because
- * that is when the photo was taken. Both are true at once, and the exact form
- * above is always available to anyone who needs it spelled out.
+ * Elapsed time is about the instant, not either person's calendar. The capture
+ * offset matters only after 24 hours, when the UI changes to the date on which
+ * the photo was actually taken.
  */
-export function formatFriendlyCaptureTime(
+function elapsedCaptureTime(
+  capturedAt: string,
+  capturedUtcOffsetMinutes: number,
+  now: Date,
+):
+  | { kind: "date"; value: string }
+  | { kind: "hours"; value: number }
+  | { kind: "minutes"; value: number }
+  | { kind: "now" }
+  | null {
+  const capturedMilliseconds = Date.parse(capturedAt);
+  const nowMilliseconds = now.getTime();
+  if (
+    !Number.isFinite(capturedMilliseconds) ||
+    !Number.isFinite(nowMilliseconds) ||
+    shiftToCaptureOffset(capturedAt, capturedUtcOffsetMinutes) === null
+  ) {
+    return null;
+  }
+
+  // Credible camera clocks may be up to five minutes ahead of the server. A
+  // small future skew is not a useful thing to expose, so it reads as now.
+  const elapsed = Math.max(0, nowMilliseconds - capturedMilliseconds);
+  if (elapsed >= DAY_MS) {
+    const date = formatCaptureDate(capturedAt, capturedUtcOffsetMinutes);
+    return date ? { kind: "date", value: date } : null;
+  }
+  if (elapsed < MINUTE_MS) return { kind: "now" };
+  if (elapsed < HOUR_MS) {
+    return { kind: "minutes", value: Math.floor(elapsed / MINUTE_MS) };
+  }
+  return { kind: "hours", value: Math.floor(elapsed / HOUR_MS) };
+}
+
+/** The compact card form: `39m`, `8h`, or `Aug 1, 2026`. */
+export function formatCompactCaptureTime(
   capturedAt: string,
   capturedUtcOffsetMinutes: number,
   now: Date,
 ): string | null {
-  const shifted = shiftToCaptureOffset(capturedAt, capturedUtcOffsetMinutes);
-  if (!shifted) return null;
+  const elapsed = elapsedCaptureTime(capturedAt, capturedUtcOffsetMinutes, now);
+  if (!elapsed) return null;
+  if (elapsed.kind === "now") return "now";
+  if (elapsed.kind === "date") return elapsed.value;
+  return `${elapsed.value}${elapsed.kind === "minutes" ? "m" : "h"}`;
+}
 
-  const viewerToday = Date.UTC(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
-  const capturedLocalDay = Date.UTC(
-    shifted.getUTCFullYear(),
-    shifted.getUTCMonth(),
-    shifted.getUTCDate(),
-  );
-  const daysApart = Math.round((viewerToday - capturedLocalDay) / DAY_MS);
+/** The detail/VoiceOver form: `39 minutes ago`, `8 hours ago`, or a date. */
+export function formatDetailedCaptureTime(
+  capturedAt: string,
+  capturedUtcOffsetMinutes: number,
+  now: Date,
+): string | null {
+  const elapsed = elapsedCaptureTime(capturedAt, capturedUtcOffsetMinutes, now);
+  if (!elapsed) return null;
+  if (elapsed.kind === "now") return "just now";
+  if (elapsed.kind === "date") return elapsed.value;
 
-  if (daysApart === 0) return `Today at ${formatClock(shifted)}`;
-  if (daysApart === 1) return `Yesterday at ${formatClock(shifted)}`;
-
-  return formatExactCaptureTime(capturedAt, capturedUtcOffsetMinutes);
+  const unit = elapsed.kind === "minutes" ? "minute" : "hour";
+  return `${elapsed.value} ${unit}${elapsed.value === 1 ? "" : "s"} ago`;
 }

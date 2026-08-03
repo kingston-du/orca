@@ -30,9 +30,19 @@ export function hapticPublished() {
   );
 }
 
-/** A Heart or Superheart was committed. */
+/** A Heart was committed, or a reaction was cleared. */
 export function hapticReaction() {
   fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light));
+}
+
+/**
+ * A Superheart was committed.
+ *
+ * Heavier than a Heart on purpose: three a day is a budget, and the hand should
+ * be able to tell which of the two controls it just spent without looking.
+ */
+export function hapticSuperheart() {
+  fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy));
 }
 
 /** A selection changed — a segment, a tag, a recipient. */

@@ -63,18 +63,30 @@ export function currentIndex(state: DeckState): number {
  * Newest is index 0, so "older" moves forward through the array — which is also
  * what a leftward swipe does in a horizontal list. The founder's left-is-older
  * preference is therefore the array's natural direction rather than a reversal
- * layered on top of it, and the visible controls call these same two functions.
+ * layered on top of it.
+ *
+ * Both directions **wrap**. The deck is a loop with no first or last card: past
+ * the oldest Moment is the newest one again, and the VoiceOver actions have to
+ * agree with the gesture about that or a screen-reader user would hit an end
+ * that a sighted user cannot find. With a single Moment both answers are that
+ * Moment, which the reducer treats as the no-op it is.
  */
 export function olderId(state: DeckState): string | null {
   const index = currentIndex(state);
   if (index < 0) return null;
-  return state.moments[index + 1]?.moment_id ?? null;
+  return (
+    state.moments[index + 1]?.moment_id ?? state.moments[0]?.moment_id ?? null
+  );
 }
 
 export function newerId(state: DeckState): string | null {
   const index = currentIndex(state);
-  if (index <= 0) return null;
-  return state.moments[index - 1]?.moment_id ?? null;
+  if (index < 0) return null;
+  return (
+    state.moments[index - 1]?.moment_id ??
+    state.moments.at(-1)?.moment_id ??
+    null
+  );
 }
 
 export function currentMoment(state: DeckState): DeckMoment | null {

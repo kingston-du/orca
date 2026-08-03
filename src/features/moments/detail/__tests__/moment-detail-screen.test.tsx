@@ -151,10 +151,35 @@ describe("what detail shows", () => {
     await renderDetail();
 
     // 21:07Z at +540 is the next morning in Tokyo, wherever the viewer is.
-    expect(
-      await screen.findByLabelText("Jan 15, 2026 at 6:07 AM"),
-    ).toBeOnTheScreen();
+    expect(await screen.findByText("Jan 15, 2026")).toBeOnTheScreen();
     expect(screen.getByText("Cold morning")).toBeOnTheScreen();
+  });
+
+  it("shows the full photo in a frame matching its verified aspect", async () => {
+    jest
+      .mocked(getMomentDetail)
+      .mockResolvedValue(detail({ media_width: 1000, media_height: 2000 }));
+
+    await renderDetail();
+
+    const frame = await screen.findByTestId("detail-photo-frame");
+    expect(frame.props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          height: expect.any(Number),
+          width: expect.any(Number),
+        }),
+      ]),
+    );
+    const size = frame.props.style.find(
+      (style: unknown) =>
+        typeof style === "object" && style !== null && "width" in style,
+    ) as { height: number; width: number };
+    expect(size.width / size.height).toBeCloseTo(0.5);
+    expect(screen.getByTestId("detail-photo")).toHaveProp(
+      "resizeMode",
+      "contain",
+    );
   });
 
   it("says so rather than passing off the sharing time as a capture time", async () => {
@@ -203,7 +228,7 @@ describe("what detail shows", () => {
     );
 
     await renderDetail();
-    await screen.findByText("Caption");
+    await screen.findByTestId("edit-caption");
 
     // The server said no, so there is no control to press — but what other
     // people did is still theirs to see.
@@ -230,7 +255,7 @@ describe("what detail shows", () => {
 
     jest.mocked(getMomentDetail).mockResolvedValue(detail());
     await renderDetail();
-    await screen.findByLabelText("Jan 15, 2026 at 6:07 AM");
+    await screen.findByText("Jan 15, 2026");
     expect(screen.queryByText(/Shared with/)).toBeNull();
   });
 });
@@ -251,11 +276,14 @@ describe("the author's actions", () => {
       .mockResolvedValue({ caption: "Warm morning", caption_updated_at: "x" });
 
     await renderDetail();
+    // The editor is behind a pencil beside the caption now, rather than a
+    // permanently open form every reader of the Moment scrolls past.
+    await user.press(await screen.findByTestId("edit-caption"));
     const input = await screen.findByLabelText("Caption");
 
     await user.clear(input);
     await user.type(input, "Warm morning");
-    await user.press(screen.getByRole("button", { name: "Save caption" }));
+    await user.press(screen.getByTestId("save-caption"));
 
     await waitFor(() => {
       expect(editMomentCaption).toHaveBeenCalledWith({
@@ -269,10 +297,39 @@ describe("the author's actions", () => {
   });
 
   it("will not save a caption that has not changed", async () => {
+    const user = userEvent.setup();
     await renderDetail();
+    await user.press(await screen.findByTestId("edit-caption"));
     await screen.findByLabelText("Caption");
 
-    expect(screen.getByRole("button", { name: "Save caption" })).toBeDisabled();
+    expect(screen.getByTestId("save-caption")).toBeDisabled();
+  });
+
+  it("shows the caption as a caption until its author asks to edit it", async () => {
+    const user = userEvent.setup();
+    await renderDetail();
+
+    await screen.findByTestId("edit-caption");
+    expect(screen.queryByLabelText("Caption")).toBeNull();
+
+    await user.press(screen.getByTestId("edit-caption"));
+    expect(screen.getByLabelText("Caption")).toBeOnTheScreen();
+  });
+
+  it("keeps the caption editor above the keyboard", async () => {
+    const user = userEvent.setup();
+    await renderDetail();
+    await user.press(await screen.findByTestId("edit-caption"));
+
+    expect(screen.getByLabelText("Caption")).toHaveProp("autoFocus", true);
+    expect(screen.getByTestId("moment-detail-scroll")).toHaveProp(
+      "automaticallyAdjustKeyboardInsets",
+      true,
+    );
+    expect(screen.getByTestId("moment-detail-scroll")).toHaveProp(
+      "keyboardDismissMode",
+      "interactive",
+    );
   });
 
   it("confirms before deleting, then leaves the screen", async () => {
@@ -283,8 +340,10 @@ describe("the author's actions", () => {
       .mockResolvedValue({ status: "cleaning", moment_id: "m1" });
 
     await renderDetail();
+    // A trash can in the header, not a bordered sentence at the foot of the
+    // scroll. Its accessibility label still says the whole thing.
     await user.press(
-      await screen.findByRole("button", { name: "Delete Moment" }),
+      await screen.findByRole("button", { name: "Delete this Moment" }),
     );
 
     await waitFor(() => expect(deleteMoment).toHaveBeenCalled());
@@ -330,7 +389,7 @@ describe("tag self-removal", () => {
     jest.mocked(getMomentDetail).mockResolvedValue(detail());
 
     await renderDetail();
-    await screen.findByLabelText("Jan 15, 2026 at 6:07 AM");
+    await screen.findByText("Jan 15, 2026");
 
     expect(
       screen.queryByRole("button", { name: "Remove me from this Moment" }),
@@ -343,10 +402,10 @@ describe("reporting", () => {
     jest.mocked(getMomentDetail).mockResolvedValue(detail());
 
     const screen = await renderDetail();
-    await waitFor(() =>
-      expect(screen.getByText("Report this Moment")).toBeOnTheScreen(),
-    );
-    await userEvent.press(screen.getByText("Report this Moment"));
+    const report = await screen.findByRole("button", {
+      name: "Report this Moment",
+    });
+    await userEvent.press(report);
 
     // The route is handed opaque identity plus the name already on screen.
     expect(onReport).toHaveBeenCalledWith("m1", "Ada");
@@ -358,8 +417,11 @@ describe("reporting", () => {
       .mockResolvedValue(detail({ viewer_is_author: true }));
 
     const screen = await renderDetail();
-    await waitFor(() => expect(screen.getByText("Caption")).toBeOnTheScreen());
+    await screen.findByTestId("edit-caption");
 
-    expect(screen.queryByText("Report this Moment")).toBeNull();
+    // The header corner holds exactly one destructive action, and for an
+    // author it is the trash can rather than the flag.
+    expect(screen.queryByTestId("moment-flag")).toBeNull();
+    expect(screen.getByTestId("moment-trash")).toBeOnTheScreen();
   });
 });

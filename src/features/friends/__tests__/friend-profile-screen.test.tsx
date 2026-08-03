@@ -8,9 +8,17 @@ import {
   listFriendFriends,
   runFriendOperation,
 } from "@/features/friends/friends-api";
+import { listSharedMoments } from "@/features/moments/history/history-api";
 
 jest.mock("@/features/profiles/avatar-api", () => ({
   createAvatarSignedUrl: jest.fn(async () => null),
+}));
+
+// The preview draws real tiles, and a tile asks for a signed URL. Stubbing the
+// signing keeps this suite off the Supabase client — and off AsyncStorage's
+// native module underneath it — without stubbing the tile itself.
+jest.mock("@/features/moments/media/signed-media", () => ({
+  useMomentMediaUrl: () => ({ data: null, isError: false }),
 }));
 
 jest.mock("@/features/friends/friends-api", () => ({
@@ -20,7 +28,19 @@ jest.mock("@/features/friends/friends-api", () => ({
   runFriendOperation: jest.fn(),
 }));
 
+// A friend's profile now shows the Moments the two of them are both in, which
+// is the same authorized RPC the full Shared Moments screen uses.
+jest.mock("@/features/moments/history/history-api", () => ({
+  HISTORY_PAGE_SIZE: 30,
+  listSharedMoments: jest.fn(),
+}));
+
+jest.mock("@/features/auth/auth-provider", () => ({
+  useAuth: () => ({ user: { id: "viewer-1" } }),
+}));
+
 const onOpenSharedMoments = jest.fn();
+const onOpenMoment = jest.fn();
 
 async function renderProfile(onOpenFriends = jest.fn()) {
   const client = new QueryClient({
@@ -34,6 +54,7 @@ async function renderProfile(onOpenFriends = jest.fn()) {
       <FriendProfileScreen
         onBack={jest.fn()}
         onOpenFriends={onOpenFriends}
+        onOpenMoment={onOpenMoment}
         onOpenSharedMoments={onOpenSharedMoments}
         onReport={jest.fn()}
         profileId="friend-1"
@@ -54,10 +75,34 @@ const friendSummary = {
   username: "bob",
 };
 
+function sharedMoment(id: string) {
+  return {
+    author_avatar_path: null,
+    author_display_name: "Bob",
+    author_id: "friend-1",
+    author_username: "bob",
+    caption: null,
+    capture_evidence: "camera_clock",
+    captured_at: "2026-08-01T10:00:00.000Z",
+    captured_utc_offset_minutes: -300,
+    kind: "recent",
+    media_height: 1000,
+    media_width: 800,
+    moment_id: id,
+    object_path: `friend-1/${id}/media.jpg`,
+    published_at: "2026-08-01T10:05:00.000Z",
+    viewer_is_author: false,
+  };
+}
+
 describe("FriendProfileScreen", () => {
   beforeEach(() => {
     jest.resetAllMocks();
     jest.mocked(listFriendFriends).mockResolvedValue([]);
+    jest.mocked(listSharedMoments).mockResolvedValue({
+      moments: [],
+      cursor: null,
+    });
   });
 
   test("shows a friend's identity and a tappable friend count", async () => {
@@ -73,6 +118,43 @@ describe("FriendProfileScreen", () => {
     // job is to report the number and hand off.
     await user.press(screen.getByText("4 friends"));
     expect(screen.onOpenFriends).toHaveBeenCalledWith("friend-1");
+  });
+
+  test("shared history is offered as a count that opens the full grid", async () => {
+    jest.mocked(getProfileSummary).mockResolvedValue(friendSummary);
+    jest.mocked(listSharedMoments).mockResolvedValue({
+      moments: [sharedMoment("moment-1"), sharedMoment("moment-2")],
+      cursor: null,
+    });
+
+    const user = userEvent.setup();
+    const screen = await renderProfile();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("shared-moments-link")).toBeOnTheScreen(),
+    );
+    expect(screen.getByText("2 Moments shared")).toBeOnTheScreen();
+
+    await user.press(screen.getByTestId("shared-moments-link"));
+    expect(onOpenSharedMoments).toHaveBeenCalledWith("friend-1");
+  });
+
+  test("a friend-of-friend is told nothing about shared history", async () => {
+    jest.mocked(getProfileSummary).mockResolvedValue({
+      ...friendSummary,
+      access_tier: "friend_of_friend",
+      friend_count: null,
+      relationship_state: "none",
+    });
+
+    const screen = await renderProfile();
+
+    await waitFor(() =>
+      expect(screen.getByText("2 mutual friends")).toBeOnTheScreen(),
+    );
+    // Even an empty grid would be a claim about what history exists.
+    expect(listSharedMoments).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("shared-moments-link")).not.toBeOnTheScreen();
   });
 
   test("a friend-of-friend sees mutual context and no friend count", async () => {

@@ -1,5 +1,5 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { Link, useIsFocused } from "expo-router";
+import { router, useIsFocused } from "expo-router";
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   color,
   MINIMUM_TOUCH_TARGET,
+  MOMENT_PHOTO_ASPECT,
   radius,
   spacing,
   typeScale,
@@ -37,12 +38,23 @@ import { useMomentDraft } from "@/features/moments/composer/composer-provider";
 import { hapticShutter } from "@/lib/haptics";
 
 /**
- * The Camera tab: shutter, scoped picker, and the review of the single draft.
+ * The Camera tab: shutter and scoped picker.
  *
- * It deliberately stops at the photo. Retake keeps the draft and returns to the
- * live camera, Discard removes it, and Next hands the draft to the composer
- * route, which owns caption, audience, and publication. Nothing here uploads.
+ * Taking or choosing a photo goes **straight** to the composer. There used to
+ * be a review step in between — a preview with Retake, Discard, and Next — and
+ * every one of those three was already reachable from the composer itself: its
+ * Cancel discards the draft and lands back here on the live camera, which is
+ * Retake and Discard at once. A screen whose only job was to ask "are you sure
+ * you want to keep going" between two screens that both answer it is a step
+ * removed rather than a decision lost.
+ *
+ * The one preview that survives is the restart-recovery choice, because that
+ * draft is one the author has *not* just taken and may not remember: it is shown
+ * with what it is and when it was captured before anything is done with it.
+ *
+ * Nothing here uploads.
  */
+const COMPOSE_ROUTE = "/moments/compose" as const;
 
 type ActiveAction = "camera" | "library" | "permission" | null;
 
@@ -84,19 +96,14 @@ export function CaptureScreen() {
     null,
   );
   const [continuedDraftId, setContinuedDraftId] = useState<string | null>(null);
-  const [retakingDraftId, setRetakingDraftId] = useState<string | null>(null);
 
   const draft = state.draft;
-  const needsRecoveryChoice =
+  // The only thing that still takes over this screen: a draft that survived a
+  // restart and has not yet been claimed by its author.
+  const showPreview =
     draft !== null &&
     state.draftOrigin === "restored" &&
     continuedDraftId !== draft.draftId;
-
-  // Retake returns to the live camera *without* throwing the photo away: the
-  // author asked for a different shot, not for nothing. Taking or choosing
-  // another photo replaces the draft; Discard is the control that removes it.
-  const isRetaking = draft !== null && retakingDraftId === draft.draftId;
-  const showPreview = draft !== null && !isRetaking;
 
   const cameraIsMounted =
     isFocused &&
@@ -105,7 +112,17 @@ export function CaptureScreen() {
     !showPreview &&
     !isRestoring &&
     !cameraUnavailable;
-  const cameraSession = `${isFocused}:${appState}:${showPreview ? "preview" : "capture"}:${cameraUnavailable}:${facing}`;
+  /**
+   * What "ready" was granted for.
+   *
+   * Facing is deliberately **not** part of it. `onCameraReady` fires when the
+   * capture session starts, and swapping the lens does not restart it — so
+   * clearing readiness on a flip disabled the shutter until something else
+   * remounted the view, which in practice meant leaving the tab and coming
+   * back. The session still tracks everything that genuinely does tear the
+   * camera down.
+   */
+  const cameraSession = `${isFocused}:${appState}:${showPreview ? "preview" : "capture"}:${cameraUnavailable}`;
 
   useEffect(() => {
     isMounted.current = true;
@@ -122,6 +139,7 @@ export function CaptureScreen() {
         startDraft(outcome.photo);
         setError(null);
         void AccessibilityInfo.announceForAccessibility("Photo selected");
+        router.push(COMPOSE_ROUTE);
         return;
       }
 
@@ -228,6 +246,7 @@ export function CaptureScreen() {
         if (isMounted.current) {
           startDraft(normalizedPhoto);
           void AccessibilityInfo.announceForAccessibility("Photo captured");
+          router.push(COMPOSE_ROUTE);
         }
       } catch {
         if (isMounted.current) {
@@ -251,15 +270,10 @@ export function CaptureScreen() {
     }
   };
 
-  const retake = () => {
-    if (activeAction !== null || draft === null) {
-      return;
-    }
-
-    setReadyCameraSession(null);
-    setRetakingDraftId(draft.draftId);
-    setError(null);
-    setCameraUnavailable(false);
+  const continueDraft = () => {
+    if (draft === null) return;
+    setContinuedDraftId(draft.draftId);
+    router.push(COMPOSE_ROUTE);
   };
 
   const retryCamera = () => {
@@ -311,7 +325,7 @@ export function CaptureScreen() {
           <View style={styles.previewFrame}>
             <Image
               accessibilityLabel="Photo in this Moment"
-              resizeMode="contain"
+              resizeMode="cover"
               source={{ uri: draft.photo.uri }}
               style={styles.preview}
               testID="captured-photo-preview"
@@ -319,50 +333,25 @@ export function CaptureScreen() {
           </View>
 
           <View accessibilityLiveRegion="polite" style={styles.previewMeta}>
-            <Text style={styles.previewTitle}>
-              {state.kind === "archive" ? "Archive Moment" : "Recent Moment"}
-            </Text>
             <Text style={styles.previewBody} testID="capture-evidence-label">
-              {capturedLabel === null
-                ? "Capture date unavailable. This can go to you and anyone you tag."
-                : `Taken ${capturedLabel}`}
+              {capturedLabel ?? "Capture date unavailable"}
             </Text>
           </View>
 
-          {needsRecoveryChoice ? (
-            <View accessibilityRole="alert" style={styles.recoveryCard}>
-              <Text style={styles.previewBody}>
-                You left a Moment in progress. Continue with it, or discard it
-                and start again.
-              </Text>
-              <View style={styles.previewControls}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Continue this Moment"
-                  onPress={() => setContinuedDraftId(draft.draftId)}
-                  style={styles.primaryButton}
-                >
-                  <Text style={styles.primaryLabel}>Continue</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Discard this Moment"
-                  onPress={discardDraft}
-                  style={styles.secondaryButton}
-                >
-                  <Text style={styles.secondaryLabel}>Discard</Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : (
+          <View accessibilityRole="alert" style={styles.recoveryCard}>
+            <Text style={styles.previewBody}>
+              You left a Moment in progress. Continue with it, or discard it and
+              start again.
+            </Text>
             <View style={styles.previewControls}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Retake photo"
-                onPress={retake}
-                style={styles.secondaryButton}
+                accessibilityLabel="Continue this Moment"
+                onPress={continueDraft}
+                style={styles.primaryButton}
+                testID="capture-next"
               >
-                <Text style={styles.secondaryLabel}>Retake</Text>
+                <Text style={styles.primaryLabel}>Continue</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -372,18 +361,8 @@ export function CaptureScreen() {
               >
                 <Text style={styles.secondaryLabel}>Discard</Text>
               </Pressable>
-              <Link
-                accessibilityLabel="Continue to the composer"
-                accessibilityRole="button"
-                asChild
-                href="/moments/compose"
-              >
-                <Pressable style={styles.primaryButton} testID="capture-next">
-                  <Text style={styles.primaryLabel}>Next</Text>
-                </Pressable>
-              </Link>
             </View>
-          )}
+          </View>
         </View>
       ) : cameraIsMounted ? (
         // Every control now sits in one bottom row, thumb-height, with the
@@ -440,12 +419,14 @@ export function CaptureScreen() {
             <OverlayControl
               accessibilityLabel="Flip camera"
               disabled={activeAction !== null}
-              onPress={() => {
-                setReadyCameraSession(null);
+              // The session keeps running across a lens swap, so readiness is
+              // deliberately left alone here — clearing it is what used to
+              // leave the shutter dead until the tab was left and re-entered.
+              onPress={() =>
                 setFacing((currentFacing) =>
                   currentFacing === "back" ? "front" : "back",
-                );
-              }}
+                )
+              }
               symbol="arrow.triangle.2.circlepath.camera.fill"
             />
           </View>
@@ -642,9 +623,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     width: "100%",
   },
-  preview: { aspectRatio: 4 / 5, width: "100%" },
+  preview: { aspectRatio: MOMENT_PHOTO_ASPECT, width: "100%" },
   previewMeta: { gap: spacing.xs },
-  previewTitle: { ...typeScale.heading, color: color.textInverse },
   previewBody: { ...typeScale.body, color: color.surfaceSunken },
   previewControls: {
     alignItems: "center",

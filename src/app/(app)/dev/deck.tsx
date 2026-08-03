@@ -98,6 +98,7 @@ export default function DeckHarnessRoute() {
 }
 
 const ASPECTS = [
+  { label: "iPhone portrait 3:4", ratio: 3 / 4 },
   { label: "Portrait 4:5", ratio: 4 / 5 },
   { label: "Square 1:1", ratio: 1 },
   { label: "Landscape 3:2", ratio: 3 / 2 },
@@ -113,6 +114,7 @@ const SPECIMENS = [
     captured_at: new Date().toISOString(),
     captured_utc_offset_minutes: -300,
     caption: null,
+    viewer_is_author: false,
   },
   {
     author_avatar_path: null,
@@ -124,6 +126,7 @@ const SPECIMENS = [
     caption:
       "A caption at the full one hundred and sixty code points, which is the " +
       "longest thing this card ever has to lay out without clipping a word.",
+    viewer_is_author: false,
   },
   {
     author_avatar_path: null,
@@ -132,6 +135,19 @@ const SPECIMENS = [
     captured_at: null,
     captured_utc_offset_minutes: null,
     caption: "Publication time is never shown here as capture time.",
+    viewer_is_author: false,
+  },
+  {
+    // The viewer's own Moment: the card says "You" and drops the handle, so
+    // this specimen exists to prove the row still balances without one.
+    author_avatar_path: null,
+    author_display_name: "Your Own Long Display Name",
+    author_username: "you",
+    captured_at: new Date().toISOString(),
+    captured_utc_offset_minutes: -300,
+    caption:
+      "Your own Moment reads as “You” wherever anyone else's name would.",
+    viewer_is_author: true,
   },
 ] as const;
 

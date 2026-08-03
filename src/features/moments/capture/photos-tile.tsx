@@ -1,5 +1,6 @@
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, View } from "react-native";
 
+import { Icon } from "@/components/icon";
 import { color, PHOTOS_TILE_SIZE, radius } from "@/constants/design";
 
 /**
@@ -11,6 +12,13 @@ import { color, PHOTOS_TILE_SIZE, radius } from "@/constants/design";
  * thumbnail-*shaped* Photos glyph: it looks like the affordance people expect
  * and reveals nothing. After an explicit selection it may show the current
  * draft, because that image is one the author just handed to Orca.
+ *
+ * The glyph carries the meaning on its own. It used to be three hand-drawn
+ * frames with the word "Photos" stacked under them, which at 44 points was a
+ * caption competing with the thing it captioned; a single stacked-photo symbol
+ * on the camera's scrim reads faster and leaves the tile looking like a
+ * thumbnail well. The name has not gone anywhere — it is the control's
+ * accessibility label, where a screen reader can actually use it.
  *
  * Either way, tapping it opens the scoped single-image system picker.
  */
@@ -42,12 +50,7 @@ export function PhotosTile({
     >
       {previewUri === null ? (
         <View style={styles.glyph} testID="photos-tile-glyph">
-          {/* Three offset frames read as "photos" at thumbnail size without
-              needing an icon dependency or a real library image. */}
-          <View style={[styles.glyphSheet, styles.glyphSheetBack]} />
-          <View style={[styles.glyphSheet, styles.glyphSheetMiddle]} />
-          <View style={[styles.glyphSheet, styles.glyphSheetFront]} />
-          <Text style={styles.glyphLabel}>Photos</Text>
+          <Icon name="photos" size={22} tint={color.textInverse} />
         </View>
       ) : (
         <Image
@@ -75,28 +78,4 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.5 },
   preview: { height: "100%", width: "100%" },
   glyph: { alignItems: "center", flex: 1, justifyContent: "center" },
-  glyphSheet: {
-    borderColor: color.textInverse,
-    borderRadius: 3,
-    borderWidth: 1.5,
-    height: 20,
-    position: "absolute",
-    width: 20,
-  },
-  glyphSheetBack: {
-    opacity: 0.4,
-    transform: [{ translateX: -6 }, { translateY: -10 }],
-  },
-  glyphSheetMiddle: {
-    opacity: 0.7,
-    transform: [{ translateX: -2 }, { translateY: -8 }],
-  },
-  glyphSheetFront: { transform: [{ translateX: 2 }, { translateY: -6 }] },
-  glyphLabel: {
-    bottom: 4,
-    color: color.textInverse,
-    fontSize: 10,
-    fontWeight: "700",
-    position: "absolute",
-  },
 });

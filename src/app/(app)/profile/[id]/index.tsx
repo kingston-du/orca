@@ -22,6 +22,7 @@ export default function FriendProfileRoute() {
       onOpenFriends={(profileId) =>
         router.push(`/profile/${profileId}/friends`)
       }
+      onOpenMoment={(momentId) => router.push(`/moments/${momentId}`)}
       onOpenSharedMoments={(profileId) =>
         router.push(`/profile/${profileId}/shared`)
       }

@@ -15,7 +15,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { Icon } from "@/components/icon";
 import { ProfileAvatar } from "@/components/profile-avatar";
+import { ScreenHeader } from "@/components/screen-header";
 import {
   MINIMUM_TOUCH_TARGET,
   color,
@@ -26,9 +28,8 @@ import {
 import { MAX_CAPTION_CHARACTERS } from "@/constants/moments";
 import { useAuth } from "@/features/auth/auth-provider";
 import {
-  formatExactCaptureTime,
-  formatFriendlyCaptureTime,
-  formatSharedTime,
+  formatDetailedCaptureTime,
+  formatSharedDate,
 } from "@/features/moments/capture-time";
 import {
   getMomentDetail,
@@ -36,15 +37,12 @@ import {
   removeMomentTag,
   type MomentDetail,
 } from "@/features/moments/detail/detail-api";
-import {
-  captionCharactersRemaining,
-  normalizeCaption,
-} from "@/features/moments/composer/caption";
-import { usePhotoFrameSize } from "@/features/moments/feed/moment-photo";
+import { normalizeCaption } from "@/features/moments/composer/caption";
 import {
   useMomentMediaPurge,
   useMomentMediaUrl,
 } from "@/features/moments/media/signed-media";
+import { photoAspectRatio } from "@/features/moments/photo-aspect";
 import {
   deleteMoment,
   editMomentCaption,
@@ -133,38 +131,47 @@ export function MomentDetailScreen({
 
   if (detail.isPending) {
     return (
-      <SafeAreaView style={styles.centred}>
-        <ActivityIndicator accessibilityLabel="Loading Moment" size="large" />
+      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+        <ScreenHeader onBack={onClose} />
+        <View style={styles.centredBody}>
+          <ActivityIndicator accessibilityLabel="Loading Moment" size="large" />
+        </View>
       </SafeAreaView>
     );
   }
 
   if (detail.isError) {
     return (
-      <SafeAreaView style={styles.centred}>
-        <Text accessibilityRole="header" style={styles.title}>
-          Couldn’t load this Moment
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => void detail.refetch()}
-          style={styles.secondaryAction}
-        >
-          <Text style={styles.secondaryLabel}>Try again</Text>
-        </Pressable>
+      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+        <ScreenHeader onBack={onClose} />
+        <View style={styles.centredBody}>
+          <Text accessibilityRole="header" style={styles.title}>
+            Couldn’t load this Moment
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void detail.refetch()}
+            style={styles.secondaryAction}
+          >
+            <Text style={styles.secondaryLabel}>Try again</Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
     );
   }
 
   if (!detail.data) {
     return (
-      <SafeAreaView style={styles.centred}>
-        <Text accessibilityRole="header" style={styles.title}>
-          Moment no longer available
-        </Text>
-        <Text style={styles.body}>
-          It may have been deleted, or it may no longer be shared with you.
-        </Text>
+      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+        <ScreenHeader onBack={onClose} />
+        <View style={styles.centredBody}>
+          <Text accessibilityRole="header" style={styles.title}>
+            Moment no longer available
+          </Text>
+          <Text style={styles.body}>
+            It may have been deleted, or it may no longer be shared with you.
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -172,11 +179,60 @@ export function MomentDetailScreen({
   const moment = detail.data;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content}>
+    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      {/* Detail is reachable from a card, a history tile, and a cold deep link,
+       * and only one of those three gives iOS a swipe-back edge to offer. The
+       * chevron is the one way out that is present in all of them.
+       *
+       * The single destructive action this viewer has over this Moment sits
+       * opposite it, as a glyph: a trash can for the author, a red flag for
+       * everyone else. Neither is ever both, so the corner is never ambiguous,
+       * and each carries its full sentence as an accessibility label. */}
+      <ScreenHeader
+        onBack={onClose}
+        trailing={
+          moment.viewer_is_author ? (
+            <IconAction
+              hint="Removes the photo for everyone it was shared with"
+              label="Delete this Moment"
+              name="trash"
+              onPress={() =>
+                confirmThen(
+                  "Delete this Moment?",
+                  "The photo is removed for everyone it was shared with. This cannot be undone.",
+                  "Delete",
+                  () => remove.mutate(),
+                )
+              }
+              tint={color.criticalText}
+            />
+          ) : (
+            <IconAction
+              hint="Sends this Moment to Orca’s safety operator for review"
+              label="Report this Moment"
+              name="flag"
+              onPress={() =>
+                onReport(moment.moment_id, moment.author_display_name)
+              }
+              tint={color.criticalText}
+            />
+          )
+        }
+      />
+      <ScrollView
+        automaticallyAdjustKeyboardInsets
+        contentContainerStyle={styles.content}
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
+        testID="moment-detail-scroll"
+      >
         <Pressable
           accessibilityHint="Opens this profile"
-          accessibilityLabel={`${moment.author_display_name}, @${moment.author_username}`}
+          accessibilityLabel={
+            moment.viewer_is_author
+              ? "You"
+              : `${moment.author_display_name}, @${moment.author_username}`
+          }
           accessibilityRole="button"
           onPress={() => onOpenProfile(moment.author_id)}
           style={styles.authorRow}
@@ -187,8 +243,12 @@ export function MomentDetailScreen({
             size={44}
           />
           <View style={styles.authorNames}>
-            <Text style={styles.displayName}>{moment.author_display_name}</Text>
-            <Text style={styles.body}>@{moment.author_username}</Text>
+            <Text style={styles.displayName}>
+              {moment.viewer_is_author ? "You" : moment.author_display_name}
+            </Text>
+            {moment.viewer_is_author ? null : (
+              <Text style={styles.body}>@{moment.author_username}</Text>
+            )}
           </View>
         </Pressable>
 
@@ -196,12 +256,12 @@ export function MomentDetailScreen({
 
         <DetailPhoto
           authorDisplayName={moment.author_display_name}
+          mediaHeight={moment.media_height}
+          mediaWidth={moment.media_width}
           objectPath={moment.object_path}
         />
 
-        {moment.caption ? (
-          <Text style={styles.caption}>{moment.caption}</Text>
-        ) : null}
+        <MomentCaption moment={moment} onSaved={invalidateEverywhere} />
 
         <ReactionBar
           canReact={moment.can_react}
@@ -223,7 +283,7 @@ export function MomentDetailScreen({
         {participants.data && participants.data.length > 0 ? (
           <View style={styles.section}>
             <Text accessibilityRole="header" style={styles.sectionTitle}>
-              Also in this Moment
+              In this Moment
             </Text>
             {participants.data.map((person) => (
               <Pressable
@@ -243,21 +303,6 @@ export function MomentDetailScreen({
               </Pressable>
             ))}
           </View>
-        ) : null}
-
-        {moment.viewer_is_author ? (
-          <AuthorActions
-            moment={moment}
-            onDelete={() =>
-              confirmThen(
-                "Delete this Moment?",
-                "The photo is removed for everyone it was shared with. This cannot be undone.",
-                "Delete",
-                () => remove.mutate(),
-              )
-            }
-            onSaved={invalidateEverywhere}
-          />
         ) : null}
 
         {moment.viewer_is_tagged ? (
@@ -288,19 +333,6 @@ export function MomentDetailScreen({
           </Pressable>
         ) : null}
 
-        {!moment.viewer_is_author ? (
-          <Pressable
-            accessibilityHint="Sends this Moment to Orca’s safety operator for review"
-            accessibilityRole="button"
-            onPress={() =>
-              onReport(moment.moment_id, moment.author_display_name)
-            }
-            style={styles.dangerAction}
-          >
-            <Text style={styles.dangerLabel}>Report this Moment</Text>
-          </Pressable>
-        ) : null}
-
         {removeSelf.isError || remove.isError ? (
           <Text accessibilityLiveRegion="polite" style={styles.errorText}>
             That didn’t work. Refresh and try again.
@@ -326,19 +358,18 @@ function CaptureLine({ moment }: { moment: MomentDetail }) {
       <View style={styles.timeBlock}>
         <Text style={styles.captureTime}>Capture date unavailable</Text>
         <Text style={styles.body}>
-          Shared {formatSharedTime(moment.published_at) ?? "at an unknown time"}
+          Shared {formatSharedDate(moment.published_at) ?? "on an unknown date"}
         </Text>
       </View>
     );
   }
 
-  const exact = formatExactCaptureTime(capturedAt, offset);
-  const friendly = formatFriendlyCaptureTime(capturedAt, offset, new Date());
+  const detailed = formatDetailedCaptureTime(capturedAt, offset, new Date());
 
   return (
     <View style={styles.timeBlock}>
-      <Text accessibilityLabel={exact ?? undefined} style={styles.captureTime}>
-        {friendly ?? "Capture date unavailable"}
+      <Text style={styles.captureTime}>
+        {detailed ?? "Capture date unavailable"}
       </Text>
     </View>
   );
@@ -346,18 +377,28 @@ function CaptureLine({ moment }: { moment: MomentDetail }) {
 
 function DetailPhoto({
   authorDisplayName,
+  mediaHeight,
+  mediaWidth,
   objectPath,
 }: {
   authorDisplayName: string;
+  mediaHeight: number;
+  mediaWidth: number;
   objectPath: string;
 }) {
   const { user } = useAuth();
   const { width } = useWindowDimensions();
-  const frame = usePhotoFrameSize(width - spacing.lg * 2);
+  const frameWidth = width - spacing.lg * 2;
+  // Detail scrolls, so it can show the verified natural aspect instead of
+  // inheriting Home's stable-height presentation crop.
+  const frame = {
+    height: frameWidth / photoAspectRatio(mediaWidth, mediaHeight),
+    width: frameWidth,
+  };
   const signed = useMomentMediaUrl(user?.id, objectPath, true);
 
   return (
-    <View style={[styles.photoFrame, frame]}>
+    <View style={[styles.photoFrame, frame]} testID="detail-photo-frame">
       {signed.data ? (
         <Image
           accessibilityIgnoresInvertColors
@@ -379,24 +420,59 @@ function DetailPhoto({
   );
 }
 
+/** One glyph, one job, one sentence for the screen reader. */
+function IconAction({
+  hint,
+  label,
+  name,
+  onPress,
+  tint,
+}: {
+  hint: string;
+  label: string;
+  name: "flag" | "trash";
+  onPress: () => void;
+  tint: string;
+}) {
+  return (
+    <Pressable
+      accessibilityHint={hint}
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      hitSlop={spacing.sm}
+      onPress={onPress}
+      style={({ pressed }) => [styles.iconAction, pressed && styles.dim]}
+      testID={`moment-${name}`}
+    >
+      <Icon name={name} size={20} tint={tint} />
+    </Pressable>
+  );
+}
+
 /**
- * The author's caption editor.
+ * The caption, and the author's edit of it, in one place under the photo.
  *
- * `caption_updated_at` is the optimistic-concurrency version: it is sent back
- * with the edit, and a device holding a stale one is refused rather than
- * allowed to overwrite a change it never saw.
+ * Editing used to be a permanently open "Caption" form at the foot of the
+ * screen — a text field, a counter, and a Save button that every reader of the
+ * Moment scrolled past whether or not they could use them, and which showed the
+ * caption twice to the one person who could. Now the caption is a caption, and
+ * for its author a pencil beside it turns it into a field.
+ *
+ * `caption_updated_at` remains the optimistic-concurrency version: it is sent
+ * back with the edit, and a device holding a stale one is refused rather than
+ * allowed to overwrite a change it never saw. Cancelling restores whatever the
+ * server last said, not whatever was typed.
  */
-function AuthorActions({
+function MomentCaption({
   moment,
-  onDelete,
   onSaved,
 }: {
   moment: MomentDetail;
-  onDelete: () => void;
   onSaved: () => Promise<void>;
 }) {
+  const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(moment.caption ?? "");
-  const remaining = captionCharactersRemaining(draft);
+
   const validation = normalizeCaption(draft);
   const changed =
     (validation.ok ? validation.caption : draft) !== moment.caption;
@@ -408,59 +484,96 @@ function AuthorActions({
         expectedCaptionUpdatedAt: moment.caption_updated_at,
         momentId: moment.moment_id,
       }),
-    onSuccess: onSaved,
+    onSuccess: async () => {
+      setEditing(false);
+      await onSaved();
+    },
   });
+
+  if (!moment.viewer_is_author) {
+    return moment.caption ? (
+      <Text style={styles.caption}>{moment.caption}</Text>
+    ) : null;
+  }
+
+  if (!editing) {
+    return (
+      <View style={styles.captionRow}>
+        <Text
+          style={moment.caption ? styles.caption : styles.captionPlaceholder}
+        >
+          {moment.caption ?? "Add a caption"}
+        </Text>
+        <Pressable
+          accessibilityHint="Lets you rewrite this Moment’s caption"
+          accessibilityLabel="Edit caption"
+          accessibilityRole="button"
+          hitSlop={spacing.sm}
+          onPress={() => {
+            setDraft(moment.caption ?? "");
+            setEditing(true);
+          }}
+          style={({ pressed }) => [styles.iconAction, pressed && styles.dim]}
+          testID="edit-caption"
+        >
+          <Icon name="edit" size={16} tint={color.textSecondary} />
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.section}>
-      <Text accessibilityRole="header" style={styles.sectionTitle}>
-        Caption
-      </Text>
       <TextInput
         accessibilityLabel="Caption"
+        autoFocus
         editable={!save.isPending}
+        // The same hard cap the composer uses, for the same reason: a field the
+        // author cannot overfill never needs to explain that they have.
+        maxLength={MAX_CAPTION_CHARACTERS}
         multiline
         onChangeText={setDraft}
         placeholder="Say something about this Moment"
+        placeholderTextColor={color.textSecondary}
         style={styles.captionInput}
         value={draft}
       />
-      <Text style={styles.body}>
-        {remaining < 0
-          ? `${-remaining} characters over the ${MAX_CAPTION_CHARACTERS} limit`
-          : `${remaining} characters left`}
-      </Text>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{
-          disabled: !changed || !validation.ok || save.isPending,
-        }}
-        disabled={!changed || !validation.ok || save.isPending}
-        onPress={() => save.mutate()}
-        style={({ pressed }) => [
-          styles.primaryAction,
-          pressed && styles.primaryActionPressed,
-          (!changed || !validation.ok) && styles.actionDisabled,
-        ]}
-      >
-        <Text style={styles.primaryLabel}>Save caption</Text>
-      </Pressable>
+      <View style={styles.captionActions}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{
+            disabled: !changed || !validation.ok || save.isPending,
+          }}
+          disabled={!changed || !validation.ok || save.isPending}
+          onPress={() => save.mutate()}
+          style={({ pressed }) => [
+            styles.primaryAction,
+            pressed && styles.primaryActionPressed,
+            (!changed || !validation.ok) && styles.actionDisabled,
+          ]}
+          testID="save-caption"
+        >
+          <Text style={styles.primaryLabel}>Save</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          disabled={save.isPending}
+          onPress={() => {
+            setDraft(moment.caption ?? "");
+            setEditing(false);
+          }}
+          style={styles.secondaryAction}
+        >
+          <Text style={styles.secondaryLabel}>Cancel</Text>
+        </Pressable>
+      </View>
 
       {save.isError ? (
         <Text accessibilityLiveRegion="polite" style={styles.errorText}>
           {captionFailureMessage(save.error)}
         </Text>
       ) : null}
-
-      <Pressable
-        accessibilityHint="Removes the photo for everyone it was shared with"
-        accessibilityRole="button"
-        onPress={onDelete}
-        style={styles.dangerAction}
-      >
-        <Text style={styles.dangerLabel}>Delete Moment</Text>
-      </Pressable>
     </View>
   );
 }
@@ -519,7 +632,18 @@ const styles = StyleSheet.create({
     minHeight: MINIMUM_TOUCH_TARGET,
   },
   body: { ...typeScale.caption, color: color.textSecondary },
-  caption: { ...typeScale.body, color: color.textPrimary },
+  caption: { ...typeScale.body, color: color.textPrimary, flex: 1 },
+  captionActions: { flexDirection: "row", gap: spacing.sm },
+  captionPlaceholder: {
+    ...typeScale.body,
+    color: color.textSecondary,
+    flex: 1,
+  },
+  captionRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
   captionInput: {
     ...typeScale.body,
     backgroundColor: color.surface,
@@ -531,27 +655,23 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   captureTime: { ...typeScale.label, color: color.textPrimary },
-  centred: {
+  centredBody: {
     alignItems: "center",
-    backgroundColor: color.canvas,
     flex: 1,
     gap: spacing.md,
     justifyContent: "center",
     padding: spacing.xl,
   },
   content: { gap: spacing.lg, padding: spacing.lg, paddingBottom: spacing.xxl },
-  dangerAction: {
-    alignItems: "center",
-    borderColor: color.criticalText,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: MINIMUM_TOUCH_TARGET,
-    paddingHorizontal: spacing.xl,
-  },
-  dangerLabel: { ...typeScale.label, color: color.criticalText },
+  dim: { opacity: 0.6 },
   displayName: { ...typeScale.label, color: color.textPrimary },
   errorText: { ...typeScale.caption, color: color.criticalText },
+  iconAction: {
+    alignItems: "center",
+    height: MINIMUM_TOUCH_TARGET,
+    justifyContent: "center",
+    width: MINIMUM_TOUCH_TARGET,
+  },
   participantRow: {
     alignItems: "center",
     flexDirection: "row",

@@ -30,7 +30,6 @@ import {
   MAX_SELECTED_RECIPIENTS,
 } from "@/constants/moments";
 import { formatCaptureLocalTime } from "@/features/moments/capture/capture-evidence";
-import { captionCharactersRemaining } from "@/features/moments/composer/caption";
 import {
   lockedRecipientIds,
   validateComposer,
@@ -44,6 +43,7 @@ import {
   type PickerMode,
 } from "@/features/moments/composer/friend-picker-sheet";
 import type { ComposerAudience } from "@/features/moments/composer/moment-draft";
+import { photoAspectRatio } from "@/features/moments/photo-aspect";
 import {
   canCancelPublish,
   isPublishInFlight,
@@ -167,7 +167,6 @@ export function ComposerScreen({
   const isSelected = !isArchive && draft.audience === "selected_friends";
   // Only Me cannot tag. Archive has no audience control but does keep tags.
   const canTag = isArchive || draft.audience !== "only_me";
-  const remaining = captionCharactersRemaining(draft.caption);
   const publishing = isPublishInFlight(publish.state);
   const publishMessage = publishStatusMessage(publish.state);
   const uploading = publish.state.status === "uploading";
@@ -189,11 +188,30 @@ export function ComposerScreen({
         }
       />
 
+      {/* The caption is the one field on this screen, and it sits below a photo
+       * that takes most of the height — so without this the keyboard came up
+       * over the words being typed. `automaticallyAdjustKeyboardInsets` lets
+       * iOS inset and scroll the content by the exact keyboard frame, which is
+       * correct through the interactive dismiss gesture and a hardware keyboard
+       * alike in a way a fixed `KeyboardAvoidingView` offset is not. */}
       <ScrollView
+        automaticallyAdjustKeyboardInsets
         contentContainerStyle={styles.content}
+        keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.photoFrame}>
+        <View
+          style={[
+            styles.photoFrame,
+            {
+              aspectRatio: photoAspectRatio(
+                draft.photo.width,
+                draft.photo.height,
+              ),
+            },
+          ]}
+          testID="composer-photo-frame"
+        >
           <Image
             accessibilityLabel="Photo in this Moment"
             resizeMode="contain"
@@ -216,18 +234,20 @@ export function ComposerScreen({
           ) : null}
         </View>
 
+        {/* When the photo was taken, and nothing else. The classification used
+         * to be repeated here as a title, but an Archive Moment already says
+         * what it is in the sentence below the audience control, and a
+         * "Recent Moment" label above a screen the author reached by taking a
+         * photo a second ago was telling them something they knew. Announced
+         * without stealing focus, because a photo that ages past the Recent
+         * boundary while the composer is open changes this line. */}
         <Text
-          // Announced without stealing focus: the classification changes what
-          // the author is allowed to choose, so it must be spoken, not shown.
           accessibilityLiveRegion="polite"
           style={styles.meta}
           testID="composer-capture-label"
         >
-          {isArchive ? "Archive Moment" : "Recent Moment"}
-          {" · "}
-          {capturedLabel === null
-            ? "Capture date unavailable, so this stays out of your friends’ Home."
-            : `Taken ${capturedLabel}`}
+          {capturedLabel ??
+            "Capture date unavailable, so this stays out of your friends’ Home."}
         </Text>
 
         {state.status === "needs_review" ? (
@@ -245,31 +265,31 @@ export function ComposerScreen({
           />
         ) : null}
 
-        <View style={styles.captionBlock}>
-          <TextInput
-            accessibilityLabel="Caption"
-            accessibilityHint={`Up to ${MAX_CAPTION_CHARACTERS} characters`}
-            maxLength={MAX_CAPTION_CHARACTERS * 2}
-            multiline
-            onChangeText={(caption) =>
-              dispatch({ type: "caption_changed", caption })
-            }
-            placeholder="Add a caption…"
-            placeholderTextColor={color.textSecondary}
-            style={styles.captionInput}
-            testID="composer-caption"
-            value={draft.caption}
-          />
-          <Text
-            style={
-              remaining < 0 ? styles.captionCountOver : styles.captionCount
-            }
-          >
-            {remaining < 0
-              ? `${Math.abs(remaining)} characters over the limit`
-              : `${remaining} characters left`}
-          </Text>
-        </View>
+        {/* No running character count. The field simply stops accepting
+         * characters at the limit, which is the same information delivered by
+         * the thing the author is already looking at — and a counter that only
+         * matters in the last few characters of a caption most people never
+         * reach was a permanent piece of arithmetic on the screen.
+         *
+         * `maxLength` counts UTF-16 units while the contract counts code
+         * points, and a code point is never *more* than one unit — so capping
+         * the field at the limit guarantees a caption the reducer will accept,
+         * and publication can never be blocked by a length the author cannot
+         * see. */}
+        <TextInput
+          accessibilityLabel="Caption"
+          accessibilityHint={`Up to ${MAX_CAPTION_CHARACTERS} characters`}
+          maxLength={MAX_CAPTION_CHARACTERS}
+          multiline
+          onChangeText={(caption) =>
+            dispatch({ type: "caption_changed", caption })
+          }
+          placeholder="Add a caption…"
+          placeholderTextColor={color.textSecondary}
+          style={styles.captionInput}
+          testID="composer-caption"
+          value={draft.caption}
+        />
 
         {isArchive ? (
           <Text style={styles.meta} testID="composer-archive-explanation">
@@ -311,7 +331,7 @@ export function ComposerScreen({
 
         {canTag ? (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Who’s here?</Text>
+            <Text style={styles.sectionLabel}>Tagged</Text>
             <View style={styles.faceRow}>
               {taggedFriends.map((friend) => (
                 <View
@@ -417,17 +437,28 @@ export function ComposerScreen({
       </ScrollView>
 
       {/* Pinned rather than scrolled: the design puts one unmissable action at
-       * the foot of the screen, and a Publish button that can scroll out of
-       * reach is the one control that must never do so. */}
+       * the foot of the screen, and the control that shares the Moment is the
+       * one that must never scroll out of reach.
+       *
+       * It is a send arrow rather than the word "Publish". The screen has
+       * exactly one forward action and the arrow is unambiguous about which
+       * direction it goes; the word survives as the accessibility label, and
+       * publishing in progress falls back to words because a spinner beside a
+       * glyph says nothing about what is being spun over. */}
       <View style={styles.footer}>
         <AppButton
           accessibilityLabel="Share this Moment"
           busy={publishing}
           disabled={!canPublish}
-          label={publishing ? "Publishing…" : "Publish"}
+          label={publishing ? "Publishing…" : ""}
           onPress={publish.publish}
+          style={styles.publishButton}
           testID="composer-publish"
-        />
+        >
+          {publishing ? null : (
+            <Icon name="send" size={22} tint={color.textInverse} />
+          )}
+        </AppButton>
       </View>
 
       <FriendPickerSheet
@@ -461,9 +492,6 @@ const styles = StyleSheet.create({
     width: 36,
   },
   addFacePressed: { backgroundColor: color.fillSubtle },
-  captionBlock: { gap: spacing.sm },
-  captionCount: { ...typeScale.caption, color: color.textSecondary },
-  captionCountOver: { ...typeScale.caption, color: color.criticalText },
   captionInput: {
     ...typeScale.cardBody,
     color: color.textPrimary,
@@ -502,9 +530,8 @@ const styles = StyleSheet.create({
   meta: { ...typeScale.caption, color: color.textSecondary },
   photo: { height: "100%", width: "100%" },
   photoFrame: {
-    // A fixed container with a neutral backing keeps arbitrary aspect ratios
-    // legible without cropping the author's photo.
-    aspectRatio: 4 / 5,
+    // The scrollable composer uses the photo's real geometry, so `contain`
+    // preserves the entire composition without creating side rails.
     backgroundColor: color.photoBacking,
     borderRadius: radius.md,
     overflow: "hidden",
@@ -525,6 +552,7 @@ const styles = StyleSheet.create({
     right: spacing.lg,
   },
   publishBlock: { gap: spacing.md },
+  publishButton: { alignSelf: "stretch" },
   publishError: { ...typeScale.cardBody, color: color.criticalText },
   section: { gap: spacing.md },
   sectionLabel: { ...typeScale.sectionLabel, color: color.textSecondary },

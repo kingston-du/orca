@@ -93,10 +93,28 @@ describe("PeopleScreen", () => {
     const user = userEvent.setup();
     const screen = await renderPeople();
     await openAddFriend(screen, user);
-    await user.type(screen.getByLabelText("Friend’s username"), "??");
-    await user.press(screen.getByText("Search"));
+    // The keyboard's return key is the only way to submit now; the duplicate
+    // Search button below the field is gone.
+    await user.type(screen.getByLabelText("Friend’s username"), "??", {
+      submitEditing: true,
+    });
     expect(screen.getByText("Enter an exact Orca username.")).toBeOnTheScreen();
     expect(lookupProfileExact).not.toHaveBeenCalled();
+  });
+
+  test("keeps the search sheet anchored while its body avoids the keyboard", async () => {
+    const user = userEvent.setup();
+    const screen = await renderPeople();
+    await openAddFriend(screen, user);
+
+    expect(screen.getByTestId("add-friend-scroll")).toHaveProp(
+      "automaticallyAdjustKeyboardInsets",
+      true,
+    );
+    expect(screen.getByTestId("add-friend-scroll")).toHaveProp(
+      "keyboardDismissMode",
+      "interactive",
+    );
   });
 
   test("searches an exact username and sends one idempotent command", async () => {
@@ -112,8 +130,9 @@ describe("PeopleScreen", () => {
     const user = userEvent.setup();
     const screen = await renderPeople();
     await openAddFriend(screen, user);
-    await user.type(screen.getByLabelText("Friend’s username"), "Bob");
-    await user.press(screen.getByText("Search"));
+    await user.type(screen.getByLabelText("Friend’s username"), "Bob", {
+      submitEditing: true,
+    });
     await user.press(await screen.findByText("Add"));
     await waitFor(() =>
       expect(runFriendOperation).toHaveBeenCalledWith(

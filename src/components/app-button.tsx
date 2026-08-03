@@ -25,6 +25,11 @@ type AppButtonProps = {
   busy?: boolean;
   children?: ReactNode;
   disabled?: boolean;
+  /**
+   * The word on the button. Empty means the button is its icon alone — pass
+   * `children` and an `accessibilityLabel` in that case, because a control with
+   * no name is unreachable by voice control and unreadable by VoiceOver.
+   */
   label: string;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
@@ -83,7 +88,9 @@ export function AppButton({
       ) : (
         <>
           {children}
-          <Text style={[styles.label, LABELS[variant]]}>{label}</Text>
+          {label ? (
+            <Text style={[styles.label, LABELS[variant]]}>{label}</Text>
+          ) : null}
         </>
       )}
     </Pressable>

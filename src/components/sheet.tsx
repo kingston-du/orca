@@ -1,13 +1,24 @@
 import type { ReactNode } from "react";
+
 import {
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from "react-native-gesture-handler";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/components/icon";
@@ -27,6 +38,24 @@ type SheetProps = {
 };
 
 /**
+ * How much of the screen the sheet occupies when it opens, and how much it can
+ * be dragged up to.
+ *
+ * The resting height is the one that matters: a sheet that opens showing three
+ * rows of a fifty-name list is a sheet the author has to fight before they can
+ * use it. It opens most of the way up, and the remaining travel exists so a
+ * long list can have the whole screen when someone asks for it.
+ */
+const RESTING_FRACTION = 0.72;
+const EXPANDED_FRACTION = 0.94;
+
+/** How far past the resting position a downward drag has to go to dismiss. */
+const DISMISS_TRAVEL = 96;
+
+/** Past this speed the flick decides, not the distance. */
+const DECIDING_VELOCITY = 500;
+
+/**
  * A bottom sheet built on the React Native `Modal` already in the app.
  *
  * A sheet library would be a native dependency and a rebuild gate for one
@@ -34,10 +63,20 @@ type SheetProps = {
  * result. The scrim is a real button so a pointer user can dismiss by tapping
  * away, while `accessibilityViewIsModal` keeps VoiceOver inside the sheet —
  * without it the reader wanders back into the screen underneath.
+ *
+ * The sheet is laid out at its **expanded** height and translated down to its
+ * resting position, so dragging is a transform on the UI thread rather than a
+ * height animation that would re-lay-out a fifty-row list every frame. Dragging
+ * is deliberately confined to the grabber and title row: the body holds a
+ * scrolling list, and a pan that competed with it would make the list feel
+ * broken in service of a gesture the grabber already advertises.
+ *
+ * None of this is the only way to do anything it does. The close button
+ * dismisses, the scrim dismisses, and the list scrolls to its own end whether
+ * or not the sheet was ever dragged — so a viewer who cannot make the drag
+ * loses nothing but a few centimetres of list.
  */
 export function Sheet({ children, onClose, title, visible }: SheetProps) {
-  const insets = useSafeAreaInsets();
-
   return (
     <Modal
       animationType="slide"
@@ -47,24 +86,95 @@ export function Sheet({ children, onClose, title, visible }: SheetProps) {
       transparent
       visible={visible}
     >
-      <View style={styles.root}>
-        <Pressable
-          accessibilityLabel="Close"
-          accessibilityRole="button"
-          onPress={onClose}
-          style={styles.scrim}
-          testID="sheet-scrim"
-        />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.lift}
-        >
+      {/* Mounted per presentation rather than kept alive behind a hidden modal.
+       * That is what makes every opening start from the resting position: the
+       * drag offset is born there, instead of being reset by an effect that
+       * would let a sheet the viewer had expanded come back expanded — the app
+       * appearing to remember something it did not. */}
+      {visible ? (
+        <SheetBody onClose={onClose} title={title}>
+          {children}
+        </SheetBody>
+      ) : null}
+    </Modal>
+  );
+}
+
+function SheetBody({ children, onClose, title }: Omit<SheetProps, "visible">) {
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+
+  const sheetHeight = height * EXPANDED_FRACTION;
+  const restingOffset = height * (EXPANDED_FRACTION - RESTING_FRACTION);
+
+  const offset = useSharedValue(restingOffset);
+  const dragStart = useSharedValue(restingOffset);
+
+  const drag = Gesture.Pan()
+    .onBegin(() => {
+      dragStart.value = offset.value;
+    })
+    .onUpdate((event) => {
+      const next = dragStart.value + event.translationY;
+      // Upward travel stops dead at the expanded position; downward is allowed
+      // to overshoot, because that overshoot is the dismiss gesture.
+      offset.value = Math.max(0, next);
+    })
+    .onEnd((event) => {
+      if (
+        offset.value > restingOffset + DISMISS_TRAVEL ||
+        event.velocityY > DECIDING_VELOCITY
+      ) {
+        runOnJS(onClose)();
+        return;
+      }
+
+      const settled =
+        event.velocityY < -DECIDING_VELOCITY
+          ? 0
+          : offset.value < restingOffset / 2
+            ? 0
+            : restingOffset;
+      offset.value = withTiming(settled, { duration: 180 });
+    });
+
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: offset.value }],
+  }));
+
+  return (
+    // A modal is its own native view hierarchy, so the gesture root has to be
+    // inside it rather than at the app's root.
+    <GestureHandlerRootView style={styles.root}>
+      <Pressable
+        accessibilityLabel="Close"
+        accessibilityRole="button"
+        onPress={onClose}
+        style={styles.scrim}
+        testID="sheet-scrim"
+      />
+      {/* Keep the sheet anchored when a field focuses. Lifting this already-
+       * translated panel by the keyboard height sends its top beyond the
+       * viewport; the scrolling body owns keyboard insets instead. */}
+      <Animated.View
+        accessibilityViewIsModal
+        style={[
+          styles.sheet,
+          { height: sheetHeight },
+          sheetStyle,
+          // The sheet's foot is dragged below the screen at rest, so the
+          // home-indicator inset has to be paid twice: once for the part
+          // that is off screen and once for the part that is not.
+          { paddingBottom: Math.max(insets.bottom, spacing.xl) },
+        ]}
+      >
+        <GestureDetector gesture={drag}>
           <View
-            accessibilityViewIsModal
-            style={[
-              styles.sheet,
-              { paddingBottom: Math.max(insets.bottom, spacing.xl) },
-            ]}
+            accessibilityHint="Drag up to see more"
+            accessibilityLabel="Resize this sheet"
+            accessibilityRole="adjustable"
+            style={styles.handleArea}
+            testID="sheet-handle"
           >
             <View style={styles.grabber} />
             <View style={styles.header}>
@@ -85,15 +195,16 @@ export function Sheet({ children, onClose, title, visible }: SheetProps) {
                 <Icon name="close" size={18} tint={color.textSecondary} />
               </Pressable>
             </View>
-            {children}
           </View>
-        </KeyboardAvoidingView>
-      </View>
-    </Modal>
+        </GestureDetector>
+        <View style={styles.body}>{children}</View>
+      </Animated.View>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  body: { flex: 1, gap: spacing.lg, paddingTop: spacing.lg },
   close: {
     alignItems: "center",
     height: MINIMUM_TOUCH_TARGET,
@@ -110,13 +221,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     width: 36,
   },
+  handleArea: { paddingTop: spacing.md },
   header: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
     minHeight: MINIMUM_TOUCH_TARGET,
   },
-  lift: { justifyContent: "flex-end" },
   root: { flex: 1, justifyContent: "flex-end" },
   scrim: {
     backgroundColor: "rgba(23, 24, 26, 0.35)",
@@ -130,10 +241,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.canvas,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
-    gap: spacing.lg,
-    maxHeight: "88%",
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
   },
   title: { ...typeScale.heading, color: color.textPrimary },
 });

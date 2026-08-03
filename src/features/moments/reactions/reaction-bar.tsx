@@ -27,6 +27,7 @@ import {
   useReactionQuota,
   useSetReaction,
 } from "@/features/moments/reactions/use-reactions";
+import { hapticReaction, hapticSuperheart } from "@/lib/haptics";
 import { useReducedMotion } from "@/lib/use-reduced-motion";
 
 const GLYPH_SIZE = 22;
@@ -71,11 +72,16 @@ export function ReactionBar({
   // could say.
   const remaining = quota.data?.usesRemaining;
 
-  const react = (tapped: ReactionType) =>
-    setReaction.mutate({
-      desired: desiredReaction(summary.viewerReaction, tapped),
-      summary,
-    });
+  const react = (tapped: ReactionType) => {
+    const desired = desiredReaction(summary.viewerReaction, tapped);
+    // Fired on the intent, not on the server's answer. The optimistic cache
+    // already flips the control under the thumb, so the tap and the feedback
+    // belong to the same instant; a refusal is reported in words below, which
+    // is where a refusal belongs.
+    if (desired === "superheart") hapticSuperheart();
+    else hapticReaction();
+    setReaction.mutate({ desired, summary });
+  };
 
   return (
     // On a card the row is reversed so the count sits to the *right* of the two

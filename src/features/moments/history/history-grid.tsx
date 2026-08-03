@@ -158,7 +158,12 @@ export function HistoryGrid({
   );
 }
 
-function HistoryTile({
+/**
+ * One tile. Exported because a friend's profile shows a handful of the same
+ * tiles above the link into the full grid, and a second implementation would be
+ * a second place for the signed-URL lifetime and the accessible label to drift.
+ */
+export function HistoryTile({
   moment,
   onPress,
   size,

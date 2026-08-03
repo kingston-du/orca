@@ -20,6 +20,7 @@ function moment(id: string): DeckMoment {
     object_path: `author-${id}/${id}/media.jpg`,
     heart_count: 0,
     superheart_count: 0,
+    viewer_is_author: false,
     viewer_reaction: null,
     canReact: true,
   };
@@ -82,14 +83,25 @@ describe("moving through time", () => {
     expect(newerId(deckAt("b"))).toBe("a");
   });
 
-  it("stops at the newest and the oldest ends", () => {
-    expect(newerId(deckAt("a"))).toBeNull();
-    expect(olderId(deckAt("c"))).toBeNull();
+  // The deck is a loop, so there is no end to stop at: past the oldest Moment
+  // is the newest one, in both the gesture and the VoiceOver actions.
+  it("wraps around both ends", () => {
+    expect(newerId(deckAt("a"))).toBe("c");
+    expect(olderId(deckAt("c"))).toBe("a");
   });
 
-  it("does not move past either end", () => {
-    expect(deckReducer(deckAt("a"), { type: "newer" }).currentId).toBe("a");
-    expect(deckReducer(deckAt("c"), { type: "older" }).currentId).toBe("c");
+  it("moves past either end onto the far one", () => {
+    expect(deckReducer(deckAt("a"), { type: "newer" }).currentId).toBe("c");
+    expect(deckReducer(deckAt("c"), { type: "older" }).currentId).toBe("a");
+  });
+
+  // A one-card loop has nowhere to go, and both directions saying "here" is
+  // what makes that a no-op rather than a crash.
+  it("keeps a single Moment in place in both directions", () => {
+    const single: DeckState = { moments: [page[0]], currentId: "a" };
+    expect(olderId(single)).toBe("a");
+    expect(newerId(single)).toBe("a");
+    expect(deckReducer(single, { type: "older" }).currentId).toBe("a");
   });
 
   it("advances one card at a time in each direction", () => {

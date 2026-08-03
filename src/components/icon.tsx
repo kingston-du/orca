@@ -19,6 +19,10 @@ const SYMBOLS = {
   check: "checkmark",
   close: "xmark",
   disclosure: "chevron.right",
+  /** Editing a caption in place. */
+  edit: "pencil",
+  /** Reporting. Small and red wherever it appears. */
+  flag: "flag",
   flashAuto: "bolt.badge.a.fill",
   flashOff: "bolt.slash.fill",
   flipCamera: "arrow.triangle.2.circlepath.camera.fill",
@@ -28,12 +32,18 @@ const SYMBOLS = {
   homeSelected: "house.fill",
   people: "person",
   peopleSelected: "person.fill",
-  photos: "photo.on.rectangle",
+  /** The camera's picker entry point. A stack of photos reads as "your
+   * library" at thumbnail size in a way a single framed picture does not. */
+  photos: "photo.stack",
   plus: "plus",
   search: "magnifyingglass",
+  /** Publishing a Moment. */
+  send: "paperplane.fill",
   settings: "gearshape",
   superheart: "bolt.heart",
   superheartFilled: "bolt.heart.fill",
+  /** Destructive removal of something the viewer owns. */
+  trash: "trash",
 } as const satisfies Record<string, SymbolViewProps["name"]>;
 
 export type IconName = keyof typeof SYMBOLS;

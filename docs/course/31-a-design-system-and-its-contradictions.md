@@ -245,7 +245,79 @@ clean, and the hosted RPC returns `friend_count`; the founder's own visual
 review and the physical Dynamic Type/VoiceOver/Reduce Motion audit remain
 open.
 
-## 7. Exercise
+## 7. Founder review: polish is geometry and ownership
+
+The first founder review found four things a token sweep could not: the photo
+scrim felt pasted on, a normal iPhone portrait had side gutters, old timestamps
+read like receipts, and two keyboard interactions moved the wrong part of the
+screen. These are useful together because none is a new product feature. Each
+is a mismatch between the visual object a person thinks they are manipulating
+and the layout object the code actually owns.
+
+The scrim keeps the overlay legible without drawing a second rectangle. React
+Native 0.86's installed Fabric view implementation accepts
+`experimental_backgroundImage` and renders the value as one native iOS
+`CAGradientLayer`. `design.ts` therefore defines one short, eased gradient:
+
+```ts
+export const PHOTO_SCRIM_GRADIENT = `linear-gradient(to bottom, ${PHOTO_SCRIM_GRADIENT_STOPS.map(
+  ({ position, alpha }) => `rgba(16, 26, 31, ${alpha}) ${position}%`,
+).join(", ")})`;
+export const PHOTO_SCRIM_FADE_HEIGHT = 40;
+```
+
+The thirteen stops form one curve, not thirteen separately rasterized views. Alpha
+stays almost invisible at the top, darkens through the text, and continues to
+increase through the bottom edge. The 40-point lead-in clears the avatar's top
+edge without growing into the old quarter-photo overlay. There is deliberately
+no repeated terminal value: that plateau was smooth in code but still looked
+like a translucent bar in a real screenshot. Both overlay text roles use white
+so the softened upper part remains legible. The failed 24-view version is an important lesson:
+fractional-height React Native views still become separately rasterized pixel
+rows, so adding more bands made the stripes thinner rather than making them
+disappear.
+
+The screenshot also disproved the assumption that the live CameraView's output
+would always match a 3:4 still. A fixed-ratio Home deck and an arbitrarily tall
+capture cannot both use `contain` without rails. The correct answer depends on
+the surface. Home and the bounded restored-draft preview keep stable 3:4 frames
+and use `cover`; these are reversible presentation crops, not rewritten files.
+Composer and detail can scroll, so
+`photoAspectRatio(media_width, media_height)` gives each one the file's
+verified natural frame and `contain` preserves every pixel. Composer/detail are
+therefore the complete-photo escape from those fixed-frame crops.
+
+Timestamp formatting now has two presentation functions over one elapsed-time
+calculation. Under 24 hours the card asks for `39m` or `8h`, while detail and
+VoiceOver ask for `39 minutes ago` or `8 hours ago`. At 24 hours both ask for
+the capture-calendar date and no clock. The shared calculation uses the
+absolute capture instant for elapsed time, then the stored capture offset only
+when reconstructing the older photo's calendar date. That distinction prevents
+a viewer timezone from moving a Tokyo photo onto the wrong day without putting
+“Today at” back into the UI.
+
+Finally, keyboard avoidance belongs to the scrolling content that contains the
+field. The composer and detail `ScrollView`s use
+`automaticallyAdjustKeyboardInsets`; the add-friend search scroll does the
+same. The shared sheet does _not_ use `KeyboardAvoidingView`: the sheet is
+already an expanded-height panel translated down to its resting position, so
+lifting that whole panel by the keyboard height composes two transforms and
+pushes its top above the viewport. Keeping the panel anchored and insetting its
+internal scroll is both simpler and visually correct.
+
+The screenshot-correction regression pass is 73 assertions across Home,
+natural-aspect, capture, composer, and detail suites, followed by clean
+TypeScript and lint. It proves one native gradient and zero band views, Home's
+`cover` presentation, natural scrollable frames with `contain`, safe invalid
+dimension fallback, compact/full/date-only time boundaries including clock
+skew, keyboard-aware caption scroll, and anchored search-sheet body. Physical
+review still owns the feel of the gradient and real iOS keyboard animation.
+The complete rerun is 472 assertions across 61 suites under
+`--detectOpenHandles`; TypeScript, Expo lint, all twelve contrast pairings,
+formatting, native configuration, legal hashes, and `git diff --check` are
+green.
+
+## 8. Exercise
 
 `color.textMuted` is `rgba(23, 24, 26, 0.47)`, documented as clearing roughly
 3.1:1 against the canvas — the meaningful-icon target, not the text target.

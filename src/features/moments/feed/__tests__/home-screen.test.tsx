@@ -9,6 +9,11 @@ import {
 } from "@testing-library/react-native";
 import { Dimensions, PixelRatio } from "react-native";
 
+import {
+  PHOTO_SCRIM_FADE_HEIGHT,
+  PHOTO_SCRIM_GRADIENT,
+  PHOTO_SCRIM_GRADIENT_STOPS,
+} from "@/constants/design";
 import { listFriends } from "@/features/friends/friends-api";
 import { HomeScreen } from "@/features/moments/feed/home-screen";
 import {
@@ -254,9 +259,9 @@ describe("the card", () => {
     await renderHome();
 
     expect(await screen.findByLabelText("Ada, @ada")).toBeOnTheScreen();
-    // VoiceOver hears the unambiguous capture time, in the offset the photo
-    // was taken in — 21:07Z at +540 is the next morning in Tokyo.
-    expect(screen.getByLabelText("Jan 15, 2026 at 6:07 AM")).toBeOnTheScreen();
+    // Once a Moment is older than 24 hours, the card and VoiceOver both receive
+    // only the date in the photo's capture calendar — no receipt-like clock.
+    expect(screen.getByLabelText("Jan 15, 2026")).toBeOnTheScreen();
     expect(
       await screen.findByLabelText("Moment photo by Ada"),
     ).toBeOnTheScreen();
@@ -281,10 +286,24 @@ describe("the card", () => {
       .mockResolvedValue(page([moment({ viewer_is_author: true })]));
 
     await renderHome();
-    await screen.findByLabelText("Ada, @ada");
+    await screen.findByLabelText("You");
 
     expect(screen.queryByLabelText("Heart")).toBeNull();
     expect(screen.queryByLabelText("Superheart")).toBeNull();
+  });
+
+  it("calls the viewer's own Moment theirs rather than reading their name back", async () => {
+    jest
+      .mocked(listRecentMoments)
+      .mockResolvedValue(page([moment({ viewer_is_author: true })]));
+
+    await renderHome();
+
+    // On a surface that mixes your Moments with your friends', "You" is what
+    // tells the two apart. The handle goes with it — you know your own.
+    expect(await screen.findByLabelText("You")).toBeOnTheScreen();
+    expect(screen.getByText("You")).toBeOnTheScreen();
+    expect(screen.queryByText("@ada")).toBeNull();
   });
 
   it("keeps the reading order when identity moves onto the photo", async () => {
@@ -292,21 +311,15 @@ describe("the card", () => {
     await screen.findByLabelText("Ada, @ada");
 
     // Where the pixels sit changed; the order VoiceOver walks them did not.
-    // Author, then the exact capture time, then the photo, then the caption.
+    // Author, then the capture date, then the photo, then the caption.
     // The tap target that opens detail is deliberately not in this list: it is
     // not an accessibility element, so it cannot collapse the card into one
     // button. VoiceOver reaches detail through the deck's "Open Moment" action.
     const order = screen
-      .getAllByLabelText(
-        /Ada, @ada|Jan 15, 2026 at 6:07 AM|Moment photo by Ada/,
-      )
+      .getAllByLabelText(/Ada, @ada|Jan 15, 2026|Moment photo by Ada/)
       .map((node) => node.props.accessibilityLabel);
 
-    expect(order).toEqual([
-      "Ada, @ada",
-      "Jan 15, 2026 at 6:07 AM",
-      "Moment photo by Ada",
-    ]);
+    expect(order).toEqual(["Ada, @ada", "Jan 15, 2026", "Moment photo by Ada"]);
   });
 });
 
@@ -326,6 +339,33 @@ describe("the identity overlay", () => {
 
     const frame = screen.getAllByTestId("moment-photo-frame")[0];
     expect(within(frame).getByLabelText("Ada, @ada")).toBeOnTheScreen();
+
+    const gradient = within(frame).getByTestId("moment-scrim-gradient", {
+      includeHiddenElements: true,
+    });
+    expect(gradient).toHaveStyle({
+      experimental_backgroundImage: PHOTO_SCRIM_GRADIENT,
+    });
+    expect(
+      within(frame).queryByTestId("moment-scrim-fade-band", {
+        includeHiddenElements: true,
+      }),
+    ).toBeNull();
+    // The quiet lead-in clears the avatar instead of beginning at its crown.
+    expect(PHOTO_SCRIM_FADE_HEIGHT).toBe(40);
+    expect(PHOTO_SCRIM_GRADIENT_STOPS).toHaveLength(13);
+    for (let index = 1; index < PHOTO_SCRIM_GRADIENT_STOPS.length; index += 1) {
+      expect(PHOTO_SCRIM_GRADIENT_STOPS[index].position).toBeGreaterThan(
+        PHOTO_SCRIM_GRADIENT_STOPS[index - 1].position,
+      );
+      expect(PHOTO_SCRIM_GRADIENT_STOPS[index].alpha).toBeGreaterThan(
+        PHOTO_SCRIM_GRADIENT_STOPS[index - 1].alpha,
+      );
+    }
+    expect(within(frame).getByTestId("moment-photo")).toHaveProp(
+      "resizeMode",
+      "cover",
+    );
   });
 
   it("puts the author back above the photo at large text sizes", async () => {
@@ -375,7 +415,7 @@ describe("deck geometry", () => {
   });
 });
 
-describe("Older and Newer", () => {
+describe("the deck's loop", () => {
   beforeEach(() => {
     jest.mocked(listRecentMoments).mockResolvedValue(
       page([
@@ -391,33 +431,81 @@ describe("Older and Newer", () => {
     );
   });
 
-  it("starts at the newest with Newer unavailable", async () => {
-    await renderHome();
+  /** The deck's wrapper, which owns the VoiceOver actions. */
+  function deck() {
+    return screen.getByTestId("recent-deck").parent;
+  }
 
-    expect(await screen.findByText("1 of 2")).toBeOnTheScreen();
-    expect(screen.getByLabelText("Newer")).toBeDisabled();
-    expect(screen.getByLabelText("Older")).toBeEnabled();
+  async function move(actionName: "older" | "newer" | "open") {
+    await act(async () => {
+      deck()?.props.onAccessibilityAction({ nativeEvent: { actionName } });
+    });
+  }
+
+  /**
+   * Which Moment the deck is actually on.
+   *
+   * Asked through the "open" action rather than read off the screen, because a
+   * loop lays the same page out more than once and several copies of one card
+   * can be mounted at the same time. The canonical position is a single Moment
+   * ID, and this is the only thing that reports it.
+   */
+  async function currentMomentId() {
+    onOpenMoment.mockClear();
+    await move("open");
+    return onOpenMoment.mock.calls.at(-1)?.[0] as string | undefined;
+  }
+
+  it("starts on the newest Moment", async () => {
+    await renderHome();
+    await screen.findByLabelText("Ada, @ada");
+
+    expect(await currentMomentId()).toBe("moment-a");
+  });
+
+  it("has no visible paging controls and no position readout", async () => {
+    await renderHome();
+    await screen.findByLabelText("Ada, @ada");
+
+    // There is no "3 of 4" because there is no fourth card to be third of.
+    expect(screen.queryByText(/\d+ of \d+/)).toBeNull();
+    expect(screen.queryByLabelText("Older")).toBeNull();
+    expect(screen.queryByLabelText("Newer")).toBeNull();
   });
 
   it("moves back in time and then forward again", async () => {
-    const user = userEvent.setup();
     await renderHome();
-    await screen.findByText("1 of 2");
+    await screen.findByLabelText("Ada, @ada");
 
-    await user.press(screen.getByLabelText("Older"));
-    expect(await screen.findByText("2 of 2")).toBeOnTheScreen();
-    expect(screen.getByLabelText("Older")).toBeDisabled();
+    await move("older");
+    expect(await currentMomentId()).toBe("moment-b");
 
-    await user.press(screen.getByLabelText("Newer"));
-    expect(await screen.findByText("1 of 2")).toBeOnTheScreen();
+    await move("newer");
+    expect(await currentMomentId()).toBe("moment-a");
+  });
+
+  it("wraps past the oldest onto the newest, and back", async () => {
+    await renderHome();
+    await screen.findByLabelText("Ada, @ada");
+
+    // Two Moments, three steps forward: the third has to land back on the
+    // first, or the deck has an end the founder asked it not to have.
+    await move("older");
+    await move("older");
+    expect(await currentMomentId()).toBe("moment-a");
+
+    await move("newer");
+    expect(await currentMomentId()).toBe("moment-b");
   });
 
   it("exposes the deck's commands as accessibility actions", async () => {
     await renderHome();
-    await screen.findByText("1 of 2");
+    await screen.findByLabelText("Ada, @ada");
 
-    const deck = screen.getByTestId("recent-deck").parent;
-    expect(deck?.props.accessibilityActions).toEqual([
+    // A horizontal focus gesture is how VoiceOver moves between elements, so
+    // it cannot be overloaded to mean "next Moment" — without these a screen
+    // reader would have no way to move the deck at all.
+    expect(deck()?.props.accessibilityActions).toEqual([
       { name: "older", label: "Older Moment" },
       { name: "newer", label: "Newer Moment" },
       { name: "open", label: "Open Moment" },
@@ -426,14 +514,9 @@ describe("Older and Newer", () => {
 
   it("opens detail from the accessibility action, not by collapsing the card", async () => {
     await renderHome();
-    await screen.findByText("1 of 2");
+    await screen.findByLabelText("Ada, @ada");
 
-    const deck = screen.getByTestId("recent-deck").parent;
-    await act(async () => {
-      deck?.props.onAccessibilityAction({
-        nativeEvent: { actionName: "open" },
-      });
-    });
+    await move("open");
 
     expect(onOpenMoment).toHaveBeenCalledWith("moment-a");
   });
@@ -493,66 +576,75 @@ describe("the session", () => {
     });
   });
 
-  it("offers the loop back to the top once the last card is reached", async () => {
-    const user = userEvent.setup();
+  it("has no caught-up panel, because the deck has no last card", async () => {
     jest
       .mocked(listRecentMoments)
       .mockResolvedValue(page([moment(), moment({ moment_id: "moment-b" })]));
 
     await renderHome();
-    await screen.findByText("1 of 2");
+    const deck = (await screen.findByTestId("recent-deck")).parent;
+
+    // Walk past what used to be the end. The newest Moment is always one swipe
+    // away now, so neither the panel nor a "back to the top" control has
+    // anything true left to say.
+    for (const step of [0, 1, 2]) {
+      void step;
+      await act(async () => {
+        deck?.props.onAccessibilityAction({
+          nativeEvent: { actionName: "older" },
+        });
+      });
+    }
+
     expect(screen.queryByText("You’re all caught up.")).toBeNull();
-
-    await user.press(screen.getByLabelText("Older"));
-
-    expect(await screen.findByText("You’re all caught up.")).toBeOnTheScreen();
     expect(
-      screen.getByRole("button", { name: "Back to the top" }),
-    ).toBeOnTheScreen();
+      screen.queryByRole("button", { name: "Back to the top" }),
+    ).toBeNull();
   });
 
-  it("actually returns to the newest card, not wherever the session left off", async () => {
-    const user = userEvent.setup();
-    // A caught-up session's fresh top page contains the same Moments as
-    // before — that is what "caught up" means. If the deck only reacted to
-    // the incoming page and kept whichever card happened to survive the
-    // refetch, "Back to the top" would silently do nothing.
-    jest
-      .mocked(listRecentMoments)
-      .mockResolvedValue(page([moment(), moment({ moment_id: "moment-b" })]));
-
-    await renderHome();
-    await screen.findByText("1 of 2");
-
-    await user.press(screen.getByLabelText("Older"));
-    await screen.findByText("2 of 2");
-
-    await user.press(
-      await screen.findByRole("button", { name: "Back to the top" }),
-    );
-
-    expect(await screen.findByText("1 of 2")).toBeOnTheScreen();
-    expect(screen.getByLabelText("Newer")).toBeDisabled();
-  });
-
-  it("returns to the newest card from the new-arrivals pill too", async () => {
+  it("still starts a fresh session from the new-arrivals pill", async () => {
     const user = userEvent.setup();
     jest
       .mocked(listRecentMoments)
       .mockResolvedValue(page([moment(), moment({ moment_id: "moment-b" })]));
     jest.mocked(countNewRecentMoments).mockResolvedValue(1);
 
+    // Re-queried on every use: starting a new session empties the deck and
+    // mounts a fresh one, so a node captured earlier answers for a screen that
+    // is no longer there.
+    async function askCurrentMoment() {
+      const deck = (await screen.findByTestId("recent-deck")).parent;
+      onOpenMoment.mockClear();
+      await act(async () => {
+        deck?.props.onAccessibilityAction({
+          nativeEvent: { actionName: "open" },
+        });
+      });
+      return onOpenMoment.mock.calls.at(-1)?.[0] as string | undefined;
+    }
+
     await renderHome();
-    await screen.findByText("1 of 2");
+    const deck = (await screen.findByTestId("recent-deck")).parent;
+    await act(async () => {
+      deck?.props.onAccessibilityAction({
+        nativeEvent: { actionName: "older" },
+      });
+    });
+    expect(await askCurrentMoment()).toBe("moment-b");
 
-    await user.press(screen.getByLabelText("Older"));
-    await screen.findByText("2 of 2");
-
+    // A Moment published mid-session is a genuinely new page rather than a
+    // place in this one, so the pill is still the way it reaches the viewer —
+    // and it still lands them on the newest card rather than where they were.
     await user.press(
       await screen.findByRole("button", { name: "1 new Moment" }),
     );
 
-    expect(await screen.findByText("1 of 2")).toBeOnTheScreen();
+    // The new session's top page is the same page it already had, which is
+    // exactly the case a deck that merely reacted to the incoming rows would
+    // get wrong.
+    await waitFor(async () =>
+      expect(await askCurrentMoment()).toBe("moment-a"),
+    );
   });
 
   it("keeps the current card when a refresh fails", async () => {

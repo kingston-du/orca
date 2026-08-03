@@ -7,7 +7,6 @@ import {
   type PropsWithChildren,
 } from "react";
 import {
-  ActivityIndicator,
   AppState,
   type AppStateStatus,
   Pressable,
@@ -26,28 +25,38 @@ import {
 import { useAuth } from "@/features/auth/auth-provider";
 import { supabase } from "@/lib/supabase";
 
+/**
+ * Foreground revalidation, with no cover over the app.
+ *
+ * This used to draw an opaque brand screen over everything from the moment
+ * Orca left the foreground until the session had been re-checked. The founder
+ * removed it: it cost the app its sense of continuity every time someone
+ * switched back to it, and it was covering an app-switcher card that iOS has
+ * already redacted for other reasons.
+ *
+ * What it was *also* doing stays, because none of it needed a cover. Returning
+ * to the foreground still re-reads the session against the server, still
+ * resumes token refresh, and still tells TanStack Query that the app is
+ * focused. The only thing that now puts anything on screen is a session that
+ * came back **bad** — at that point the viewer genuinely cannot be shown
+ * someone's private Moments, and they are offered a retry and a sign-out
+ * instead.
+ */
 export function PrivacyShield({ children }: PropsWithChildren) {
   const { signOut, user } = useAuth();
   const userId = user?.id;
   const queryClient = useQueryClient();
-  const [isShielded, setIsShielded] = useState(true);
   const [hasError, setHasError] = useState(false);
   const mounted = useRef(true);
   const validationGeneration = useRef(0);
 
   const validateForeground = useCallback(async () => {
     const generation = ++validationGeneration.current;
-    setIsShielded(true);
     setHasError(false);
     focusManager.setFocused(true);
     void supabase.auth.startAutoRefresh();
 
-    if (!userId) {
-      if (mounted.current && generation === validationGeneration.current) {
-        setIsShielded(false);
-      }
-      return;
-    }
+    if (!userId) return;
 
     const { error } = await supabase.auth.getUser();
     if (!error) {
@@ -59,7 +68,6 @@ export function PrivacyShield({ children }: PropsWithChildren) {
 
     if (!mounted.current || generation !== validationGeneration.current) return;
     if (error) setHasError(true);
-    else setIsShielded(false);
   }, [queryClient, userId]);
 
   useEffect(() => {
@@ -72,7 +80,6 @@ export function PrivacyShield({ children }: PropsWithChildren) {
       }
 
       validationGeneration.current += 1;
-      setIsShielded(true);
       setHasError(false);
       focusManager.setFocused(false);
       void supabase.auth.stopAutoRefresh();
@@ -91,39 +98,28 @@ export function PrivacyShield({ children }: PropsWithChildren) {
   return (
     <View style={styles.container}>
       {children}
-      {isShielded ? (
+      {hasError ? (
         <View
           accessibilityViewIsModal
           style={styles.shield}
           testID="privacy-shield"
         >
           <Text style={styles.brand}>orca</Text>
-          {hasError ? (
-            <>
-              <Text style={styles.message}>Orca couldn’t safely unlock.</Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => void validateForeground()}
-                style={styles.primaryButton}
-              >
-                <Text style={styles.primaryLabel}>Try again</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => void signOut()}
-                style={styles.secondaryButton}
-              >
-                <Text style={styles.secondaryLabel}>Sign out</Text>
-              </Pressable>
-            </>
-          ) : (
-            <View
-              accessibilityLabel="Unlocking Orca"
-              accessibilityRole="progressbar"
-            >
-              <ActivityIndicator color={color.textInverse} />
-            </View>
-          )}
+          <Text style={styles.message}>Orca couldn’t safely unlock.</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void validateForeground()}
+            style={styles.primaryButton}
+          >
+            <Text style={styles.primaryLabel}>Try again</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void signOut()}
+            style={styles.secondaryButton}
+          >
+            <Text style={styles.secondaryLabel}>Sign out</Text>
+          </Pressable>
         </View>
       ) : null}
     </View>

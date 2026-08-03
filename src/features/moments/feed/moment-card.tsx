@@ -3,8 +3,8 @@ import { StyleSheet, Text, View } from "react-native";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { color, radius, spacing, typeScale } from "@/constants/design";
 import {
-  formatExactCaptureTime,
-  formatFriendlyCaptureTime,
+  formatCompactCaptureTime,
+  formatDetailedCaptureTime,
 } from "@/features/moments/capture-time";
 import {
   MomentPhoto,
@@ -64,6 +64,7 @@ export type CardMoment = Pick<
   | "moment_id"
   | "object_path"
   | "superheart_count"
+  | "viewer_is_author"
   | "viewer_reaction"
 >;
 
@@ -137,23 +138,44 @@ export function MomentCard({
   );
 }
 
+/**
+ * What a Moment's author is called on the viewer's own screen.
+ *
+ * Reading your own display name back to yourself is the one place a name is
+ * less clear than a pronoun: on a surface that mixes your Moments with your
+ * friends', "You" is what tells the two apart at a glance. The handle is
+ * dropped with it — you already know your own.
+ */
+export function authorLabel(
+  moment: Pick<RecentMoment, "author_display_name" | "viewer_is_author">,
+) {
+  return moment.viewer_is_author ? "You" : moment.author_display_name;
+}
+
 export function MomentAuthor({
   moment,
   onScrim = false,
 }: {
   moment: Pick<
     RecentMoment,
-    "author_avatar_path" | "author_display_name" | "author_username"
+    | "author_avatar_path"
+    | "author_display_name"
+    | "author_username"
+    | "viewer_is_author"
   >;
   /** Drawn over the photo, so it needs the inverse text roles. */
   onScrim?: boolean;
 }) {
+  const name = authorLabel(moment);
+
   return (
     // One accessible element: VoiceOver announces the person, not three
     // fragments of a person.
     <View
       accessible
-      accessibilityLabel={`${moment.author_display_name}, @${moment.author_username}`}
+      accessibilityLabel={
+        moment.viewer_is_author ? "You" : `${name}, @${moment.author_username}`
+      }
       accessibilityRole="header"
       style={styles.authorRow}
     >
@@ -167,12 +189,12 @@ export function MomentAuthor({
           numberOfLines={1}
           style={[styles.displayName, onScrim && styles.displayNameOnScrim]}
         >
-          {moment.author_display_name}
+          {name}
         </Text>
         {/* The scrim band shows the name alone — the handle would crowd a
          * strip that also has to hold the capture time. VoiceOver still hears
          * both, from this row's own label. */}
-        {onScrim ? null : (
+        {onScrim || moment.viewer_is_author ? null : (
           <Text numberOfLines={1} style={styles.username}>
             @{moment.author_username}
           </Text>
@@ -202,18 +224,18 @@ export function MomentCaptureTime({
     return <Text style={style}>Capture date unavailable</Text>;
   }
 
-  const exact = formatExactCaptureTime(capturedAt, offset);
-  const friendly = formatFriendlyCaptureTime(capturedAt, offset, now);
+  const compact = formatCompactCaptureTime(capturedAt, offset, now);
+  const detailed = formatDetailedCaptureTime(capturedAt, offset, now);
 
-  if (!exact || !friendly) {
+  if (!compact || !detailed) {
     return <Text style={style}>Capture date unavailable</Text>;
   }
 
   return (
-    // Sighted readers get the glanceable form; VoiceOver gets the unambiguous
-    // one, because "Yesterday" depends on when the screen happens to be open.
-    <Text accessibilityLabel={exact} style={style}>
-      {friendly}
+    // The card keeps the metadata quiet; VoiceOver expands the same elapsed
+    // value into words rather than restoring the clock the visual design omits.
+    <Text accessibilityLabel={detailed} style={style}>
+      {compact}
     </Text>
   );
 }
@@ -239,7 +261,10 @@ const styles = StyleSheet.create({
   },
   caption: { ...typeScale.cardBody, color: color.textPrimary },
   captureTime: { ...typeScale.caption, color: color.textSecondary },
-  captureTimeOnScrim: { color: color.photoScrimTextMuted },
+  // The new scrim keeps changing beneath this row instead of flattening into
+  // a full-strength band. White preserves contrast at the row's soft upper
+  // edge while still letting the photograph show through.
+  captureTimeOnScrim: { color: color.photoScrimText },
   card: {
     backgroundColor: color.surface,
     borderRadius: radius.md,

@@ -9,13 +9,18 @@ import {
   useWindowDimensions,
 } from "react-native";
 
-import { color, radius, spacing, typeScale } from "@/constants/design";
+import {
+  MOMENT_PHOTO_ASPECT,
+  PHOTO_SCRIM_FADE_HEIGHT,
+  PHOTO_SCRIM_GRADIENT,
+  color,
+  radius,
+  spacing,
+  typeScale,
+} from "@/constants/design";
 import { useAuth } from "@/features/auth/auth-provider";
 import { markDeckStage } from "@/features/moments/feed/deck-instrumentation";
 import { useMomentMediaUrl } from "@/features/moments/media/signed-media";
-
-/** Section 11's fixed container: roughly 4:5 where the screen permits. */
-const PHOTO_ASPECT = 4 / 5;
 
 /** The photo may not eat the whole screen — caption and controls live outside
  * the image and have to stay reachable. */
@@ -26,7 +31,10 @@ const MAX_PHOTO_SCREEN_FRACTION = 0.55;
 const LARGE_TEXT_SCREEN_FRACTION = 0.38;
 const LARGE_TEXT_SCALE = 1.3;
 
-export function usePhotoFrameSize(availableWidth: number) {
+export function usePhotoFrameSize(
+  availableWidth: number,
+  viewportConstrained = true,
+) {
   const { height } = useWindowDimensions();
   const fontScale = PixelRatio.getFontScale();
 
@@ -37,7 +45,9 @@ export function usePhotoFrameSize(availableWidth: number) {
 
   return {
     width: availableWidth,
-    height: Math.min(availableWidth / PHOTO_ASPECT, height * fraction),
+    height: viewportConstrained
+      ? Math.min(availableWidth / MOMENT_PHOTO_ASPECT, height * fraction)
+      : availableWidth / MOMENT_PHOTO_ASPECT,
   };
 }
 
@@ -70,9 +80,9 @@ type MomentPhotoFrameProps = {
  *
  * Its size is decided by the screen, never by the image, so a portrait photo
  * and a panorama produce cards of exactly the same height and swiping between
- * them does not make the layout jump. Arbitrary aspect ratios stay legible
- * because the image is fitted with `contain` onto a warm neutral backing
- * instead of being cropped to fill.
+ * them does not make the layout jump. Home uses a familiar 3:4 portrait frame
+ * and a reversible `cover` presentation crop; the complete file remains
+ * available at its natural aspect on scrollable detail.
  *
  * Exported on its own so the design harness can inspect the container against
  * extreme aspect ratios using the same component the feed ships.
@@ -90,7 +100,17 @@ export function MomentPhotoFrame({
       testID="moment-photo-frame"
     >
       {children}
-      {footer ? <View style={styles.footer}>{footer}</View> : null}
+      {footer ? (
+        <View pointerEvents="box-none" style={styles.footer}>
+          <View
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+            style={styles.footerGradient}
+            testID="moment-scrim-gradient"
+          />
+          <View style={styles.footerContent}>{footer}</View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -155,7 +175,10 @@ export function MomentPhoto({
             markDeckStage("photo_shown");
             setDecoded(true);
           }}
-          resizeMode="contain"
+          // Home is a stable-height photographic deck. A reversible cover crop
+          // is preferable here to permanent side rails; detail shows the same
+          // file at its full natural aspect ratio.
+          resizeMode="cover"
           source={{ uri: signed.data }}
           style={styles.image}
           testID="moment-photo"
@@ -182,13 +205,19 @@ export function MomentPhoto({
 
 const styles = StyleSheet.create({
   footer: {
-    backgroundColor: color.photoScrim,
     bottom: 0,
     left: 0,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
     position: "absolute",
     right: 0,
+  },
+  footerContent: {
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: PHOTO_SCRIM_FADE_HEIGHT,
+  },
+  footerGradient: {
+    ...StyleSheet.absoluteFill,
+    experimental_backgroundImage: PHOTO_SCRIM_GRADIENT,
   },
   frame: {
     backgroundColor: color.photoBacking,

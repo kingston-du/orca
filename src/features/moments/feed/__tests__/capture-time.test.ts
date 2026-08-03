@@ -1,6 +1,9 @@
 import {
+  formatCaptureDate,
+  formatCompactCaptureTime,
+  formatDetailedCaptureTime,
   formatExactCaptureTime,
-  formatFriendlyCaptureTime,
+  formatSharedDate,
 } from "@/features/moments/capture-time";
 
 describe("the exact form", () => {
@@ -31,34 +34,65 @@ describe("the exact form", () => {
   });
 });
 
-describe("the friendly form", () => {
-  // Built from local components on purpose: "Today" is the *viewer's* day, so
-  // the test must not depend on the timezone the runner happens to be in.
-  const now = new Date(2026, 7, 1, 15, 0, 0);
+describe("the quiet Moment forms", () => {
+  const now = new Date("2026-08-02T00:00:00.000Z");
 
-  it("says Today against the viewer's day", () => {
-    expect(formatFriendlyCaptureTime("2026-08-01T14:00:00.000Z", 0, now)).toBe(
-      "Today at 2:00 PM",
+  it("uses compact elapsed time on a card and full words in detail", () => {
+    expect(formatCompactCaptureTime("2026-08-01T23:21:00.000Z", 0, now)).toBe(
+      "39m",
+    );
+    expect(formatDetailedCaptureTime("2026-08-01T23:21:00.000Z", 0, now)).toBe(
+      "39 minutes ago",
+    );
+
+    expect(formatCompactCaptureTime("2026-08-01T16:00:00.000Z", 0, now)).toBe(
+      "8h",
+    );
+    expect(formatDetailedCaptureTime("2026-08-01T16:00:00.000Z", 0, now)).toBe(
+      "8 hours ago",
     );
   });
 
-  it("says Yesterday against the viewer's day", () => {
-    expect(formatFriendlyCaptureTime("2026-07-31T14:00:00.000Z", 0, now)).toBe(
-      "Yesterday at 2:00 PM",
+  it("keeps elapsed time through 23 hours even across a calendar boundary", () => {
+    expect(formatCompactCaptureTime("2026-08-01T01:00:00.000Z", 0, now)).toBe(
+      "23h",
     );
   });
 
-  it("falls back to the exact form beyond yesterday", () => {
-    expect(formatFriendlyCaptureTime("2026-07-20T14:00:00.000Z", 0, now)).toBe(
-      "Jul 20, 2026 at 2:00 PM",
+  it("shows only the capture date at 24 hours and beyond", () => {
+    expect(formatCompactCaptureTime("2026-08-01T00:00:00.000Z", 0, now)).toBe(
+      "Aug 1, 2026",
+    );
+    expect(formatDetailedCaptureTime("2026-08-01T00:00:00.000Z", 0, now)).toBe(
+      "Aug 1, 2026",
     );
   });
 
-  it("keeps the clock in the capture offset even when the day is Today", () => {
-    // Captured at 23:00 in Tokyo on Aug 1, which is still Aug 1 for a viewer
-    // whose own date is Aug 1. The clock must read the Tokyo wall time.
-    expect(
-      formatFriendlyCaptureTime("2026-08-01T14:00:00.000Z", 540, now),
-    ).toBe("Today at 11:00 PM");
+  it("uses the photo's capture calendar for an older date", () => {
+    // The UTC instant is already Aug 1, but the photo was taken on July 31 in
+    // its -07:00 capture offset.
+    expect(formatCaptureDate("2026-08-01T02:00:00.000Z", -420)).toBe(
+      "Jul 31, 2026",
+    );
+  });
+
+  it("handles singular units and credible future clock skew", () => {
+    expect(formatDetailedCaptureTime("2026-08-01T23:59:00.000Z", 0, now)).toBe(
+      "1 minute ago",
+    );
+    expect(formatDetailedCaptureTime("2026-08-01T23:00:00.000Z", 0, now)).toBe(
+      "1 hour ago",
+    );
+    expect(formatCompactCaptureTime("2026-08-02T00:03:00.000Z", 0, now)).toBe(
+      "now",
+    );
+    expect(formatDetailedCaptureTime("2026-08-02T00:03:00.000Z", 0, now)).toBe(
+      "just now",
+    );
+  });
+
+  it("keeps unknown sharing fallback free of a clock too", () => {
+    expect(formatSharedDate("2026-08-01T23:59:00.000Z")).toBe("Aug 1, 2026");
+    expect(formatSharedDate("not a date")).toBeNull();
   });
 });

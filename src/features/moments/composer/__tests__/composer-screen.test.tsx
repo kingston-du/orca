@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, userEvent } from "@testing-library/react-native";
 
+import { MAX_CAPTION_CHARACTERS } from "@/constants/moments";
 import { UNKNOWN_CAPTURE_EVIDENCE } from "@/features/moments/capture/capture-evidence";
 import type { NormalizedPhoto } from "@/features/moments/capture/photo-normalizer";
 import {
@@ -18,7 +19,7 @@ import {
 } from "@/features/moments/publish/publish-machine";
 import type { PublishController } from "@/features/moments/publish/use-publish-controller";
 
-// The composer now shows real faces in "Who's here?" and in the picker, so it
+// The composer now shows real faces under "Tagged" and in the picker, so it
 // reaches the avatar boundary. Stubbed rather than pulling the Supabase client
 // and the encrypted store into a test about composition.
 jest.mock("@/features/profiles/avatar-api", () => ({
@@ -109,6 +110,18 @@ describe("ComposerScreen", () => {
     await user.press(screen.getByTestId("composer-publish"));
 
     expect(publish.publish).toHaveBeenCalledTimes(1);
+  });
+
+  test("frames the draft at its natural aspect without side gutters", async () => {
+    const { screen } = await renderComposer(recentState);
+
+    expect(screen.getByTestId("composer-photo-frame")).toHaveStyle({
+      aspectRatio: photo.width / photo.height,
+    });
+    expect(screen.getByTestId("composer-photo")).toHaveProp(
+      "resizeMode",
+      "contain",
+    );
   });
 
   test("refuses to share a draft the composer has not settled", async () => {
@@ -292,23 +305,39 @@ describe("ComposerScreen", () => {
     ).toBeOnTheScreen();
   });
 
-  test("counts caption characters down and flags going over the limit", async () => {
+  test("caps the caption at the limit instead of counting down to it", async () => {
     const user = userEvent.setup();
     const { screen, dispatch } = await renderComposer(recentState);
 
-    expect(screen.getByText("160 characters left")).toBeOnTheScreen();
-    await user.type(screen.getByTestId("composer-caption"), "hello");
+    const caption = screen.getByTestId("composer-caption");
+    await user.type(caption, "hello");
     expect(dispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: "caption_changed" }),
     );
 
-    const { screen: over } = await renderComposer(
-      composerReducer(recentState, {
-        type: "caption_changed",
-        caption: "a".repeat(163),
+    // The field simply stops accepting characters, so there is no running
+    // count and no over-the-limit state to report. `maxLength` counts UTF-16
+    // units and the contract counts code points, which is never more — so a
+    // caption this field accepts is one the reducer accepts.
+    expect(caption).toHaveProp("maxLength", MAX_CAPTION_CHARACTERS);
+    expect(screen.queryByText(/characters left/)).not.toBeOnTheScreen();
+    expect(screen.queryByText(/over the limit/)).not.toBeOnTheScreen();
+  });
+
+  test("publishes with a send arrow rather than the word", async () => {
+    const { screen } = await renderComposer(recentState);
+
+    const publish = screen.getByTestId("composer-publish");
+    expect(publish).toHaveTextContent("");
+    // The word survives where a screen reader can reach it.
+    expect(
+      screen.getByRole("button", { name: "Share this Moment" }),
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByTestId("symbol-paperplane.fill", {
+        includeHiddenElements: true,
       }),
-    );
-    expect(over.getByText("3 characters over the limit")).toBeOnTheScreen();
+    ).toBeTruthy();
   });
 
   test("says nothing is in progress when there is no draft", async () => {

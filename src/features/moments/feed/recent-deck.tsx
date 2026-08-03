@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   FlatList,
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
   type AccessibilityActionEvent,
   type NativeScrollEvent,
@@ -18,20 +17,11 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 
-import {
-  MINIMUM_TOUCH_TARGET,
-  color,
-  elevation,
-  radius,
-  spacing,
-  typeScale,
-} from "@/constants/design";
+import { elevation, spacing } from "@/constants/design";
 import { useReducedMotion } from "@/lib/use-reduced-motion";
 import { markDeckStage } from "@/features/moments/feed/deck-instrumentation";
 import {
   currentIndex,
-  newerId,
-  olderId,
   type DeckAction,
   type DeckMoment,
   type DeckState,
@@ -76,6 +66,50 @@ export function deckGeometry(width: number) {
  */
 const PREFETCH_MARGIN = 2;
 
+/**
+ * How many times the authorized page is laid out end to end.
+ *
+ * The deck has no first or last card: reaching the oldest Moment puts the
+ * newest one on the right, ready to swipe to. A horizontal list cannot scroll
+ * past its own data, so the loop is built by laying the same page out three
+ * times and silently re-centring on the middle copy every time the position
+ * leaves it. Three is the smallest number that always leaves a full page of
+ * cards in *both* directions, so the jump can never happen where it would be
+ * visible.
+ *
+ * The copies are presentation only. The canonical position stays a single
+ * Moment ID over the single authorized page, so nothing about access loss,
+ * paging, or seen-reporting has to know this is happening.
+ */
+const LOOP_COPIES = 3;
+
+/** Which copy the deck is kept inside. */
+const CENTRE_COPY = 1;
+
+/**
+ * The copy of `realIndex` closest to where the list currently sits, so a jump
+ * driven by a VoiceOver action or an access-loss refocus moves the shortest
+ * distance rather than always snapping back to the middle copy.
+ */
+function nearestOccurrence(realIndex: number, total: number, from: number) {
+  let best = realIndex;
+  for (let copy = 1; copy < LOOP_COPIES; copy += 1) {
+    const candidate = realIndex + copy * total;
+    if (Math.abs(candidate - from) < Math.abs(best - from)) best = candidate;
+  }
+  return best;
+}
+
+/**
+ * How many swipes apart two positions are on a loop, given a laid-out index on
+ * the left and a canonical one on the right.
+ */
+function cyclicDistance(laidOut: number, canonical: number, total: number) {
+  if (total === 0) return Number.POSITIVE_INFINITY;
+  const gap = Math.abs((laidOut % total) - canonical);
+  return Math.min(gap, total - gap);
+}
+
 type RecentDeckProps = {
   state: DeckState;
   dispatch: (action: DeckAction) => void;
@@ -91,10 +125,14 @@ type RecentDeckProps = {
  *
  * A finger swipe left advances to an **older** Moment — the founder's
  * "back in time" reading — which falls out of the array being newest-first
- * rather than from any reversal. The visible Older and Newer controls are
- * always equivalent to the gesture, and the same two commands are exposed as
- * VoiceOver actions, because a horizontal focus gesture is how VoiceOver moves
- * between elements and must not be overloaded to mean "next Moment".
+ * rather than from any reversal.
+ *
+ * There are no visible paging controls and no position readout: the deck is an
+ * unbroken loop, so "3 of 4" would be describing an end that no longer exists.
+ * Older and Newer survive as VoiceOver actions, because a horizontal focus
+ * gesture is how VoiceOver moves between elements and must not be overloaded to
+ * mean "next Moment" — without them a screen-reader user would have no way to
+ * move the deck at all.
  */
 export function RecentDeck({
   state,
@@ -110,14 +148,32 @@ export function RecentDeck({
   const index = currentIndex(state);
   const { card, pitch, sidePadding } = deckGeometry(width);
 
-  const older = olderId(state);
-  const newer = newerId(state);
+  const total = state.moments.length;
+  // A single card has nothing to loop between, and laying it out three times
+  // would let the viewer swipe between three copies of one photograph.
+  const looping = total > 1;
+
+  /** Where the list is, in the laid-out (possibly repeated) space. */
+  const position = useRef<number | null>(null);
+  const layoutSize = useRef(0);
+
+  const moveTo = useCallback((next: number, animated: boolean) => {
+    position.current = next;
+    listRef.current?.scrollToIndex({ animated, index: next });
+  }, []);
+
+  const data = useMemo(
+    () =>
+      looping
+        ? Array.from({ length: LOOP_COPIES }, () => state.moments).flat()
+        : state.moments,
+    [looping, state.moments],
+  );
 
   // Paging is driven by the canonical position, not by a scroll offset: the
-  // controls and VoiceOver actions move without scrolling at all, and a deck
-  // that only paged on a finger gesture would strand a screen-reader user at
-  // the end of the first page.
-  const total = state.moments.length;
+  // VoiceOver actions move without scrolling at all, and a deck that only paged
+  // on a finger gesture would strand a screen-reader user at the end of the
+  // first page.
   useEffect(() => {
     if (index < 0) return;
     if (index >= total - 1 - PREFETCH_MARGIN) onReachOlder();
@@ -131,24 +187,58 @@ export function RecentDeck({
     scrollX.value = event.contentOffset.x;
   });
 
-  // A control or an access-loss refocus moves the canonical ID first; the list
-  // follows it here. A gesture is already where it needs to be, so scrolling to
-  // the index it just settled on is a no-op.
+  /**
+   * A VoiceOver action or an access-loss refocus moves the canonical ID first;
+   * the list follows it here. A gesture is already where it needs to be, so
+   * scrolling to the position it just settled on is a no-op.
+   *
+   * A page arriving underneath changes how many cards each copy holds, which
+   * moves every offset after the first copy. That is re-centred without
+   * animation: the card under the viewer's thumb is the same one before and
+   * after, so the correction is invisible.
+   */
   useEffect(() => {
-    if (index < 0) return;
-    listRef.current?.scrollToIndex({ animated: !reducedMotion, index });
-  }, [index, reducedMotion]);
+    if (index < 0 || total === 0) return;
+
+    const resized = layoutSize.current !== data.length;
+    layoutSize.current = data.length;
+
+    const from = position.current;
+    const target = !looping
+      ? index
+      : resized || from === null
+        ? index + CENTRE_COPY * total
+        : nearestOccurrence(index, total, from);
+
+    if (!resized && from === target) return;
+    moveTo(target, !resized && from !== null && !reducedMotion);
+  }, [data.length, index, looping, moveTo, reducedMotion, total]);
 
   const onSettled = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const settled = Math.round(event.nativeEvent.contentOffset.x / pitch);
-      const moment = state.moments[settled];
-      if (moment) {
-        markDeckStage("move_settled");
-        dispatch({ type: "moved_to", momentId: moment.moment_id });
+      const count = state.moments.length;
+      if (count === 0) return;
+
+      const real = ((settled % count) + count) % count;
+      const moment = state.moments[real];
+      if (!moment) return;
+
+      position.current = settled;
+      markDeckStage("move_settled");
+      dispatch({ type: "moved_to", momentId: moment.moment_id });
+
+      // Put the position back in the middle copy whenever it has wandered out
+      // of it, so there is always a full page of cards left to swipe in both
+      // directions. The card on screen does not change, so nothing is seen.
+      if (
+        count > 1 &&
+        (settled < count || settled >= count * (LOOP_COPIES - 1))
+      ) {
+        moveTo(real + CENTRE_COPY * count, false);
       }
     },
-    [dispatch, pitch, state.moments],
+    [dispatch, moveTo, pitch, state.moments],
   );
 
   const move = useCallback(
@@ -182,7 +272,7 @@ export function RecentDeck({
     >
       <AnimatedFlatList
         contentContainerStyle={{ paddingHorizontal: sidePadding }}
-        data={state.moments}
+        data={data}
         // Snapping by the card pitch rather than by the screen is what lets the
         // neighbours stay on screen; `pagingEnabled` can only page a full
         // viewport and would hide them.
@@ -195,7 +285,9 @@ export function RecentDeck({
         })}
         horizontal
         initialNumToRender={1}
-        keyExtractor={(moment) => moment.moment_id}
+        // The same Moment appears once per copy, so the key has to carry which
+        // copy it is or the list would see three items claiming one identity.
+        keyExtractor={(moment, itemIndex) => `${moment.moment_id}:${itemIndex}`}
         maxToRenderPerBatch={2}
         onMomentumScrollEnd={onSettled}
         onScroll={onScroll}
@@ -205,7 +297,15 @@ export function RecentDeck({
             cardWidth={card}
             gutter={GUTTER}
             index={itemIndex}
-            mediaEnabled={Math.abs(itemIndex - index) <= MEDIA_RADIUS}
+            // Measured cyclically against the canonical position, because in a
+            // loop the card two swipes away and the card two swipes back can be
+            // the same one. Every copy of an eligible Moment says yes, which
+            // costs nothing: the list's own window keeps the far copies
+            // unmounted, and the near ones resolve to a single signed URL and a
+            // single decode. The bound stays what it always was — three photos.
+            mediaEnabled={
+              cyclicDistance(itemIndex, index, total) <= MEDIA_RADIUS
+            }
             moment={item}
             onOpen={() => onOpenMoment(item.moment_id)}
             onOpenReactions={onOpenReactions}
@@ -220,24 +320,6 @@ export function RecentDeck({
         testID="recent-deck"
         windowSize={3}
       />
-
-      <View style={styles.controls}>
-        <DeckControl
-          disabled={!older}
-          hint="Goes back in time"
-          label="Older"
-          onPress={() => move("older")}
-        />
-        <Text style={styles.position}>
-          {index < 0 ? "" : `${index + 1} of ${state.moments.length}`}
-        </Text>
-        <DeckControl
-          disabled={!newer}
-          hint="Goes forward in time"
-          label="Newer"
-          onPress={() => move("newer")}
-        />
-      </View>
     </View>
   );
 }
@@ -335,42 +417,6 @@ function DeckCard({
   );
 }
 
-function DeckControl({
-  disabled,
-  hint,
-  label,
-  onPress,
-}: {
-  disabled: boolean;
-  hint: string;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityHint={hint}
-      accessibilityLabel={label}
-      // State, not colour, carries the disabled meaning: the label stays and
-      // VoiceOver is told outright.
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.control,
-        pressed && styles.controlPressed,
-        disabled && styles.controlDisabled,
-      ]}
-    >
-      <Text
-        style={[styles.controlLabel, disabled && styles.controlLabelDisabled]}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   cardScroll: {
     flexGrow: 1,
@@ -384,27 +430,5 @@ const styles = StyleSheet.create({
     elevation: 6,
     ...elevation.card,
   },
-  control: {
-    alignItems: "center",
-    backgroundColor: color.brandSurface,
-    borderRadius: radius.pill,
-    justifyContent: "center",
-    minHeight: MINIMUM_TOUCH_TARGET,
-    minWidth: 96,
-    paddingHorizontal: spacing.lg,
-  },
-  controlDisabled: { backgroundColor: color.surfaceSunken },
-  controlLabel: { ...typeScale.label, color: color.brand },
-  controlLabelDisabled: { color: color.textSecondary },
-  controlPressed: { backgroundColor: color.border },
-  controls: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: spacing.md,
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
   deck: { flex: 1 },
-  position: { ...typeScale.caption, color: color.textSecondary },
 });

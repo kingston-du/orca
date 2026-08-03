@@ -72,6 +72,10 @@ export function AddFriendSheet({
   const [searching, setSearching] = useState(false);
 
   async function search() {
+    // The keyboard's return key is now the only way in, and it can fire again
+    // while the first lookup is still out.
+    if (searching) return;
+
     if (!USERNAME_PATTERN.test(username.trim().toLowerCase())) {
       setLookup(null);
       setMessage("Enter an exact Orca username.");
@@ -102,8 +106,11 @@ export function AddFriendSheet({
   return (
     <Sheet onClose={close} title="Add friends" visible={visible}>
       <ScrollView
+        automaticallyAdjustKeyboardInsets
         contentContainerStyle={styles.content}
+        keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
+        testID="add-friend-scroll"
       >
         <View style={styles.section}>
           <Text accessibilityRole="header" style={styles.sectionTitle}>
@@ -147,6 +154,7 @@ export function AddFriendSheet({
             Find someone
           </Text>
           <Field
+            accessibilityHint="Press search on the keyboard to look them up"
             accessibilityLabel="Friend’s username"
             autoCapitalize="none"
             autoCorrect={false}
@@ -160,17 +168,18 @@ export function AddFriendSheet({
             testID="add-friend-search"
             value={username}
           />
+          {searching ? (
+            <ActivityIndicator accessibilityLabel="Searching" />
+          ) : null}
+          {/* No Search button. The field's return key is already labelled
+           * "search" and submits, so a second control below it was a duplicate
+           * of the one the keyboard puts under the author's thumb — and it sat
+           * exactly where the keyboard covers. `searching` still gates the
+           * field so a second submit cannot race the first. */}
           <Text style={styles.hint}>
             Orca finds people by their exact username, so ask a friend for
             theirs — or send them your invite link.
           </Text>
-          <AppButton
-            busy={searching}
-            label="Search"
-            onPress={() => void search()}
-            testID="add-friend-search-submit"
-            variant="secondary"
-          />
           {message ? (
             <Text
               accessibilityLiveRegion="polite"

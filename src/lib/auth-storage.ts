@@ -25,8 +25,27 @@ const secureStoreOptions = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
 } satisfies SecureStore.SecureStoreOptions;
 
+/**
+ * SecureStore accepts `[A-Za-z0-9._-]` and nothing else, but several of Orca's
+ * records are keyed by the Supabase environment URL so a build pointed at a
+ * different backend cannot reuse them — and a URL carries `:` and `/`. Handing
+ * one to the keychain throws, which is how a per-account push-prompt flag could
+ * fail the whole publish that set it.
+ *
+ * Every illegal code unit is escaped rather than stripped, so the mapping stays
+ * injective and two records can never end up sharing one encryption key. A
+ * literal `_` doubles, which is what keeps `_3A_` (an escaped colon) and a real
+ * `_3A_` in the source key distinguishable. Keys that were already legal — the
+ * Supabase Auth token among them — come through byte for byte, so existing
+ * sessions survive this fix.
+ */
 function secureStoreKeyFor(storageKey: string) {
-  return `${SECURE_STORE_PREFIX}${storageKey}`;
+  const escaped = storageKey.replace(/[^A-Za-z0-9.-]/g, (character) =>
+    character === "_"
+      ? "__"
+      : `_${character.charCodeAt(0).toString(16).toUpperCase()}_`,
+  );
+  return `${SECURE_STORE_PREFIX}${escaped}`;
 }
 
 function isEncryptedPayload(value: unknown): value is EncryptedPayload {

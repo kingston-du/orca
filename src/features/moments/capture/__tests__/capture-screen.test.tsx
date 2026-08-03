@@ -7,6 +7,7 @@ import {
   type AppStateStatus,
 } from "react-native";
 
+import { MOMENT_PHOTO_ASPECT } from "@/constants/design";
 import { CaptureScreen } from "@/features/moments/capture/capture-screen";
 import type { NormalizedPhoto } from "@/features/moments/capture/photo-normalizer";
 import {
@@ -24,6 +25,7 @@ const mockRestorePendingPhoto = jest.fn();
 const mockNormalizePhoto = jest.fn();
 const mockStartDraft = jest.fn();
 const mockDiscardDraft = jest.fn();
+const mockPush = jest.fn();
 let mockPermission: { granted: boolean; canAskAgain: boolean } | null = null;
 let mockIsFocused = true;
 let mockAppStateListener: ((state: AppStateStatus) => void) | undefined;
@@ -65,16 +67,10 @@ jest.mock("expo-symbols", () => {
   };
 });
 
-jest.mock("expo-router", () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { Text } = require("react-native");
-  return {
-    useIsFocused: () => mockIsFocused,
-    Link: ({ children, ...props }: Record<string, unknown>) => (
-      <Text {...props}>{children as string}</Text>
-    ),
-  };
-});
+jest.mock("expo-router", () => ({
+  useIsFocused: () => mockIsFocused,
+  router: { push: (...args: unknown[]) => mockPush(...args) },
+}));
 
 jest.mock("@/features/moments/capture/photo-picker", () => ({
   choosePhoto: () => mockChoosePhoto(),
@@ -212,6 +208,7 @@ describe("CaptureScreen", () => {
       evidence: expect.objectContaining({ evidence: "camera_clock" }),
     });
     await waitFor(() => expect(mockStartDraft).toHaveBeenCalledTimes(1));
+    expect(mockPush).toHaveBeenCalledWith("/moments/compose");
   });
 
   test("hands a picked photo to the draft owner rather than holding its own copy", async () => {
@@ -223,6 +220,10 @@ describe("CaptureScreen", () => {
     await user.press(screen.getByRole("button", { name: "Choose a photo" }));
 
     await waitFor(() => expect(mockStartDraft).toHaveBeenCalledWith(photo));
+    // No review step in between: the composer's Cancel already means both
+    // "retake" and "discard", so a screen asking whether to keep going was one
+    // tap of nothing.
+    expect(mockPush).toHaveBeenCalledWith("/moments/compose");
   });
 
   test("keeps the camera controls clear of the home indicator", async () => {
@@ -273,36 +274,65 @@ describe("CaptureScreen", () => {
     expect(shutter).not.toHaveTextContent(/./);
   });
 
-  test("reviews a draft with Retake and Discard and no Publish control", async () => {
+  test("does not stop on a review screen for a freshly captured draft", async () => {
     mockComposerState = stateWith([
       { type: "draft_prepared", draft, kind: "recent", origin: "captured" },
     ]);
     const screen = await render(<CaptureScreen />);
+    await act(() => mockAppStateListener?.("active"));
 
+    // The camera stays live behind a draft the author has just taken, because
+    // they are already looking at the composer on top of it.
+    expect(screen.getByTestId("camera-preview")).toBeOnTheScreen();
+    expect(
+      screen.queryByTestId("captured-photo-preview"),
+    ).not.toBeOnTheScreen();
+    expect(
+      screen.queryByRole("button", { name: "Retake photo" }),
+    ).not.toBeOnTheScreen();
+    expect(screen.queryByText(/publish/i)).not.toBeOnTheScreen();
+  });
+
+  test("offers an explicit Continue or Discard for a restored draft", async () => {
+    mockComposerState = stateWith([
+      { type: "draft_prepared", draft, kind: "recent", origin: "restored" },
+    ]);
+    const user = userEvent.setup();
+    const screen = await render(<CaptureScreen />);
+
+    // A draft the author did not just take is the one thing still worth
+    // stopping for: they may not remember it exists.
     expect(screen.getByTestId("captured-photo-preview")).toHaveProp("source", {
       uri: "file:///draft/media.jpg",
     });
-    expect(
-      screen.getByRole("button", { name: "Retake photo" }),
-    ).toBeOnTheScreen();
+    expect(screen.getByTestId("captured-photo-preview")).toHaveStyle({
+      aspectRatio: MOMENT_PHOTO_ASPECT,
+    });
+    expect(screen.getByTestId("captured-photo-preview")).toHaveProp(
+      "resizeMode",
+      "cover",
+    );
     expect(
       screen.getByRole("button", { name: "Discard this Moment" }),
     ).toBeOnTheScreen();
-    // The release path must not offer publication until Phase 4 exists.
-    expect(screen.queryByText(/publish/i)).not.toBeOnTheScreen();
-    expect(screen.queryByText(/share now/i)).not.toBeOnTheScreen();
+
+    await user.press(
+      screen.getByRole("button", { name: "Continue this Moment" }),
+    );
+    expect(mockPush).toHaveBeenCalledWith("/moments/compose");
   });
 
-  test("states the classification and the capture-local time, not the viewer's", async () => {
+  test("states the capture-local time alone, not the viewer's and not a title", async () => {
     mockComposerState = stateWith([
-      { type: "draft_prepared", draft, kind: "recent", origin: "captured" },
+      { type: "draft_prepared", draft, kind: "recent", origin: "restored" },
     ]);
     const screen = await render(<CaptureScreen />);
 
-    expect(screen.getByText("Recent Moment")).toBeOnTheScreen();
     expect(screen.getByTestId("capture-evidence-label")).toHaveTextContent(
-      "Taken Jul 31, 2026 at 9:30 AM",
+      "Jul 31, 2026 at 9:30 AM",
     );
+    // "Recent Moment" was a label for something the author had just done.
+    expect(screen.queryByText("Recent Moment")).not.toBeOnTheScreen();
   });
 
   test("says the capture date is unavailable for an Archive draft", async () => {
@@ -321,56 +351,34 @@ describe("CaptureScreen", () => {
           },
         },
         kind: "archive",
-        origin: "captured",
+        origin: "restored",
       },
     ]);
     const screen = await render(<CaptureScreen />);
 
-    expect(screen.getByText("Archive Moment")).toBeOnTheScreen();
     expect(screen.getByTestId("capture-evidence-label")).toHaveTextContent(
-      /^Capture date unavailable\./,
+      "Capture date unavailable",
     );
   });
 
-  test("Retake returns to the live camera and keeps the photo in the tile", async () => {
-    mockComposerState = stateWith([
-      { type: "draft_prepared", draft, kind: "recent", origin: "captured" },
-    ]);
+  test("keeps the shutter live across a camera flip", async () => {
     const user = userEvent.setup();
     const screen = await render(<CaptureScreen />);
     await act(() => mockAppStateListener?.("active"));
-
-    await user.press(screen.getByRole("button", { name: "Retake photo" }));
-
-    expect(screen.getByTestId("camera-preview")).toBeOnTheScreen();
-    // Retake asked for a different shot, not for nothing: the draft survives
-    // until a new photo replaces it or the author discards it.
-    expect(mockDiscardDraft).not.toHaveBeenCalled();
-    expect(screen.getByTestId("photos-tile-preview")).toHaveProp("source", {
-      uri: "file:///draft/media.jpg",
-    });
-  });
-
-  test("offers an explicit Continue or Discard for a restored draft", async () => {
-    mockComposerState = stateWith([
-      { type: "draft_prepared", draft, kind: "recent", origin: "restored" },
-    ]);
-    const user = userEvent.setup();
-    const screen = await render(<CaptureScreen />);
+    await act(() => screen.getByTestId("camera-preview").props.onCameraReady());
 
     expect(
-      screen.getByRole("button", { name: "Continue this Moment" }),
-    ).toBeOnTheScreen();
-    expect(
-      screen.queryByRole("button", { name: "Retake photo" }),
-    ).not.toBeOnTheScreen();
+      screen.getByRole("button", { name: "Take photo" }),
+    ).not.toBeDisabled();
 
-    await user.press(
-      screen.getByRole("button", { name: "Continue this Moment" }),
-    );
+    // `onCameraReady` does not fire again for a lens swap, so anything that
+    // clears readiness here leaves the shutter dead until the whole view is
+    // remounted — which in practice meant leaving the tab and coming back.
+    await user.press(screen.getByRole("button", { name: "Flip camera" }));
+
     expect(
-      screen.getByRole("button", { name: "Retake photo" }),
-    ).toBeOnTheScreen();
+      screen.getByRole("button", { name: "Take photo" }),
+    ).not.toBeDisabled();
   });
 
   test("keeps the picker available after a camera mount failure", async () => {

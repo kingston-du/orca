@@ -229,10 +229,6 @@ export function HomeScreen({
     );
   }
 
-  const atOldest =
-    deck.currentId !== null &&
-    deck.moments.at(-1)?.moment_id === deck.currentId;
-
   return (
     <SafeAreaView edges={["top"]} style={styles.container}>
       {switcher}
@@ -263,7 +259,7 @@ export function HomeScreen({
           accessibilityRole="header"
           style={styles.warmingUp}
         >
-          Highlights are warming up
+          This week is still warming up
         </Text>
       ) : null}
 
@@ -276,30 +272,11 @@ export function HomeScreen({
         state={deck}
         width={width}
       />
-
-      {/* The caught-up loop. Reaching the last card of a session is the moment
-       * to offer a new one, because a session cannot show anything published
-       * after its anchor and the viewer has now read everything before it.
-       * Highlights has no equivalent: it is a finite ranked list, not a walk
-       * backwards through time. */}
-      {showingRecent && atOldest && feed.isCaughtUp ? (
-        <View style={styles.caughtUp}>
-          <Text accessibilityLiveRegion="polite" style={styles.caughtUpText}>
-            You’re all caught up.
-          </Text>
-          <Pressable
-            accessibilityHint="Starts again from the newest Moment"
-            accessibilityRole="button"
-            onPress={startOver}
-            style={({ pressed }) => [
-              styles.caughtUpAction,
-              pressed && styles.caughtUpActionPressed,
-            ]}
-          >
-            <Text style={styles.caughtUpActionLabel}>Back to the top</Text>
-          </Pressable>
-        </View>
-      ) : null}
+      {/* Nothing sits under the deck. The deck is a loop with no last card, so
+       * neither a caught-up panel nor a "back to the top" control has anything
+       * true to say — the newest Moment is always one swipe away. A Moment
+       * published mid-session still reaches the viewer, through the pill above,
+       * because that is a genuinely new page rather than a place in this one. */}
     </SafeAreaView>
   );
 }
@@ -316,8 +293,8 @@ const noop = () => {};
  * something the viewer thinks of as flipping a card over.
  */
 const MODE_OPTIONS = [
-  { label: "Recent", value: "recent" },
-  { label: "Highlights", value: "highlights" },
+  { label: "Today", value: "recent" },
+  { label: "Week", value: "highlights" },
 ] as const satisfies readonly { label: string; value: HomeMode }[];
 
 function ModeSwitch({
@@ -357,8 +334,8 @@ function EmptyHome({
   if (mode === "highlights") {
     return (
       <HomeMessage
-        action={{ label: "Back to Recent", onPress: onShowRecent }}
-        body="Highlights collects the Moments you and your friends reacted to most in the last seven days."
+        action={{ label: "Back to Today", onPress: onShowRecent }}
+        body="Week collects the Moments you and your friends reacted to most in the last seven days."
         title="Nothing to highlight yet"
       />
     );
@@ -504,23 +481,6 @@ function HomeMessage({
 
 const styles = StyleSheet.create({
   container: { backgroundColor: color.canvas, flex: 1 },
-  caughtUp: {
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingBottom: spacing.lg,
-    paddingHorizontal: spacing.lg,
-  },
-  caughtUpAction: {
-    alignItems: "center",
-    backgroundColor: color.brandSurface,
-    borderRadius: radius.pill,
-    justifyContent: "center",
-    minHeight: MINIMUM_TOUCH_TARGET,
-    paddingHorizontal: spacing.xl,
-  },
-  caughtUpActionLabel: { ...typeScale.label, color: color.brand },
-  caughtUpActionPressed: { backgroundColor: color.border },
-  caughtUpText: { ...typeScale.caption, color: color.textSecondary },
   inlineError: {
     backgroundColor: color.criticalSurface,
     marginHorizontal: spacing.lg,

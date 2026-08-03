@@ -14,6 +14,7 @@ import { ProfileAvatar } from "@/components/profile-avatar";
 import { ScreenHeader } from "@/components/screen-header";
 import { color, spacing, typeScale } from "@/constants/design";
 import { FriendCountLink } from "@/features/friends/friend-count-link";
+import { SharedMomentsPreview } from "@/features/moments/history/shared-moments-preview";
 
 import {
   blockUser,
@@ -25,6 +26,7 @@ import {
 type FriendProfileScreenProps = {
   onBack: () => void;
   onOpenFriends: (profileId: string) => void;
+  onOpenMoment: (momentId: string) => void;
   onOpenSharedMoments: (profileId: string) => void;
   onReport: (profileId: string, displayName: string) => void;
   profileId: string;
@@ -45,6 +47,7 @@ type FriendProfileScreenProps = {
 export function FriendProfileScreen({
   onBack,
   onOpenFriends,
+  onOpenMoment,
   onOpenSharedMoments,
   onReport,
   profileId,
@@ -142,12 +145,19 @@ export function FriendProfileScreen({
         </View>
 
         {/* Shared Moments is a current-friend surface only. Offering it to
-         * anyone else would be a claim about what history exists. */}
+         * anyone else — even as an empty grid — would be a claim about what
+         * history exists.
+         *
+         * The button that used to sit here has become the history itself: a
+         * couple of rows of what the two of you have, with the count under
+         * them as the way into the rest. A profile that shows nothing but a
+         * name, a handle, and three ways to end the friendship is not a profile
+         * anyone wants to open. */}
         {isFriend ? (
-          <AppButton
-            accessibilityHint="Moments you are both in"
-            label="Shared Moments"
-            onPress={() => onOpenSharedMoments(profile.id)}
+          <SharedMomentsPreview
+            friendId={profile.id}
+            onOpenAll={() => onOpenSharedMoments(profile.id)}
+            onOpenMoment={onOpenMoment}
           />
         ) : null}
 

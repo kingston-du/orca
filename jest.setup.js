@@ -47,6 +47,9 @@ jest.mock("react-native-reanimated", () => {
     useAnimatedScrollHandler: () => () => {},
     useAnimatedStyle: (factory) => factory(),
     useSharedValue: (initial) => ({ value: initial }),
+    // The sheet's drag hands its dismiss back to JavaScript. With no UI thread
+    // to cross, the identity function is exactly right.
+    runOnJS: (fn) => fn,
     // The reaction controls' selection pop. Its *timing* is a UI-thread
     // behaviour a device pass owns; what tests here own is that pressing a
     // control does not throw and that Reduce Motion is honoured, so the
@@ -79,6 +82,28 @@ jest.mock("expo-symbols", () => {
     SymbolView: ({ name, ...props }) =>
       React.createElement(View, { ...props, testID: `symbol-${name}` }),
   };
+});
+
+/**
+ * The sheet is draggable, which brings `react-native-gesture-handler` into the
+ * tree of every screen that opens one. Its own setup file replaces the native
+ * module with a stub and makes `GestureDetector` render its child, which is all
+ * a test renderer can meaningfully do with a pan: whether the sheet actually
+ * follows a finger is a device behaviour. What tests still own is that the
+ * sheet mounts, that its content is reachable, and that the two dismissals
+ * which are *not* gestures — the close button and the scrim — still work.
+ */
+require("react-native-gesture-handler/jestSetup");
+
+/**
+ * `GestureDetector` wires itself to Reanimated's event plumbing, which the mock
+ * above this file deliberately does not provide — there is no UI thread to
+ * attach to. It becomes a passthrough, so the sheet's content is still rendered
+ * and still reachable; the drag itself is a device behaviour.
+ */
+jest.mock("react-native-gesture-handler", () => {
+  const actual = jest.requireActual("react-native-gesture-handler");
+  return { ...actual, GestureDetector: ({ children }) => children };
 });
 
 jest.mock("react-native-safe-area-context", () => {
