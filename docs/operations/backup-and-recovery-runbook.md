@@ -1,9 +1,12 @@
 # Backup and recovery runbook
 
-Status: Checkpoint 9B local engineering is implemented. No hosted backup
-provider, paid database-backup plan, remote archive, production schedule, or
-remote drill project has been created. Each remains an approval and purchasing
-gate.
+Status: Checkpoint 9B engineering and its hosted schema/function boundary are
+implemented. The founder declined a separate archive provider, scheduler,
+credentials, and RPO/RTO program for V1 on 2026-08-03. Hosted therefore runs
+with `ORCA_BACKUP_OPERATIONS_ENABLED=false`; `backup-media` is ACTIVE but has no
+ordinary/evidence secret and fails closed with `BACKUP_NOT_CONFIGURED`. This
+runbook documents tested contingency tooling, not an active V1 service or a
+release gate.
 
 ## What is actually protected
 
@@ -31,13 +34,14 @@ Primary references:
 - [Supabase restore to a new project](https://supabase.com/docs/guides/platform/clone-project)
 - [Supabase Storage access control](https://supabase.com/docs/guides/storage/security/access-control)
 
-## Required production resources — approval gated
+## Optional archive resources — outside V1
 
-Before historical beta data exists, provision all of the following under a
-separate approval:
+Do not provision these for V1. If the founder later reverses the one-provider
+decision, the archive cannot be described as active until all of the following
+are approved and configured together:
 
-- a paid production database-backup plan whose daily recovery point satisfies
-  the initial 24-hour database RPO;
+- a production Supabase plan whose database-only backup behavior is documented
+  separately from Storage protection;
 - one environment-isolated, versioned off-site archive target with capacity
   for roughly 60 GiB in year one plus retention overlap;
 - two high-entropy Edge Function secrets, `BACKUP_ORDINARY_SECRET` and
@@ -53,11 +57,12 @@ Never reuse development keys, share ordinary/evidence secrets, or place a key
 in shell history, CI output, a ticket, a screenshot, an archive directory, or
 this repository.
 
-## Scheduled operation
+## Optional scheduled operation
 
-Run each scope independently. A mounted path in the example must be a genuinely
-off-site, encrypted, versioned target in production; a laptop directory is
-only suitable for the local drill.
+These commands are local drill/manual contingency instructions while the V1
+provider decision remains in force. They establish no production recovery
+claim. If a future approved archive exists, run each scope independently; a
+mounted path must then be a genuinely off-site, encrypted, versioned target.
 
 ```sh
 ORCA_BACKUP_SCOPE=ordinary npm run backup -- sync --max 25
@@ -99,9 +104,11 @@ but absence of a named responder blocks expansion.
 | archive capacity above 70% or projected 30-day exhaustion  | warning                           | Increase approved capacity before writes fail.                                                         |
 | primary Storage above 70 GiB or egress above 150 GiB/month | review                            | Recheck provider plan and the Section 21 growth assumptions before expansion.                          |
 
-`reconcile-operations` returns non-2xx for dead jobs and RPO/privacy-clock
-breaches. Snapshot-age dashboards also page at 24 hours once production
-snapshots are expected; local development deliberately has no such claim.
+When archive operations are enabled, `reconcile-operations` returns non-2xx for
+dead jobs and RPO/privacy-clock breaches. Hosted V1 explicitly disables that
+branch because there is no consumer or recovery promise; cleanup, safety,
+notifications, and account deletion remain monitored normally. Snapshot-age
+dashboards do not exist and no V1 recovery claim is made.
 
 ## Deletion and tombstone recovery
 
@@ -178,4 +185,4 @@ second synthetic-only Supabase stack and proves clean migration replay,
 encrypted ordinary/evidence restore, hashes, author signed reads, unrelated and
 private/evidence denial, and cleanup resumption. It proves the tooling and
 authorization story; it does not prove provider restore duration or production
-RPO/RTO.
+RPO/RTO. Under the V1 decision those values are not targets or release claims.

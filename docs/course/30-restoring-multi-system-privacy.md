@@ -136,3 +136,22 @@ The JPEG was already purged from the archive. Why is "missing object" alone an
 ambiguous signal, while an authenticated tombstone in the archive ledger is a
 safe reason not to restore it? Which failure should occur if the tombstone
 ledger itself cannot be decrypted?
+
+## 8. Hosted promotion and the V1 simplicity decision
+
+The 2026-08-03 promotion put the migration and `backup-media` boundary into
+hosted development, but it did not pretend that code equals a backup. The
+founder chose not to add a separate archive provider, scheduler account,
+credentials, or RPO/RTO program for V1. `backup-media` therefore has no scope
+secret and returns `BACKUP_NOT_CONFIGURED`; the unified worker runs with
+`ORCA_BACKUP_OPERATIONS_ENABLED=false`, so an intentionally absent consumer
+cannot make cleanup or account deletion unhealthy.
+
+That is a useful production lesson: removing an operational dependency also
+requires removing its alerts and promises. Forty existing media facts were
+backfilled into the hosted inventory, but zero encrypted copies and zero sealed
+snapshots exist, so those rows are not called backups. Supabase's database
+backup plan is a later production-project decision and still would not protect
+Storage objects. Orca consequently makes no V1 media-recovery, RPO, or RTO
+claim. The tested archive remains contingency tooling that can only be enabled
+later as one complete provider/credential/monitoring/drill decision.

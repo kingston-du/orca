@@ -47,6 +47,15 @@ const RECEIPT_LIMIT = 100;
  * requested. */
 const DELETION_LIMIT = 5;
 
+/** The founder deliberately declined an external archive provider for V1.
+ * Keep the already-tested backup boundary deployable for manual/future use,
+ * but let an environment explicitly opt out of maintenance and RPO alerts so
+ * an intentionally absent consumer cannot make unrelated cleanup and account
+ * deletion invocations unhealthy. Local verification and any future archive
+ * environment remain enabled unless they deliberately set this to `false`. */
+const BACKUP_OPERATIONS_ENABLED =
+  Deno.env.get("ORCA_BACKUP_OPERATIONS_ENABLED") !== "false";
+
 type Metrics = {
   ready_jobs: number;
   retry_jobs: number;
@@ -155,15 +164,17 @@ export default {
         });
         return json({ error: "Maintenance failed" }, 500);
       }
-      const { error: backupError } = await ctx.supabaseAdmin.rpc(
-        "run_backup_maintenance",
-        { p_limit: 500 },
-      );
-      if (backupError) {
-        console.error("Backup maintenance failed", {
-          code: backupError.code,
-        });
-        return json({ error: "Maintenance failed" }, 500);
+      if (BACKUP_OPERATIONS_ENABLED) {
+        const { error: backupError } = await ctx.supabaseAdmin.rpc(
+          "run_backup_maintenance",
+          { p_limit: 500 },
+        );
+        if (backupError) {
+          console.error("Backup maintenance failed", {
+            code: backupError.code,
+          });
+          return json({ error: "Maintenance failed" }, 500);
+        }
       }
       return json({ mode: "maintenance", ok: true }, 200);
     }
@@ -263,14 +274,17 @@ export default {
     const { data: deletionRow } = await ctx.supabaseAdmin.rpc(
       "get_account_deletion_metrics",
     );
-    const { data: backupRow } = await ctx.supabaseAdmin.rpc(
-      "get_backup_operations_metrics",
-    );
     const metrics = firstRow<Metrics>(metricsRow);
     const safety = firstRow<SafetyMetrics>(safetyRow);
     const pushMetrics = firstRow<PushMetrics>(pushRow);
     const deletionMetrics = firstRow<DeletionMetrics>(deletionRow);
-    const backupMetrics = firstRow<BackupMetrics>(backupRow);
+    let backupMetrics: BackupMetrics | null = null;
+    if (BACKUP_OPERATIONS_ENABLED) {
+      const { data: backupRow } = await ctx.supabaseAdmin.rpc(
+        "get_backup_operations_metrics",
+      );
+      backupMetrics = firstRow<BackupMetrics>(backupRow);
+    }
     // `pushMetrics` is nested rather than spread: it has its own
     // `oldest_ready_age_seconds`, and flattening it would silently overwrite
     // the media queue's age with the notification queue's.

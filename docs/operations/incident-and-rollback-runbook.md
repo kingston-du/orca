@@ -19,29 +19,32 @@ authorized merely because this document exists.
 4. Decide whether primary privacy is still enforced. If RLS/account-state/block
    checks are uncertain, stop ordinary traffic before investigating
    availability.
-5. Preserve the latest database recovery timestamp, encrypted manifests,
-   tombstone ledger, deployed function versions, migration list, and logs under
-   their normal retention controls. Do not duplicate content as "evidence."
+5. Preserve the latest available Supabase database recovery timestamp, deployed
+   function versions, migration list, and logs under their normal retention
+   controls. Preserve encrypted manifests/tombstones only if the optional
+   archive was explicitly enabled; V1 has none. Do not duplicate content as
+   "evidence."
 
 ## Severity
 
-| Severity | Examples                                                                                                           | Response                                                                                                                 |
-| -------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| SEV-1    | unauthorized private/evidence access; deleted backup bytes past deadline; destructive corruption; secrets exposed  | stop affected traffic, rotate/revoke, preserve content-free evidence, obtain legal/privacy guidance, continuous response |
-| SEV-2    | database/media RPO breach; backup dead letter; cleanup/deletion older than target; widespread publish/auth failure | pause expansion, repair or isolated restore, hourly status until stable                                                  |
-| SEV-3    | bounded retry, single recoverable job, warning-level capacity trend                                                | owner investigates within one working day; escalate if age/error repeats                                                 |
+| Severity | Examples                                                                                           | Response                                                                                                                 |
+| -------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| SEV-1    | unauthorized private/evidence access; destructive corruption; secrets exposed                      | stop affected traffic, rotate/revoke, preserve content-free evidence, obtain legal/privacy guidance, continuous response |
+| SEV-2    | cleanup/deletion older than target; widespread publish/auth failure; loss of the only Storage copy | pause expansion, repair what is recoverable, hourly status until stable                                                  |
+| SEV-3    | bounded retry, single recoverable job, warning-level capacity trend                                | owner investigates within one working day; escalate if age/error repeats                                                 |
 
 ## Diagnosis by owning layer
 
-- `SOURCE_MISSING`: compare the database point, Storage row, cleanup/tombstone,
-  and archive manifest. A deleted/tombstoned source is suppression, not a retry.
+- `SOURCE_MISSING`: compare the database point, Storage row, and
+  cleanup/tombstone. If the optional archive is enabled, compare its manifest
+  too. A deleted/tombstoned source is suppression, not a retry.
 - `SOURCE_HASH_MISMATCH`: isolate the object and finalizer/verification facts.
   Never archive bytes under a hash they do not match.
-- `ARCHIVE_AUTH_FAILED`: stop writes to that generation, verify the key id and
+- Optional archive only — `ARCHIVE_AUTH_FAILED`: stop writes to that generation, verify the key id and
   secret-manager version, then use a known-good generation or approved rekey.
-- `ARCHIVE_WRITE_FAILED` / capacity: leave the lease to retry, repair the
+- Optional archive only — `ARCHIVE_WRITE_FAILED` / capacity: leave the lease to retry, repair the
   off-site target, and watch the 24-hour RPO clock.
-- dead backup/cleanup/account job: do not edit terminal state. Reproduce the
+- dead cleanup/account job: do not edit terminal state. Reproduce the
   exact failing stage, fix the cause, and use a purpose-built audited replay or
   forward migration.
 - database/media point mismatch: select a matching pair or restore a newer
@@ -74,14 +77,15 @@ Recovery is not "the endpoint returned 200." Before reopening traffic, verify:
 - Auth/onboarding/legal eligibility and stale-JWT denial;
 - exact friend/block/generation and Moment history rules;
 - private buckets, hashes, signed ordinary reads, evidence isolation;
-- cleanup, notification, evidence, backup, and account-deletion worker resume;
-- tombstone replay against a database point older than deletion;
+- cleanup, notification, evidence, and account-deletion worker resume;
+- tombstone replay only when restoring through an explicitly enabled archive;
 - queue ages/dead counts, function/database p95, capacity, and no secret/content
   in logs;
 - physical app smoke if endpoint/build configuration changed.
 
-Record actual database/media RPO and service RTO. If either exceeds 24 hours,
-say the target was missed; do not average the incident away.
+Record the actual data loss and restoration time without calling either an RPO
+or RTO. V1 has no such commitment. If an optional archive is enabled later,
+its separately approved targets and drill evidence replace this sentence.
 
 ## Closeout
 
