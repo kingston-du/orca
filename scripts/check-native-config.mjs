@@ -28,6 +28,22 @@ assert.equal(
   true,
 );
 
+// Push is one entitlement and nothing more. `remote-notification` would let the
+// app be woken silently; Orca only ever shows a generic alert the user tapped,
+// so the background mode must stay absent.
+assert.equal(config.ios.entitlements["aps-environment"], "development");
+assert.equal(
+  (config.ios.infoPlist.UIBackgroundModes ?? []).includes(
+    "remote-notification",
+  ),
+  false,
+  "remote-notification background mode must remain absent",
+);
+// The environment the app reports when registering a device has to be the same
+// string as the entitlement, or every token would be minted against one APNs
+// environment and sent through the other.
+assert.equal(config.extra.pushEnvironment, "development");
+
 for (const permission of [
   "android.permission.RECORD_AUDIO",
   "android.permission.READ_EXTERNAL_STORAGE",

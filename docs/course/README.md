@@ -4,7 +4,7 @@ These lessons explain verified Orca implementation checkpoints through their men
 
 ## Redesign status
 
-Orca's friend-first foundation and Phases 1–7 are implemented on `codex/friend-first-rebaseline`. Local and hosted development share the same thirteen-migration history, three private media buckets, and four Edge Functions. Phase 7's real hosted TOTP/AAL2 moderation drill passed after the migrations, `moderate-report`, the updated worker, and Auth settings were promoted. The disposable operator/cases/evidence were removed and the content-free audit trail remains by design. Founder-owned release operations still need the real support mailbox, permanent operator identity/TOTP device, Sentry project/source-map verification, legal text, and the documented physical-iPhone gates.
+Orca's friend-first foundation and Phases 1–8 are implemented on `codex/friend-first-rebaseline`. Local development runs fourteen migrations; hosted development still runs the first thirteen, because Phase 8's promotion is a separate approval. Both carry three private media buckets and four Edge Functions. Phase 7's real hosted TOTP/AAL2 moderation drill passed after the migrations, `moderate-report`, the updated worker, and Auth settings were promoted. The disposable operator/cases/evidence were removed and the content-free audit trail remains by design. Founder-owned release operations still need the real support mailbox, permanent operator identity/TOTP device, Sentry project/source-map verification, legal text, and the documented physical-iPhone gates. Phase 8 adds three of its own: hosted promotion, an Expo push access token, and the native rebuild `aps-environment` requires.
 
 Only the retained foundations below are current course material. Obsolete and superseded work is separated in the [historical archive](./archive/README.md).
 
@@ -26,14 +26,17 @@ Only the retained foundations below are current course material. Obsolete and su
 - Lesson 25 — [Transactional idempotency, a quota you cannot refund, and counts that keep a secret](./25-transactional-idempotency-and-quota.md)
 - Lesson 26 — [Privacy-preserving moderation: a saga, an operator, and a clock](./26-privacy-preserving-moderation.md)
 - Lesson 27 — [SQLSTATE is an API contract](./27-sqlstate-is-an-api-contract.md)
+- Lesson 28 — [The transactional outbox, and telling someone something without saying anything](./28-the-outbox-and-best-effort-push.md)
 
 Lesson 23's claim that the viewer's own Moments fail the Recent read rule described Checkpoint 5A only. Checkpoint 5B made own Recent Moments visible on Home by founder direction; Lesson 24 Part 3 explains what changed and why the old behaviour was an accident of the join rather than a decision. Lessons 23 and 24 also state that no reaction control, count, or people list exists anywhere; that described Phases 5A and 5B only. Phase 6 adds all three, and Lesson 25 covers them.
 
 Lesson 11's native camera lifecycle and normalization boundary remain useful, but its fallback picker capture time is superseded by Lesson 21's capture-evidence allowlist, and its references to Circle publishing describe the pre-redesign downstream contract. Follow Lesson 21 and `PROJECT.md` instead. Lesson 21's statement that no Publish control exists described Phase 3 only; Lesson 22 adds the real one.
 
+Lessons 20 and 22 describe the media worker as the only outbox and say that publication, friendship, and reaction transactions commit without notification rows. That described Phases 2 through 7 only. Phase 8 adds the second outbox and the row triggers that write into it; Lesson 28 covers both, and nothing about the media worker's leases, proofs, or retry ladder changed.
+
 ## Next lesson
 
-Lesson 28 is created only after Phase 8's notification surfaces are implemented and verified. Course notes never describe speculative code as though it exists.
+Lesson 29 is created only after Checkpoint 9A's Auth-last account deletion is implemented and verified. Course notes never describe speculative code as though it exists.
 
 ## Course progression and checkpoint contract
 

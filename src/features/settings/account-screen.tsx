@@ -15,6 +15,7 @@ type AccountScreenProps = {
   username: string;
   onEditProfile: () => void;
   onOpenBlockedUsers: () => void;
+  onOpenNotifications: () => void;
   onOpenSupport: () => void;
   onSignOut: () => Promise<{ message: string } | null>;
 };
@@ -24,6 +25,7 @@ export function AccountScreen({
   email,
   onEditProfile,
   onOpenBlockedUsers,
+  onOpenNotifications,
   onOpenSupport,
   onSignOut,
   username,
@@ -87,6 +89,21 @@ export function AccountScreen({
             style={styles.navRow}
           >
             <Text style={styles.value}>Edit Profile</Text>
+            <Text accessibilityElementsHidden style={styles.chevron}>
+              ›
+            </Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.signOutSection}>
+          <Text style={styles.sectionTitle}>Notifications</Text>
+          <Pressable
+            accessibilityHint="Choose which notifications Orca sends you"
+            accessibilityRole="button"
+            onPress={onOpenNotifications}
+            style={styles.navRow}
+          >
+            <Text style={styles.value}>Notifications</Text>
             <Text accessibilityElementsHidden style={styles.chevron}>
               ›
             </Text>

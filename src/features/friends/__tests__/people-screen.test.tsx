@@ -13,6 +13,18 @@ jest.mock("@/features/profiles/avatar-api", () => ({
   createAvatarSignedUrl: jest.fn(async () => null),
 }));
 
+// People is now one of the two screens that can earn the notification
+// pre-prompt, so it reads the signed-in user. Both boundaries are stubbed here
+// rather than pulling the Supabase client and the encrypted store into a screen
+// test that is about friend commands.
+jest.mock("@/features/auth/auth-provider", () => ({
+  useAuth: () => ({ user: { id: "11111111-1111-4111-8111-111111111111" } }),
+}));
+
+jest.mock("@/features/notifications/notification-prompt", () => ({
+  markNotificationPromptEarned: jest.fn(async () => {}),
+}));
+
 jest.mock("@/features/friends/friends-api", () => ({
   listFriendRequests: jest.fn(),
   listFriends: jest.fn(),

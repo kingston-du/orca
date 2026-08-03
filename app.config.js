@@ -1,5 +1,12 @@
 const IS_DEV = process.env.APP_VARIANT === "development";
 
+// APNs sandbox and APNs production issue different device tokens, and a token
+// minted against one is silently undeliverable through the other. The value is
+// both the `aps-environment` entitlement and the environment the app reports
+// when it registers a device, so the two can never drift apart; the server
+// stores devices per environment and never mixes them.
+const PUSH_ENVIRONMENT = IS_DEV ? "development" : "production";
+
 module.exports = ({ config }) => ({
   ...config,
   name: IS_DEV ? "Orca (Dev)" : "Orca",
@@ -31,7 +38,23 @@ module.exports = ({ config }) => ({
         barcodeScannerEnabled: false,
       },
     ],
+    [
+      "expo-notifications",
+      {
+        // Only the `aps-environment` entitlement. Orca sends user-facing
+        // alerts and nothing else, so `enableBackgroundRemoteNotifications`
+        // stays off: adding `remote-notification` to `UIBackgroundModes` would
+        // claim the ability to wake the app silently, which is a capability
+        // this product neither uses nor wants to justify at review.
+        mode: PUSH_ENVIRONMENT,
+        enableBackgroundRemoteNotifications: false,
+      },
+    ],
   ],
+  extra: {
+    ...config.extra,
+    pushEnvironment: PUSH_ENVIRONMENT,
+  },
   ios: {
     ...config.ios,
     bundleIdentifier: IS_DEV

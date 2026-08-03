@@ -11,6 +11,12 @@ import {
   rows,
   type CleanupClaim,
 } from "../_shared/media-cleanup.ts";
+import {
+  processPushClaims,
+  processPushReceipts,
+  type PushClaim,
+  type PushReceiptClaim,
+} from "../_shared/push-delivery.ts";
 
 /** Section 20's acceptance assumptions: at most 25 paths per invocation, a
  * 90-second lease, and everything finished inside a 45-second budget. */
@@ -24,6 +30,12 @@ const LEASE_SECONDS = 90;
  * once — and at a per-minute schedule it still drains far more reports than a
  * hundred-user beta can produce. */
 const EVIDENCE_LIMIT = 3;
+
+/** Push moves a few hundred bytes per message rather than a photo, so it can
+ * take a wider batch than evidence. Fifty device messages is one Expo request
+ * with room to spare under the documented hundred-message limit. */
+const PUSH_LIMIT = 50;
+const RECEIPT_LIMIT = 100;
 
 type Metrics = {
   ready_jobs: number;
@@ -58,6 +70,21 @@ type SafetyMetrics = {
   unavailable_evidence: number;
   evidence_awaiting_purge: number;
   legal_holds: number;
+};
+
+/** Queue depth and age only. A backlog past Section 21's five-minute trigger is
+ * visible here without anything naming a recipient or a device. */
+type PushMetrics = {
+  ready_notifications: number;
+  grouped_notifications: number;
+  leased_notifications: number;
+  awaiting_receipt: number;
+  dead_notifications: number;
+  oldest_ready_age_seconds: number;
+  suppressed_last_day: number;
+  delivered_last_day: number;
+  active_devices: number;
+  invalid_devices_last_day: number;
 };
 
 export default {
@@ -111,6 +138,38 @@ export default {
       rows<EvidenceClaim>(evidenceClaimed),
     );
 
+    // Push runs last. It is the only stage that talks to a third party, so a
+    // provider outage degrades notifications without ever holding up the
+    // Storage proofs the deletion promises depend on.
+    const pushToken = Deno.env.get("EXPO_ACCESS_TOKEN") ?? undefined;
+    const { data: pushClaimed, error: pushError } = await ctx.supabaseAdmin.rpc(
+      "claim_notification_batch",
+      { p_lease_seconds: LEASE_SECONDS, p_limit: PUSH_LIMIT },
+    );
+    if (pushError) {
+      console.error("Push claim failed", { code: pushError.code });
+    }
+    const push = await processPushClaims(
+      ctx.supabaseAdmin,
+      rows<PushClaim>(pushClaimed),
+      fetch,
+      pushToken,
+    );
+
+    const { data: receiptClaimed, error: receiptError } =
+      await ctx.supabaseAdmin.rpc("claim_notification_receipts", {
+        p_limit: RECEIPT_LIMIT,
+      });
+    if (receiptError) {
+      console.error("Receipt claim failed", { code: receiptError.code });
+    }
+    const receipts = await processPushReceipts(
+      ctx.supabaseAdmin,
+      rows<PushReceiptClaim>(receiptClaimed),
+      fetch,
+      pushToken,
+    );
+
     // Counts and ages only — no path, user, bucket contents, or byte ever
     // reaches a log line, so this is safe to alert on.
     const { data: metricsRow } = await ctx.supabaseAdmin.rpc(
@@ -119,11 +178,21 @@ export default {
     const { data: safetyRow } = await ctx.supabaseAdmin.rpc(
       "get_safety_operations_metrics",
     );
+    const { data: pushRow } = await ctx.supabaseAdmin.rpc(
+      "get_notification_operations_metrics",
+    );
     const metrics = firstRow<Metrics>(metricsRow);
     const safety = firstRow<SafetyMetrics>(safetyRow);
+    const pushMetrics = firstRow<PushMetrics>(pushRow);
+    // `pushMetrics` is nested rather than spread: it has its own
+    // `oldest_ready_age_seconds`, and flattening it would silently overwrite
+    // the media queue's age with the notification queue's.
     console.info("reconcile-operations", {
       ...outcome,
       evidence,
+      push,
+      receipts,
+      notifications: pushMetrics,
       ...metrics,
       ...safety,
     });
@@ -132,15 +201,22 @@ export default {
     // hiding behind a successful invocation that quietly did nothing. A report
     // past its review target is an operational failure in exactly the same
     // sense: the commitment is staffing, not code.
+    //
+    // Push is deliberately *not* part of this condition. Expo publishes no SLA
+    // and the product is correct without notifications, so a provider hiccup
+    // must not page anyone or mark an invocation that proved a deletion as
+    // failed. What does warrant attention is a backlog, which Section 21 sets
+    // at five minutes of unsent ready work.
     const degraded =
       outcome.retry > 0 ||
       outcome.lost > 0 ||
       evidence.retry > 0 ||
       evidence.lost > 0 ||
       (safety?.urgent_sla_breaches ?? 0) > 0 ||
-      (safety?.normal_sla_breaches ?? 0) > 0;
+      (safety?.normal_sla_breaches ?? 0) > 0 ||
+      (pushMetrics?.oldest_ready_age_seconds ?? 0) > 300;
     return json(
-      { ...outcome, evidence, metrics, safety },
+      { ...outcome, evidence, push, receipts, metrics, safety, pushMetrics },
       degraded ? 503 : 200,
     );
   }),

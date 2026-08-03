@@ -353,6 +353,36 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          hearts_enabled: boolean
+          master_choice_at: string | null
+          master_enabled: boolean
+          new_moments_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          hearts_enabled?: boolean
+          master_choice_at?: string | null
+          master_enabled?: boolean
+          new_moments_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          hearts_enabled?: boolean
+          master_choice_at?: string | null
+          master_enabled?: boolean
+          new_moments_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_path: string | null
@@ -521,6 +551,28 @@ export type Database = {
           object_path: string
         }[]
       }
+      claim_notification_batch: {
+        Args: { p_lease_seconds?: number; p_limit?: number }
+        Returns: {
+          attempt_count: number
+          device_id: string
+          environment: string
+          job_id: string
+          lease_token: string
+          notification_type: string
+          push_token: string
+          route: string
+          route_id: string
+        }[]
+      }
+      claim_notification_receipts: {
+        Args: { p_limit?: number }
+        Returns: {
+          device_id: string
+          job_id: string
+          provider_ticket_id: string
+        }[]
+      }
       complete_evidence_capture: {
         Args: {
           p_byte_size: number
@@ -533,6 +585,10 @@ export type Database = {
       complete_media_cleanup: {
         Args: { p_job_id: string; p_lease_token: string }
         Returns: boolean
+      }
+      complete_notification_job: {
+        Args: { p_job_id: string; p_lease_token: string; p_results: Json }
+        Returns: string
       }
       complete_onboarding: {
         Args: {
@@ -602,6 +658,10 @@ export type Database = {
         Returns: string
       }
       fail_media_cleanup: {
+        Args: { p_error_code: string; p_job_id: string; p_lease_token: string }
+        Returns: string
+      }
+      fail_notification_job: {
         Args: { p_error_code: string; p_job_id: string; p_lease_token: string }
         Returns: string
       }
@@ -764,6 +824,31 @@ export type Database = {
           object_path: string
           published_at: string
           status: string
+        }[]
+      }
+      get_notification_operations_metrics: {
+        Args: never
+        Returns: {
+          active_devices: number
+          awaiting_receipt: number
+          dead_notifications: number
+          delivered_last_day: number
+          grouped_notifications: number
+          invalid_devices_last_day: number
+          leased_notifications: number
+          oldest_ready_age_seconds: number
+          ready_notifications: number
+          suppressed_last_day: number
+        }[]
+      }
+      get_notification_settings: {
+        Args: { p_environment?: string; p_installation_id?: string }
+        Returns: {
+          device_registered: boolean
+          hearts_enabled: boolean
+          master_choice_made: boolean
+          master_enabled: boolean
+          new_moments_enabled: boolean
         }[]
       }
       get_profile_summary: {
@@ -1066,6 +1151,22 @@ export type Database = {
         }[]
       }
       mark_moments_seen: { Args: { p_moment_ids: string[] }; Returns: number }
+      record_notification_receipts: {
+        Args: { p_results: Json }
+        Returns: number
+      }
+      register_push_device: {
+        Args: {
+          p_environment: string
+          p_installation_id: string
+          p_platform: string
+          p_push_token: string
+        }
+        Returns: {
+          device_id: string
+          master_enabled: boolean
+        }[]
+      }
       reject_avatar_upload: {
         Args: { p_error_code: string; p_request_id: string; p_user_id: string }
         Returns: string
@@ -1144,12 +1245,16 @@ export type Database = {
         Returns: {
           expired_evidence_captures: number
           expired_moment_reservations: number
+          expired_notification_leases: number
           expired_reservations: number
           pruned_deletion_receipts: number
+          pruned_devices: number
           pruned_friend_requests: number
           pruned_jobs: number
           pruned_moderation_actions: number
           pruned_moment_requests: number
+          pruned_notification_aggregates: number
+          pruned_notification_jobs: number
           pruned_rate_buckets: number
           pruned_reaction_commands: number
           pruned_reports: number
@@ -1157,6 +1262,7 @@ export type Database = {
           pruned_verifications: number
           purged_evidence: number
           redacted_reports: number
+          stale_devices: number
         }[]
       }
       send_friend_request: {
@@ -1218,6 +1324,10 @@ export type Database = {
           request_id: string
           result_state: string
         }[]
+      }
+      unregister_push_device: {
+        Args: { p_environment: string; p_installation_id: string }
+        Returns: number
       }
     }
     Enums: {

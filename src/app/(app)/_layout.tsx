@@ -10,6 +10,7 @@ import {
 
 import { useAuth } from "@/features/auth/auth-provider";
 import { MomentDraftProvider } from "@/features/moments/composer/composer-provider";
+import { NotificationsProvider } from "@/features/notifications/notifications-provider";
 import { getOnboardingRouteAccess } from "@/features/onboarding/onboarding-route-access";
 import { useOwnOnboardingState } from "@/features/onboarding/use-own-onboarding-state";
 
@@ -81,39 +82,48 @@ export default function AppLayout() {
     // and composition are separate routes that must agree on one draft, and
     // restart recovery has to run once rather than once per screen.
     <MomentDraftProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Protected guard={canEnterOnboarding}>
-          <Stack.Screen name="onboarding" />
-        </Stack.Protected>
+      {/* Inside the draft provider on purpose: a push deep link must not
+       * interrupt an upload, and the only way to know one is running is to be
+       * able to read the publish state. */}
+      <NotificationsProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Protected guard={canEnterOnboarding}>
+            <Stack.Screen name="onboarding" />
+          </Stack.Protected>
 
-        <Stack.Protected guard={canEnterRestricted}>
-          <Stack.Screen name="restricted" />
-        </Stack.Protected>
+          <Stack.Protected guard={canEnterRestricted}>
+            <Stack.Screen name="restricted" />
+          </Stack.Protected>
 
-        <Stack.Protected guard={canEnterTabs}>
-          <Stack.Screen name="(tabs)" />
+          <Stack.Protected guard={canEnterTabs}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen
+              name="profile/index"
+              options={{ headerShown: true, title: "My Profile" }}
+            />
+            <Stack.Screen
+              name="settings/index"
+              options={{ headerShown: true, title: "Settings" }}
+            />
+            <Stack.Screen
+              name="settings/notifications"
+              options={{ headerShown: true, title: "Notifications" }}
+            />
+            <Stack.Screen
+              name="moments/compose"
+              options={{ headerShown: true, title: "New Moment" }}
+            />
+            <Stack.Screen
+              name="report"
+              options={{ headerShown: true, title: "Report" }}
+            />
+          </Stack.Protected>
           <Stack.Screen
-            name="profile/index"
-            options={{ headerShown: true, title: "My Profile" }}
+            name="support"
+            options={{ headerShown: true, title: "Support" }}
           />
-          <Stack.Screen
-            name="settings/index"
-            options={{ headerShown: true, title: "Settings" }}
-          />
-          <Stack.Screen
-            name="moments/compose"
-            options={{ headerShown: true, title: "New Moment" }}
-          />
-          <Stack.Screen
-            name="report"
-            options={{ headerShown: true, title: "Report" }}
-          />
-        </Stack.Protected>
-        <Stack.Screen
-          name="support"
-          options={{ headerShown: true, title: "Support" }}
-        />
-      </Stack>
+        </Stack>
+      </NotificationsProvider>
     </MomentDraftProvider>
   );
 }

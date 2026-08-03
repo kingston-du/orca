@@ -10,6 +10,7 @@ describe("AccountScreen", () => {
         email="kingston@example.com"
 
         onEditProfile={jest.fn()}
+        onOpenNotifications={jest.fn()}
         onOpenBlockedUsers={jest.fn()}
         onOpenSupport={jest.fn()}
         onSignOut={jest.fn()}
@@ -38,6 +39,7 @@ describe("AccountScreen", () => {
         email="kingston@example.com"
 
         onEditProfile={jest.fn()}
+        onOpenNotifications={jest.fn()}
         onOpenBlockedUsers={jest.fn()}
         onOpenSupport={jest.fn()}
         onSignOut={onSignOut}
@@ -66,6 +68,7 @@ describe("AccountScreen", () => {
         email="kingston@example.com"
 
         onEditProfile={jest.fn()}
+        onOpenNotifications={jest.fn()}
         onOpenBlockedUsers={jest.fn()}
         onOpenSupport={jest.fn()}
         onSignOut={jest.fn().mockResolvedValue(new Error("Sensitive detail"))}
@@ -93,6 +96,7 @@ describe("AccountScreen", () => {
         email="kingston@example.com"
 
         onEditProfile={jest.fn()}
+        onOpenNotifications={jest.fn()}
         onOpenBlockedUsers={jest.fn()}
         onOpenSupport={jest.fn()}
         onSignOut={jest.fn().mockRejectedValue(new Error("Sensitive detail"))}

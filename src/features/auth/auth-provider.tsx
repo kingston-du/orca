@@ -7,6 +7,7 @@ import {
   type PropsWithChildren,
 } from "react";
 
+import { unregisterPushDevice } from "@/features/notifications/notifications-api";
 import { supabase } from "@/lib/supabase";
 
 type AuthContextValue = {
@@ -51,6 +52,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   async function signOut() {
+    // Best effort, and before the session is dropped, because unregistering
+    // needs a valid JWT. A failure here is not a reason to refuse to sign
+    // someone out: Section 18 says an offline device may still receive one
+    // already-queued generic notification, whose destination then denies.
+    try {
+      await unregisterPushDevice();
+    } catch {
+      // Intentionally ignored. Signing out must always succeed locally.
+    }
+
     const { error } = await supabase.auth.signOut({ scope: "local" });
     return error;
   }

@@ -12,6 +12,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ProfileAvatar } from "@/components/profile-avatar";
+import { useAuth } from "@/features/auth/auth-provider";
+import { markNotificationPromptEarned } from "@/features/notifications/notification-prompt";
 
 import {
   listFriendRequests,
@@ -40,6 +42,7 @@ export function PeopleScreen({
   ownDisplayName,
 }: PeopleScreenProps) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const friends = useQuery({ queryKey: friendsKey, queryFn: listFriends });
   const requests = useQuery({
     queryKey: requestsKey,
@@ -61,7 +64,13 @@ export function PeopleScreen({
       expectedId?: string;
     }) => runFriendOperation(operation, otherId, expectedId),
     onError: () => setLookupMessage("That changed. Refresh and try again."),
-    onSuccess: async () => {
+    onSuccess: async (_result, variables) => {
+      // One of the two moments that earn the notification pre-prompt. Having a
+      // friend is what makes "tell me when they share" a question somebody can
+      // answer; asking before that spends iOS's single prompt on nothing.
+      if (variables.operation === "accept_friend_request" && user?.id) {
+        void markNotificationPromptEarned(user.id);
+      }
       setLookup(null);
       setLookupMessage(null);
       await Promise.all([
