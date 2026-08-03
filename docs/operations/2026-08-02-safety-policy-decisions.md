@@ -6,9 +6,10 @@ and where support lives.** They are recorded here because the schema, the copy,
 and the runbook all encode them, and because a reviewer, a user, and a future
 agent all need to read the same answer.
 
-Status: **drafted by implementation, awaiting founder approval.** Everything in
-the code already behaves as written below. What is still outstanding is the
-founder's sign-off, one configuration value, and the legal text at Checkpoint 9D.
+Status: **approved by the founder, 2026-08-03.** Sections 1–5 are the approved
+policy; the code already behaves as written below. Still outstanding: the
+support mailbox and `EXPO_PUBLIC_SUPPORT_EMAIL`, hosted promotion and operator
+provisioning, and the legal text at Checkpoint 9D.
 
 ---
 
@@ -117,11 +118,10 @@ local `supabase/config.toml` already carries the equivalents that the CLI owns.
 
 ### Must change
 
-| Setting                                                                             | Value       | Why                                                                                                                                                                 |
-| ----------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Authentication → Multi-Factor Authentication → **TOTP (App Authenticator)**: Enroll | **Enabled** | The operator cannot enrol a factor otherwise, and Phase 7 requires one.                                                                                             |
-| Authentication → Multi-Factor Authentication → **TOTP**: Verify                     | **Enabled** | Without verify, an enrolled factor can never raise a session to `aal2`, and every moderation request would be refused.                                              |
-| Authentication → Attack Protection → **Leaked password protection**                 | **Enabled** | The operator account is the highest-value credential in the system; a known-breached password must not be settable. Server-side only, so it changes no client code. |
+| Setting                                                                             | Value       | Why                                                                                                                    |
+| ----------------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Authentication → Multi-Factor Authentication → **TOTP (App Authenticator)**: Enroll | **Enabled** | The operator cannot enrol a factor otherwise, and Phase 7 requires one.                                                |
+| Authentication → Multi-Factor Authentication → **TOTP**: Verify                     | **Enabled** | Without verify, an enrolled factor can never raise a session to `aal2`, and every moderation request would be refused. |
 
 ### Confirm unchanged
 
@@ -139,6 +139,12 @@ local `supabase/config.toml` already carries the equivalents that the CLI owns.
 
 ### Not enabled, deliberately
 
+- **Leaked password protection** — a Supabase Pro-tier feature; the project is
+  not on a paid plan, so it is unavailable rather than declined. The operator
+  password compensates: 20+ characters, generated and stored by a password
+  manager, never reused, which the leak-check would not have improved on for a
+  password that was never in any breach corpus to begin with. Revisit if the
+  project moves to Pro for another reason.
 - **CAPTCHA / bot protection** — it needs a client integration Orca does not
   have and would break the sign-up flow if switched on alone. Revisit before an
   open beta.
@@ -147,9 +153,10 @@ local `supabase/config.toml` already carries the equivalents that the CLI owns.
 
 ## 7. What is still outstanding
 
-1. Founder approval of sections 1–5, in writing.
+1. ~~Founder approval of sections 1–5.~~ **Approved 2026-08-03.**
 2. The support mailbox and `EXPO_PUBLIC_SUPPORT_EMAIL`.
-3. The three hosted Auth settings in section 6.
+3. The two hosted Auth settings in section 6 (TOTP enroll and verify; leaked
+   password protection stays disabled — Pro-tier only).
 4. Hosted promotion of the Phase 7 migration, deployment of `moderate-report`,
    and provisioning of the operator row (see the
    [moderation runbook](moderation-runbook.md)).
