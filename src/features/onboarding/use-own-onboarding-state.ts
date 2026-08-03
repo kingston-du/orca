@@ -1,6 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { loadOwnOnboardingState } from "./onboarding-api";
+import {
+  loadOwnOnboardingState,
+  type AccountControlState,
+} from "./onboarding-api";
+
+export type OwnOnboardingState = AccountControlState;
 
 export function ownOnboardingStateQueryKey(userId: string) {
   return ["onboarding-state", userId] as const;

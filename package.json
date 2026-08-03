@@ -74,7 +74,7 @@
     "db:test": "supabase test db --local supabase/tests",
     "db:test:api": "node scripts/test-friend-foundation-api.mjs && node scripts/test-avatar-media-api.mjs && node scripts/test-moment-media-api.mjs && node scripts/test-safety-api.mjs && node scripts/test-notifications-api.mjs",
     "functions:test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test supabase/functions/tests/*.test.mjs",
-    "functions:test:api": "node scripts/test-avatar-functions.mjs && node scripts/test-moment-functions.mjs && node scripts/test-moderation-functions.mjs",
+    "functions:test:api": "node scripts/test-avatar-functions.mjs && node scripts/test-moment-functions.mjs && node scripts/test-moderation-functions.mjs && node scripts/test-account-deletion-functions.mjs",
     "db:types": "supabase gen types --local --schema public > src/types/database.ts",
     "db:types:check": "supabase gen types --local --schema public | diff -u src/types/database.ts -"
   },

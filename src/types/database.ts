@@ -426,6 +426,15 @@ export type Database = {
           result_state: string
         }[]
       }
+      advance_account_deletion: {
+        Args: { p_lease_token: string; p_limit?: number; p_user_id: string }
+        Returns: {
+          pending_media: number
+          ready_for_auth: boolean
+          stage: string
+          state: string
+        }[]
+      }
       apply_moderation_action: {
         Args: {
           p_action: string
@@ -527,6 +536,16 @@ export type Database = {
         }[]
       }
       cancel_moment_upload: { Args: { p_moment_id: string }; Returns: string }
+      claim_account_deletion_batch: {
+        Args: { p_lease_seconds?: number; p_limit?: number }
+        Returns: {
+          attempt_count: number
+          lease_token: string
+          stage: string
+          state: string
+          user_id: string
+        }[]
+      }
       claim_evidence_capture_batch: {
         Args: { p_lease_seconds?: number; p_limit?: number }
         Returns: {
@@ -572,6 +591,10 @@ export type Database = {
           job_id: string
           provider_ticket_id: string
         }[]
+      }
+      complete_account_deletion: {
+        Args: { p_lease_token: string; p_user_id: string }
+        Returns: boolean
       }
       complete_evidence_capture: {
         Args: {
@@ -649,6 +672,10 @@ export type Database = {
           caption_updated_at: string
         }[]
       }
+      fail_account_deletion: {
+        Args: { p_error_code: string; p_lease_token: string; p_user_id: string }
+        Returns: string
+      }
       fail_evidence_capture: {
         Args: {
           p_error_code: string
@@ -718,6 +745,27 @@ export type Database = {
           username: string
         }[]
       }
+      get_account_deletion_metrics: {
+        Args: never
+        Returns: {
+          auth_pending_deletions: number
+          completed_last_day: number
+          dead_deletions: number
+          oldest_open_age_seconds: number
+          open_deletions: number
+          quarantined_usernames: number
+        }[]
+      }
+      get_account_deletion_status: {
+        Args: never
+        Returns: {
+          completed_at: string
+          error_code: string
+          receipt_id: string
+          requested_at: string
+          status: string
+        }[]
+      }
       get_avatar_upload_status: {
         Args: { p_request_id: string }
         Returns: {
@@ -726,6 +774,16 @@ export type Database = {
           expires_at: string
           object_path: string
           request_id: string
+          status: string
+        }[]
+      }
+      get_deletion_receipt: {
+        Args: { p_capability_sha256: string }
+        Returns: {
+          completed_at: string
+          error_code: string
+          receipt_id: string
+          requested_at: string
           status: string
         }[]
       }
@@ -1191,6 +1249,14 @@ export type Database = {
           still_visible: boolean
         }[]
       }
+      request_account_deletion: {
+        Args: { p_capability_sha256: string; p_command_id: string }
+        Returns: {
+          receipt_id: string
+          requested_at: string
+          status: string
+        }[]
+      }
       reserve_avatar_upload: {
         Args: { p_client_byte_size: number; p_client_sha256: string }
         Returns: {
@@ -1238,6 +1304,14 @@ export type Database = {
         Returns: {
           expires_at: string
           fingerprint: string
+        }[]
+      }
+      run_account_maintenance: {
+        Args: { p_limit?: number }
+        Returns: {
+          pruned_deletion_receipts: number
+          reclaimed_leases: number
+          released_usernames: number
         }[]
       }
       run_media_maintenance: {

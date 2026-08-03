@@ -122,6 +122,10 @@ export default function AppLayout() {
             name="support"
             options={{ headerShown: true, title: "Support" }}
           />
+          <Stack.Screen
+            name="delete-account"
+            options={{ headerShown: true, title: "Delete Account" }}
+          />
         </Stack>
       </NotificationsProvider>
     </MomentDraftProvider>

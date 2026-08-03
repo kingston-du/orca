@@ -4,7 +4,7 @@ These lessons explain verified Orca implementation checkpoints through their men
 
 ## Redesign status
 
-Orca's friend-first foundation and Phases 1–8 are implemented on `codex/friend-first-rebaseline`. Local development runs fourteen migrations; hosted development still runs the first thirteen, because Phase 8's promotion is a separate approval. Both carry three private media buckets and four Edge Functions. Phase 7's real hosted TOTP/AAL2 moderation drill passed after the migrations, `moderate-report`, the updated worker, and Auth settings were promoted. The disposable operator/cases/evidence were removed and the content-free audit trail remains by design. Founder-owned release operations still need the real support mailbox, permanent operator identity/TOTP device, Sentry project/source-map verification, legal text, and the documented physical-iPhone gates. Phase 8 adds three of its own: hosted promotion, an Expo push access token, and the native rebuild `aps-environment` requires.
+Orca's friend-first foundation, Phases 1–8, and Checkpoint 9A are implemented on `codex/friend-first-rebaseline`. Local development runs fifteen migrations; hosted development still runs the first thirteen, because Phase 8 and 9A promotions are separate approvals. Phase 7's real hosted TOTP/AAL2 moderation drill passed after the migrations, `moderate-report`, the updated worker, and Auth settings were promoted. The disposable operator/cases/evidence were removed and the content-free audit trail remains by design. Founder-owned release operations still need the real support mailbox, permanent operator identity/TOTP device, Sentry project/source-map verification, legal text, and the documented physical-iPhone gates.
 
 Only the retained foundations below are current course material. Obsolete and superseded work is separated in the [historical archive](./archive/README.md).
 
@@ -27,6 +27,7 @@ Only the retained foundations below are current course material. Obsolete and su
 - Lesson 26 — [Privacy-preserving moderation: a saga, an operator, and a clock](./26-privacy-preserving-moderation.md)
 - Lesson 27 — [SQLSTATE is an API contract](./27-sqlstate-is-an-api-contract.md)
 - Lesson 28 — [The transactional outbox, and telling someone something without saying anything](./28-the-outbox-and-best-effort-push.md)
+- Lesson 29 — [Auth last: deleting a person across database, Storage, and identity](./29-auth-last-account-deletion.md)
 
 Lesson 23's claim that the viewer's own Moments fail the Recent read rule described Checkpoint 5A only. Checkpoint 5B made own Recent Moments visible on Home by founder direction; Lesson 24 Part 3 explains what changed and why the old behaviour was an accident of the join rather than a decision. Lessons 23 and 24 also state that no reaction control, count, or people list exists anywhere; that described Phases 5A and 5B only. Phase 6 adds all three, and Lesson 25 covers them.
 
@@ -36,7 +37,7 @@ Lessons 20 and 22 describe the media worker as the only outbox and say that publ
 
 ## Next lesson
 
-Lesson 29 is created only after Checkpoint 9A's Auth-last account deletion is implemented and verified. Course notes never describe speculative code as though it exists.
+Lesson 30 is created only after Checkpoint 9B's backup and restore boundary is implemented and verified. Course notes never describe speculative code as though it exists.
 
 ## Course progression and checkpoint contract
 

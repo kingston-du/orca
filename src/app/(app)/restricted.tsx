@@ -10,6 +10,8 @@ export default function RestrictedRoute() {
   return (
     <RestrictedAccountScreen
       accountState={state.data?.account_state ?? "suspended"}
+      onOpenDeleteAccount={() => router.push("/delete-account")}
+      onOpenDeletionStatus={() => router.push("/deletion-status")}
       onOpenSupport={() => router.push("/support")}
       onSignOut={async () => {
         await signOut();

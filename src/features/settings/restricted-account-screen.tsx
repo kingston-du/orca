@@ -3,10 +3,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export function RestrictedAccountScreen({
   accountState,
+  onOpenDeleteAccount,
+  onOpenDeletionStatus,
   onOpenSupport,
   onSignOut,
 }: {
   accountState: string;
+  onOpenDeleteAccount: () => void;
+  onOpenDeletionStatus: () => void;
   onOpenSupport: () => void;
   onSignOut: () => Promise<void>;
 }) {
@@ -31,6 +35,15 @@ export function RestrictedAccountScreen({
         </Pressable>
         <Pressable
           accessibilityRole="button"
+          onPress={deleting ? onOpenDeletionStatus : onOpenDeleteAccount}
+          style={styles.dangerButton}
+        >
+          <Text style={styles.dangerLabel}>
+            {deleting ? "View deletion status" : "Delete Account"}
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
           onPress={() => void onSignOut()}
           style={styles.secondaryButton}
         >
@@ -50,6 +63,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 28,
   },
+  dangerButton: {
+    alignItems: "center",
+    borderColor: "#B42318",
+    borderRadius: 14,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 50,
+    minWidth: 180,
+    paddingHorizontal: 16,
+  },
+  dangerLabel: { color: "#B42318", fontSize: 16, fontWeight: "800" },
   primaryButton: {
     alignItems: "center",
     backgroundColor: "#208AEF",

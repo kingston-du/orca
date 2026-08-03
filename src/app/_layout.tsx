@@ -40,6 +40,13 @@ function RootNavigator() {
       <Stack.Protected guard={canEnterApp}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
+
+      {/* This capability-addressed receipt must survive Auth deletion, so it
+       * cannot live under either the signed-in or signed-out guard. */}
+      <Stack.Screen
+        name="deletion-status"
+        options={{ headerShown: false, title: "Deletion Status" }}
+      />
     </Stack>
   );
 }

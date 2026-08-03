@@ -15,6 +15,7 @@ type AccountScreenProps = {
   username: string;
   onEditProfile: () => void;
   onOpenBlockedUsers: () => void;
+  onOpenDeleteAccount: () => void;
   onOpenNotifications: () => void;
   onOpenSupport: () => void;
   onSignOut: () => Promise<{ message: string } | null>;
@@ -25,6 +26,7 @@ export function AccountScreen({
   email,
   onEditProfile,
   onOpenBlockedUsers,
+  onOpenDeleteAccount,
   onOpenNotifications,
   onOpenSupport,
   onSignOut,
@@ -170,6 +172,24 @@ export function AccountScreen({
             )}
           </Pressable>
         </View>
+
+        <View style={styles.signOutSection}>
+          <Text style={styles.sectionTitle}>Account deletion</Text>
+          <Text style={styles.body}>
+            Permanently remove your Orca account and private media.
+          </Text>
+          <Pressable
+            accessibilityHint="Review permanent account deletion before confirming"
+            accessibilityRole="button"
+            onPress={onOpenDeleteAccount}
+            style={styles.deleteRow}
+          >
+            <Text style={styles.deleteRowLabel}>Delete Account</Text>
+            <Text accessibilityElementsHidden style={styles.chevron}>
+              ›
+            </Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -196,6 +216,16 @@ const styles = StyleSheet.create({
     gap: 20,
     padding: 18,
   },
+  deleteRow: {
+    alignItems: "center",
+    backgroundColor: "#FFF5F5",
+    borderRadius: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 52,
+    paddingHorizontal: 16,
+  },
+  deleteRowLabel: { color: "#B42318", fontSize: 16, fontWeight: "800" },
   error: {
     color: "#B42318",
     fontSize: 14,

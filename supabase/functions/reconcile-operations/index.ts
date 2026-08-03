@@ -2,6 +2,10 @@ import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
 
 import {
+  processDeletionClaims,
+  type DeletionClaim,
+} from "../_shared/account-deletion.ts";
+import {
   processEvidenceClaims,
   type EvidenceClaim,
 } from "../_shared/evidence-capture.ts";
@@ -36,6 +40,12 @@ const EVIDENCE_LIMIT = 3;
  * with room to spare under the documented hundred-message limit. */
 const PUSH_LIMIT = 50;
 const RECEIPT_LIMIT = 100;
+
+/** A teardown makes several round trips to the database and one to the Auth
+ * API, so a small batch keeps the whole stage far inside the 45-second budget.
+ * At beta scale this drains far more deletions per minute than can be
+ * requested. */
+const DELETION_LIMIT = 5;
 
 type Metrics = {
   ready_jobs: number;
@@ -72,6 +82,17 @@ type SafetyMetrics = {
   legal_holds: number;
 };
 
+/** Counts and ages only. A deletion that has not finished must be visible
+ * without a dashboard ever naming the person who asked for it. */
+type DeletionMetrics = {
+  open_deletions: number;
+  auth_pending_deletions: number;
+  dead_deletions: number;
+  oldest_open_age_seconds: number;
+  completed_last_day: number;
+  quarantined_usernames: number;
+};
+
 /** Queue depth and age only. A backlog past Section 21's five-minute trigger is
  * visible here without anything naming a recipient or a device. */
 type PushMetrics = {
@@ -106,8 +127,40 @@ export default {
         console.error("Daily maintenance failed", { code: error.code });
         return json({ error: "Maintenance failed" }, 500);
       }
+      // Account retention is its own call because it is its own domain, with
+      // its own approvals behind the quarantine window it releases.
+      const { error: accountError } = await ctx.supabaseAdmin.rpc(
+        "run_account_maintenance",
+        { p_limit: 500 },
+      );
+      if (accountError) {
+        console.error("Account maintenance failed", {
+          code: accountError.code,
+        });
+        return json({ error: "Maintenance failed" }, 500);
+      }
       return json({ mode: "maintenance", ok: true }, 200);
     }
+
+    // Account teardown runs first. Its media stage hands objects to the very
+    // outbox the cleanup stage below drains, so this order lets one invocation
+    // both enqueue an account's bytes and delete them, and the next invocation
+    // clears the barrier. The reverse order costs an extra minute per account
+    // for nothing.
+    const { data: deletionClaimed, error: deletionError } =
+      await ctx.supabaseAdmin.rpc("claim_account_deletion_batch", {
+        p_lease_seconds: LEASE_SECONDS,
+        p_limit: DELETION_LIMIT,
+      });
+    if (deletionError) {
+      console.error("Account deletion claim failed", {
+        code: deletionError.code,
+      });
+    }
+    const deletions = await processDeletionClaims(
+      ctx.supabaseAdmin,
+      rows<DeletionClaim>(deletionClaimed),
+    );
 
     const { data: claimed, error: claimError } = await ctx.supabaseAdmin.rpc(
       "claim_media_cleanup_batch",
@@ -181,9 +234,13 @@ export default {
     const { data: pushRow } = await ctx.supabaseAdmin.rpc(
       "get_notification_operations_metrics",
     );
+    const { data: deletionRow } = await ctx.supabaseAdmin.rpc(
+      "get_account_deletion_metrics",
+    );
     const metrics = firstRow<Metrics>(metricsRow);
     const safety = firstRow<SafetyMetrics>(safetyRow);
     const pushMetrics = firstRow<PushMetrics>(pushRow);
+    const deletionMetrics = firstRow<DeletionMetrics>(deletionRow);
     // `pushMetrics` is nested rather than spread: it has its own
     // `oldest_ready_age_seconds`, and flattening it would silently overwrite
     // the media queue's age with the notification queue's.
@@ -192,6 +249,11 @@ export default {
       evidence,
       push,
       receipts,
+      deletions,
+      // Nested for the same reason `pushMetrics` is: this has its own
+      // `oldest_open_age_seconds`, and flattening would let one queue's age
+      // silently overwrite another's.
+      accountDeletions: deletionMetrics,
       notifications: pushMetrics,
       ...metrics,
       ...safety,
@@ -207,16 +269,35 @@ export default {
     // must not page anyone or mark an invocation that proved a deletion as
     // failed. What does warrant attention is a backlog, which Section 21 sets
     // at five minutes of unsent ready work.
+    //
+    // Account deletion *is* part of it, unlike push. Section 20 sets the alert
+    // at one hour of an unfinished teardown, and a dead letter means a person
+    // has been told their account is being deleted while nothing is deleting
+    // it — the one failure in this worker with a promise attached to it.
     const degraded =
       outcome.retry > 0 ||
       outcome.lost > 0 ||
       evidence.retry > 0 ||
       evidence.lost > 0 ||
+      deletions.retry > 0 ||
+      deletions.dead > 0 ||
+      (deletionMetrics?.dead_deletions ?? 0) > 0 ||
+      (deletionMetrics?.oldest_open_age_seconds ?? 0) > 3600 ||
       (safety?.urgent_sla_breaches ?? 0) > 0 ||
       (safety?.normal_sla_breaches ?? 0) > 0 ||
       (pushMetrics?.oldest_ready_age_seconds ?? 0) > 300;
     return json(
-      { ...outcome, evidence, push, receipts, metrics, safety, pushMetrics },
+      {
+        ...outcome,
+        deletionMetrics,
+        deletions,
+        evidence,
+        metrics,
+        push,
+        pushMetrics,
+        receipts,
+        safety,
+      },
       degraded ? 503 : 200,
     );
   }),
