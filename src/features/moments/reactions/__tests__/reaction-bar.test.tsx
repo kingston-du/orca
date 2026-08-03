@@ -97,7 +97,10 @@ function CachedBar({
 
 async function renderBar(summary: ReactionSummary = none, canReact = true) {
   const client = new QueryClient({
-    defaultOptions: { queries: { gcTime: Infinity, retry: false } },
+    defaultOptions: {
+      mutations: { gcTime: Infinity, retry: false },
+      queries: { gcTime: Infinity, retry: false },
+    },
   });
   return await render(
     <QueryClientProvider client={client}>

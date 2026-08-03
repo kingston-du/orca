@@ -14,27 +14,49 @@ import jpeg from "jpeg-js";
  * cannot be checked any other way: a password-only session for a genuine
  * operator has to be refused by the deployed function, not by a unit test.
  *
- * Local only. Provisioning an operator is a database-owner action by design —
- * the service key deliberately cannot do it — so this script provisions and
- * revokes its disposable operator through the local Postgres container. The
- * hosted equivalent is the acceptance drill in the moderation runbook.
+ * Provisioning an operator is a database-owner action by design — the service
+ * key deliberately cannot do it. Locally this script uses the Postgres
+ * container; against the linked hosted project it uses `supabase db query`,
+ * whose Management API path runs as the database owner. Both paths provision
+ * and revoke only a disposable operator.
  */
 
-assert.ok(
-  !process.env.ORCA_TEST_API_URL,
-  "this suite provisions an operator through the local database and does not target hosted",
-);
+const hosted = Boolean(process.env.ORCA_TEST_API_URL);
+const target = hosted
+  ? {
+      apiUrl: process.env.ORCA_TEST_API_URL,
+      functionsUrl:
+        process.env.ORCA_TEST_FUNCTIONS_URL ??
+        `${process.env.ORCA_TEST_API_URL}/functions/v1`,
+      label: "hosted",
+      publishableKey: process.env.ORCA_TEST_PUBLISHABLE_KEY,
+      secretKey: process.env.ORCA_TEST_SECRET_KEY,
+      serviceKey: process.env.ORCA_TEST_SERVICE_ROLE_KEY,
+    }
+  : (() => {
+      const status = JSON.parse(
+        execFileSync(
+          "./node_modules/.bin/supabase",
+          ["status", "--output", "json"],
+          { encoding: "utf8" },
+        ),
+      );
+      return {
+        apiUrl: status.API_URL,
+        functionsUrl: status.FUNCTIONS_URL,
+        label: "local",
+        publishableKey: status.PUBLISHABLE_KEY,
+        secretKey: status.SECRET_KEY,
+        serviceKey: status.SERVICE_ROLE_KEY,
+      };
+    })();
 
-const status = JSON.parse(
-  execFileSync("./node_modules/.bin/supabase", ["status", "--output", "json"], {
-    encoding: "utf8",
-  }),
+const { apiUrl, functionsUrl, label, publishableKey, secretKey, serviceKey } =
+  target;
+assert.ok(
+  apiUrl && functionsUrl && publishableKey && secretKey && serviceKey,
+  `${label} Supabase endpoints and keys must all be available`,
 );
-const apiUrl = status.API_URL;
-const functionsUrl = status.FUNCTIONS_URL;
-const publishableKey = status.PUBLISHABLE_KEY;
-const serviceKey = status.SERVICE_ROLE_KEY;
-assert.ok(apiUrl && functionsUrl && publishableKey && serviceKey);
 
 const MOMENT_MEDIA_BUCKET = "moment-media";
 const EVIDENCE_BUCKET = "moderation-evidence";
@@ -45,6 +67,7 @@ const admin = createClient(apiUrl, serviceKey, {
 const password = `Orca-${randomUUID()}-9a!`;
 const suffix = randomUUID();
 const users = [];
+let disposableReportId;
 
 const legalArgs = {
   p_adult_eligible: true,
@@ -65,6 +88,19 @@ const legalArgs = {
 /** Runs one statement as the database owner, which is the only way an operator
  * row is ever created or revoked. */
 function sql(statement) {
+  if (hosted) {
+    const result = JSON.parse(
+      execFileSync(
+        "./node_modules/.bin/supabase",
+        ["db", "query", "--linked", statement],
+        { encoding: "utf8" },
+      ),
+    );
+    const row = result.rows?.[0];
+    if (!row || Object.keys(row).length !== 1) return "";
+    return String(Object.values(row)[0]);
+  }
+
   return execFileSync(
     "docker",
     [
@@ -142,6 +178,33 @@ async function createMember(name) {
   return {
     client,
     email,
+    id: created.user.id,
+    token: signedIn.session.access_token,
+  };
+}
+
+/** The real operator account has Auth and MFA only — no profile, onboarding,
+ * or social-graph presence. */
+async function createOperator() {
+  const email = `operator-${suffix}@example.test`;
+  const { data: created, error: createError } =
+    await admin.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      password,
+    });
+  assert.ifError(createError);
+  users.push(created.user.id);
+
+  const client = createClient(apiUrl, publishableKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: signedIn, error: signInError } =
+    await client.auth.signInWithPassword({ email, password });
+  assert.ifError(signInError);
+
+  return {
+    client,
     id: created.user.id,
     token: signedIn.session.access_token,
   };
@@ -263,41 +326,21 @@ try {
   });
   assert.ifError(report.error);
   const reportId = report.data[0].report_id;
+  disposableReportId = reportId;
 
-  // Capture the evidence exactly as the worker does.
-  const claimed = await admin.rpc("claim_evidence_capture_batch", {
-    p_lease_seconds: 90,
-    p_limit: 5,
+  // Drive the deployed worker rather than copying through the test process.
+  // This is the hosted acceptance proof that the updated scheduled function
+  // and its service-only bucket can complete the evidence saga together.
+  const reconciled = await fetch(`${functionsUrl}/reconcile-operations`, {
+    body: "{}",
+    headers: { apikey: secretKey, "content-type": "application/json" },
+    method: "POST",
   });
-  assert.ifError(claimed.error);
-  const claim = claimed.data.find((row) => row.report_id === reportId);
-  assert.ok(claim);
-  const source = await admin.storage
-    .from(MOMENT_MEDIA_BUCKET)
-    .download(claim.source_object_path);
-  assert.ifError(source.error);
-  const copied = Buffer.from(await source.data.arrayBuffer());
-  assert.ifError(
-    (
-      await admin.storage
-        .from(EVIDENCE_BUCKET)
-        .upload(claim.object_path, copied, {
-          contentType: "image/jpeg",
-          upsert: true,
-        })
-    ).error,
+  assert.ok([200, 503].includes(reconciled.status));
+  const evidenceStatus = sql(
+    `select status from private.report_evidence where report_id = '${reportId}'`,
   );
-  assert.equal(
-    (
-      await admin.rpc("complete_evidence_capture", {
-        p_byte_size: copied.byteLength,
-        p_content_sha256: sha256(copied),
-        p_lease_token: claim.lease_token,
-        p_report_id: reportId,
-      })
-    ).data,
-    true,
-  );
+  assert.equal(evidenceStatus, "ready");
 
   // -------------------------------------------------------------------
   // An ordinary member is refused
@@ -308,7 +351,7 @@ try {
   // -------------------------------------------------------------------
   // A provisioned operator, still at AAL1, is refused
   // -------------------------------------------------------------------
-  const operator = await createMember("dave");
+  const operator = await createOperator();
   sql(
     `insert into private.moderator_accounts (user_id, operator_label)
      values ('${operator.id}', 'safety-test-${suffix.slice(0, 8)}')`,
@@ -349,6 +392,36 @@ try {
   assert.equal(listedCase.evidence_status, "ready");
   assert.equal(listedCase.priority, "normal");
 
+  const wrongCase = await call(operatorToken, {
+    op: "case",
+    reportId: randomUUID(),
+  });
+  assert.equal(wrongCase.status, 404);
+
+  const privateRead = await operator.client
+    .schema("private")
+    .from("reports")
+    .select("id")
+    .limit(1);
+  assert.ok(privateRead.error, "the private schema is not exposed to a user");
+  const bucketRead = await operator.client.storage.from(EVIDENCE_BUCKET).list();
+  assert.ifError(bucketRead.error);
+  assert.deepEqual(
+    bucketRead.data,
+    [],
+    "the evidence bucket reveals no listing to an operator token",
+  );
+  const evidencePath = sql(
+    `select object_path from private.report_evidence where report_id = '${reportId}'`,
+  );
+  const directEvidence = await operator.client.storage
+    .from(EVIDENCE_BUCKET)
+    .download(evidencePath);
+  assert.ok(
+    directEvidence.error,
+    "even a known evidence path cannot be read outside the operator function",
+  );
+
   const read = await call(operatorToken, { op: "case", reportId });
   assert.equal(read.status, 200);
   assert.equal(read.body.case.details, "This should not be here.");
@@ -378,10 +451,10 @@ try {
   assert.equal(evidence.headers.get("cache-control"), "private, no-store");
   assert.equal(
     evidence.headers.get("x-orca-evidence-sha256"),
-    sha256(copied),
+    sha256(bytes),
     "the streamed bytes are the ones the case recorded",
   );
-  assert.equal(sha256(evidence.body), sha256(copied));
+  assert.equal(sha256(evidence.body), sha256(bytes));
 
   const auditCount = Number(
     sql(
@@ -496,8 +569,20 @@ try {
   assert.equal(evidenceAfterRevocation.status, 403);
 
   console.log(
-    "Real moderate-report orchestration checks passed against the local environment.",
+    `Real moderate-report orchestration checks passed against the ${label} environment.`,
   );
 } finally {
+  if (hosted && disposableReportId) {
+    const evidencePath = sql(
+      `select object_path from private.report_evidence where report_id = '${disposableReportId}'`,
+    );
+    if (evidencePath) {
+      const removed = await admin.storage
+        .from(EVIDENCE_BUCKET)
+        .remove([evidencePath]);
+      assert.ifError(removed.error);
+    }
+    sql(`delete from private.reports where id = '${disposableReportId}'`);
+  }
   await Promise.all(users.map((id) => admin.auth.admin.deleteUser(id)));
 }

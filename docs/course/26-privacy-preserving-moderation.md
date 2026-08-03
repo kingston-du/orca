@@ -1,5 +1,10 @@
 # Lesson 26 — Privacy-preserving moderation: a saga, an operator, and a clock
 
+**Checkpoint status:** Phase 7 engineering is complete and promoted to hosted
+development. The real hosted TOTP/AAL2 acceptance drill passed; the support
+mailbox, permanent founder-controlled operator, and Sentry project/native
+source-map proof remain release-operations gates.
+
 Phase 7 adds the machinery Orca needs before a single person outside the founder
 can post a photo: reporting, blocking everywhere it belongs, evidence that
 survives a deletion, a human who can act, and diagnostics that never carry
@@ -408,13 +413,28 @@ the instant their row is revoked.
 
 Everything below was run from a clean state on `codex/friend-first-rebaseline`.
 
-- `npm run db:reset && npm run db:lint && npm run db:test` — 628 pgTAP
-  assertions across ten files, 120 of them new; `npm run db:types:check` clean.
-- `npm test` — 393 tests across 50 suites.
+- `npm run db:reset && npm run db:lint && npm run db:test` — 629 pgTAP
+  assertions across ten files; `npm run db:types:check` clean.
+- `npm test -- --detectOpenHandles` — 395 tests across 51 suites, with a clean
+  process exit. Test QueryClients use deterministic infinite garbage-collection
+  time, and the Sentry runtime is loaded only when a DSN exists.
 - `npm run typecheck`, `lint`, `format:check`, `native:check`, `legal:check`,
-  `functions:test` (40 tests) all green.
+  `doctor` (20/20), `expo:check`, and `functions:test` (40 tests) all green.
 - `npm run db:test:api` and `npm run functions:test:api` pass against the real
-  Data API, Storage, and a served `moderate-report`.
+  local Data API, Storage, and served functions.
+- Hosted development now shares all thirteen migrations with local, with
+  `moderate-report` JWT-verified and the Phase-7-aware `reconcile-operations`
+  secret-only. All hosted Data API/Storage/media/safety/function suites passed.
+- The hosted drill proved ordinary-user and AAL1 denial, real TOTP/AAL2
+  list/read/hash-matched `no-store` evidence/action access, stale-command
+  denial, suspension/replay/reinstatement, direct private/Storage denial, and
+  immediate operator revocation. Exact disposable cases, evidence objects,
+  operator rows, and Auth users were removed; six content-free append-only
+  audit actions remain by design.
+- Hosted TOTP enrol/verify is enabled, both Cron jobs' latest runs succeeded,
+  remote lint is clean, and the catalog contains no `public` or `private`
+  function body with `40001`. The remaining Auth advisor is the accepted
+  Free-plan leaked-password warning.
 
 ## 11. Exercise
 

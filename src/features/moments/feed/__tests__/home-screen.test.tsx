@@ -19,6 +19,7 @@ import {
   type RecentPage,
 } from "@/features/moments/feed/recent-api";
 import { deckGeometry } from "@/features/moments/feed/recent-deck";
+import { getReactionQuota } from "@/features/moments/reactions/reaction-api";
 
 // Replaced wholesale rather than partially: the real module reaches the
 // Supabase client, which reaches AsyncStorage's native module. `cursorOf` and
@@ -148,7 +149,14 @@ const onOpenReactions = jest.fn();
 
 async function renderHome() {
   const client = new QueryClient({
-    defaultOptions: { queries: { gcTime: Infinity, retry: false } },
+    defaultOptions: {
+      mutations: { gcTime: Infinity, retry: false },
+      queries: { gcTime: Infinity, retry: false },
+    },
+  });
+  client.setQueryData(["reaction-quota", "viewer"], {
+    usesRemaining: 3,
+    resetsAt: null,
   });
   // A fresh element every time: React bails out of a root render given the
   // identical element object, and focus lives outside React here.
@@ -178,6 +186,9 @@ async function renderHome() {
 beforeEach(() => {
   jest.resetAllMocks();
   mockScreenIsFocused = true;
+  jest
+    .mocked(getReactionQuota)
+    .mockResolvedValue({ usesRemaining: 3, resetsAt: null });
   jest.mocked(listFriends).mockResolvedValue([]);
   jest.mocked(countNewRecentMoments).mockResolvedValue(0);
   jest.mocked(markMomentsSeen).mockResolvedValue(1);

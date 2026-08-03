@@ -178,13 +178,17 @@ local 502 flake before reaching the new assertion. A full disposable-stack
 restart cleared it, after which the complete HTTP suites passed. That is test
 environment evidence, not a product failure and not a reason to weaken the test.
 
-The wider repository rerun also found two pre-existing gates outside this
-database correction: all 393 Jest assertions pass but the runner retains an
-asynchronous handle after completion, and Expo Doctor is 19/20 because
-`expo-symbols` has a direct `expo-font` peer that Orca currently satisfies only
-transitively. The compatible package and native pod are already installed, but
-the dependency still needs to be declared directly in its own hygiene change.
-Neither finding is hidden behind the green API evidence.
+The wider repository rerun found two pre-existing gates outside this database
+correction, and the Phase 7 completion checkpoint closed both. Orca now declares
+the installed SDK-compatible `expo-font` peer directly, so Expo Doctor is 20/20
+without an unused font plugin. The retained test handles were TanStack Query
+garbage-collection timers and eager Sentry runtime initialization; deterministic
+test QueryClients plus lazy no-DSN Sentry loading make all 395 Jest assertions
+across 51 suites exit under `--detectOpenHandles`.
+
+The corrective migration is also promoted. Hosted and local share all thirteen
+migrations, and a hosted catalog query confirms that no stored `public` or
+`private` function contains `40001`.
 
 Review this kind of correction by asking:
 

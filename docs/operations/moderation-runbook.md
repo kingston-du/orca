@@ -168,6 +168,16 @@ and a disposable case, on a managed device. It is the hosted twin of
 `scripts/test-moderation-functions.mjs`, which proves the same properties
 locally on every run.
 
+**Hosted-development record — 2026-08-02:** completed successfully through the
+automated real-HTTP twin. It used a disposable Auth-only operator, enrolled and
+verified a real TOTP factor, and proved every denial and success path below,
+including hash-matched `no-store` evidence, suspension/reinstatement, and
+immediate revocation. Exact disposable reports and evidence objects were
+removed through their owning database/Storage APIs, and the disposable operator
+and member Auth users were removed. Six content-free append-only audit actions
+remain, which is the retention behavior the drill was meant to prove. A
+permanent founder-controlled operator is deliberately not provisioned yet.
+
 1. Provision a disposable operator (section 2) and enrol TOTP.
 2. From a test account, publish a Moment and report it from a second test
    account. Confirm the reporter's receipt says a copy is being kept.

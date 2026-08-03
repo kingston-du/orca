@@ -7,9 +7,11 @@ and the runbook all encode them, and because a reviewer, a user, and a future
 agent all need to read the same answer.
 
 Status: **approved by the founder, 2026-08-03.** Sections 1–5 are the approved
-policy; the code already behaves as written below. Still outstanding: the
-support mailbox and `EXPO_PUBLIC_SUPPORT_EMAIL`, hosted promotion and operator
-provisioning, and the legal text at Checkpoint 9D.
+policy; the code behaves as written below. Phase 7 is promoted, hosted TOTP is
+enabled, and the disposable AAL2 acceptance drill passed. Still outstanding:
+the support mailbox and `EXPO_PUBLIC_SUPPORT_EMAIL`, the permanent
+founder-controlled operator account/TOTP device, the Sentry project/native
+release proof, and the legal text at Checkpoint 9D.
 
 ---
 
@@ -110,13 +112,14 @@ than only to a conscience.
 
 ---
 
-## 6. Hosted Auth settings for the founder to set
+## 6. Hosted Auth settings
 
-These are the Supabase dashboard decisions Phase 7 depends on. They are listed
-as chosen values with the reason, so they can be set once and checked later. The
-local `supabase/config.toml` already carries the equivalents that the CLI owns.
+These are the Supabase Auth decisions Phase 7 depends on. Hosted TOTP enrol and
+verify were applied during the approved promotion and proved by a real AAL2
+drill. The local `supabase/config.toml` carries the equivalents that the CLI
+owns.
 
-### Must change
+### Applied and verified
 
 | Setting                                                                             | Value       | Why                                                                                                                    |
 | ----------------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -155,12 +158,16 @@ local `supabase/config.toml` already carries the equivalents that the CLI owns.
 
 1. ~~Founder approval of sections 1–5.~~ **Approved 2026-08-03.**
 2. The support mailbox and `EXPO_PUBLIC_SUPPORT_EMAIL`.
-3. The two hosted Auth settings in section 6 (TOTP enroll and verify; leaked
-   password protection stays disabled — Pro-tier only).
-4. Hosted promotion of the Phase 7 migration, deployment of `moderate-report`,
-   and provisioning of the operator row (see the
-   [moderation runbook](moderation-runbook.md)).
+3. ~~Hosted TOTP enrol/verify, Phase 7 migration promotion, deployment of
+   `moderate-report` and the updated `reconcile-operations`, and a disposable
+   hosted acceptance operator/case.~~ **Completed and verified 2026-08-02.**
+4. Provision the permanent separate founder-controlled operator account, enrol
+   TOTP on its trusted device, and create its database-owner-only row (see the
+   [moderation runbook](moderation-runbook.md)). The disposable acceptance
+   identity was revoked and removed.
 5. Legal text at Checkpoint 9D: the privacy notice, terms, and community
    guidelines must state the retention, the appeal route, and the support
    contact recorded here. The development legal set deliberately says it is not
    approved for external testers, so nothing published today contradicts this.
+6. Create/configure the Sentry project, DSN, Expo source-map integration, and a
+   symbolicated native release-build crash check.

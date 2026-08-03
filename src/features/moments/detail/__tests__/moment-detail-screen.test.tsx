@@ -18,6 +18,7 @@ import {
   deleteMoment,
   editMomentCaption,
 } from "@/features/moments/publish/publish-api";
+import { getReactionQuota } from "@/features/moments/reactions/reaction-api";
 
 jest.mock("@/features/moments/detail/detail-api", () => ({
   getMomentDetail: jest.fn(),
@@ -105,7 +106,14 @@ const onReport = jest.fn();
 
 async function renderDetail() {
   const client = new QueryClient({
-    defaultOptions: { queries: { gcTime: Infinity, retry: false } },
+    defaultOptions: {
+      mutations: { gcTime: Infinity, retry: false },
+      queries: { gcTime: Infinity, retry: false },
+    },
+  });
+  client.setQueryData(["reaction-quota", "viewer"], {
+    usesRemaining: 3,
+    resetsAt: null,
   });
   return render(
     <QueryClientProvider client={client}>
@@ -130,6 +138,9 @@ function confirmAlerts() {
 
 beforeEach(() => {
   jest.resetAllMocks();
+  jest
+    .mocked(getReactionQuota)
+    .mockResolvedValue({ usesRemaining: 3, resetsAt: null });
   jest.mocked(listMomentParticipants).mockResolvedValue([]);
 });
 

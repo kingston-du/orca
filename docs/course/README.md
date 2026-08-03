@@ -4,7 +4,7 @@ These lessons explain verified Orca implementation checkpoints through their men
 
 ## Redesign status
 
-Orca's friend-first foundation is implemented on `codex/friend-first-rebaseline`, and Phase 1 is complete. The canonical schema, Home/Camera/People shell, username onboarding, restricted controls, privacy shield, and exact friendship core replace the Circle-era implementation, and that same canonical history now runs on the hosted-development project. Checkpoints 2A and 2B add friend-of-friend browsing, tiered profile summaries, the blocked-user surface, and personal invite links. Checkpoint 2C completes Phase 2 with versioned avatars, the shared reserved-object uploader, and the first cleanup worker, now promoted to hosted development along with the private `avatars` bucket, both Edge Functions, both Vault secrets, and both Cron schedules. Physical-iPhone acceptance remains an open gate.
+Orca's friend-first foundation and Phases 1–7 are implemented on `codex/friend-first-rebaseline`. Local and hosted development share the same thirteen-migration history, three private media buckets, and four Edge Functions. Phase 7's real hosted TOTP/AAL2 moderation drill passed after the migrations, `moderate-report`, the updated worker, and Auth settings were promoted. The disposable operator/cases/evidence were removed and the content-free audit trail remains by design. Founder-owned release operations still need the real support mailbox, permanent operator identity/TOTP device, Sentry project/source-map verification, legal text, and the documented physical-iPhone gates.
 
 Only the retained foundations below are current course material. Obsolete and superseded work is separated in the [historical archive](./archive/README.md).
 

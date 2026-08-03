@@ -12,8 +12,14 @@ describe("profile and restricted controls", () => {
   test("opens Settings from My Profile without a Settings tab", async () => {
     const onOpenSettings = jest.fn();
     const user = userEvent.setup();
+    const client = new QueryClient({
+      defaultOptions: {
+        mutations: { gcTime: Infinity, retry: false },
+        queries: { gcTime: Infinity, retry: false },
+      },
+    });
     const screen = await render(
-      <QueryClientProvider client={new QueryClient()}>
+      <QueryClientProvider client={client}>
         <ProfileScreen
           avatarPath={null}
           displayName="Kingston"

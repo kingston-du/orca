@@ -16,6 +16,16 @@ const hearted: ReactionSummary = {
   viewerReaction: "heart",
 };
 
+function createTestQueryClient() {
+  // QueryClient schedules a five-minute garbage-collection timer for every
+  // cache entry by default. These pure cache tests never mount an observer, so
+  // keep their entries for the process lifetime instead of leaving Jest with
+  // test-only timers after the assertions finish.
+  return new QueryClient({
+    defaultOptions: { queries: { gcTime: Infinity } },
+  });
+}
+
 function row(momentId: string) {
   return {
     moment_id: momentId,
@@ -55,7 +65,7 @@ function recent(client: QueryClient) {
 
 describe("one tap, every surface", () => {
   it("writes the same summary to the deck, Highlights, and detail", () => {
-    const client = new QueryClient();
+    const client = createTestQueryClient();
     seed(client);
 
     patchReactionCaches(client, "m1", hearted);
@@ -74,7 +84,7 @@ describe("one tap, every surface", () => {
   });
 
   it("leaves every other Moment and every other surface alone", () => {
-    const client = new QueryClient();
+    const client = createTestQueryClient();
     seed(client);
 
     patchReactionCaches(client, "m1", hearted);
@@ -94,7 +104,7 @@ describe("one tap, every surface", () => {
 
 describe("rolling back", () => {
   it("restores exactly what was there before the tap", () => {
-    const client = new QueryClient();
+    const client = createTestQueryClient();
     seed(client);
     const before = snapshotReactionCaches(client);
 
@@ -115,7 +125,7 @@ describe("rolling back", () => {
   it("survives a second patch before the rollback", () => {
     // Two taps in flight is not an error state — the snapshot taken first is
     // still the one that describes the world before either of them.
-    const client = new QueryClient();
+    const client = createTestQueryClient();
     seed(client);
     const before = snapshotReactionCaches(client);
 

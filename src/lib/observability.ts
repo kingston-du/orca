@@ -1,5 +1,3 @@
-import * as Sentry from "@sentry/react-native";
-
 import {
   scrubBreadcrumb,
   scrubEvent,
@@ -29,6 +27,25 @@ import {
 
 const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 
+type SentryModule = typeof import("@sentry/react-native");
+let sentryModule: SentryModule | undefined;
+
+/**
+ * Metro's literal `require` stays in the bundle but does not execute the
+ * Sentry module until a configured build actually needs it. Importing Sentry
+ * eagerly starts an internal cleanup interval even with no DSN, which made the
+ * integration observably non-inert and kept Jest alive after every suite that
+ * imported the query client.
+ */
+function getSentryModule(): SentryModule {
+  // This is intentionally the synchronous, lazy Metro primitive: a static
+  // import executes Sentry in DSN-less builds, while `import()` would let app
+  // rendering race ahead of crash-handler installation in configured builds.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  sentryModule ??= require("@sentry/react-native") as SentryModule;
+  return sentryModule;
+}
+
 /** Distinguishes the development backend from anything later; it never carries
  * a project reference or a key. */
 const environment = __DEV__ ? "development" : "release";
@@ -36,6 +53,7 @@ const environment = __DEV__ ? "development" : "release";
 export function initializeObservability(): boolean {
   if (!dsn) return false;
 
+  const Sentry = getSentryModule();
   Sentry.init({
     beforeBreadcrumb: (crumb) =>
       scrubBreadcrumb(crumb as ScrubbableBreadcrumb) as typeof crumb | null,
@@ -73,6 +91,7 @@ export function initializeObservability(): boolean {
 export function reportUnexpectedError(domain: string, error: unknown): void {
   if (!dsn) return;
 
+  const Sentry = getSentryModule();
   Sentry.captureException(error, (scope) => {
     scope.setTag("domain", domain);
     return scope;

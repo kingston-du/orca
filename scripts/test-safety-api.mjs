@@ -52,6 +52,8 @@ const admin = createClient(apiUrl, serviceKey, {
 const password = `Orca-${randomUUID()}-9a!`;
 const suffix = randomUUID();
 const users = [];
+const reportIds = [];
+const evidencePaths = [];
 
 const legalArgs = {
   p_adult_eligible: true,
@@ -273,6 +275,7 @@ try {
   });
   assert.ifError(submitted.error);
   const receipt = submitted.data[0];
+  reportIds.push(receipt.report_id);
   assert.equal(receipt.evidence_status, "pending");
   assert.equal(receipt.already_submitted, false);
 
@@ -306,6 +309,7 @@ try {
   // The evidence bucket is service-only
   // ------------------------------------------------------------------
   const evidencePath = `${receipt.report_id}/evidence.jpg`;
+  evidencePaths.push(evidencePath);
 
   const listed = await bob.client.storage.from(EVIDENCE_BUCKET).list();
   assert.ok(
@@ -404,6 +408,7 @@ try {
     p_subject_kind: "profile",
   });
   assert.ifError(blocking.error);
+  reportIds.push(blocking.data[0].report_id);
   assert.equal(blocking.data[0].blocked_subject, true);
 
   const hidden = await bob.client.rpc("get_profile_summary", {
@@ -436,5 +441,25 @@ try {
     `Real Auth/Data API/Storage safety checks passed against the ${label} environment.`,
   );
 } finally {
+  if (label === "hosted" && reportIds.length > 0) {
+    if (evidencePaths.length > 0) {
+      const removed = await admin.storage
+        .from(EVIDENCE_BUCKET)
+        .remove(evidencePaths);
+      assert.ifError(removed.error);
+    }
+    execFileSync(
+      "./node_modules/.bin/supabase",
+      [
+        "db",
+        "query",
+        "--linked",
+        `delete from private.reports where id = any (array[${reportIds
+          .map((id) => `'${id}'::uuid`)
+          .join(", ")}])`,
+      ],
+      { encoding: "utf8" },
+    );
+  }
   await Promise.all(users.map((id) => admin.auth.admin.deleteUser(id)));
 }
