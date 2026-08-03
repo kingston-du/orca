@@ -1,18 +1,19 @@
 import { Link } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppButton } from "@/components/app-button";
+import { Field } from "@/components/field";
+import { color, spacing, typeScale } from "@/constants/design";
 import type { AuthSubmissionResult } from "@/features/auth/auth-actions";
 import {
   validateEmail,
@@ -170,34 +171,26 @@ export function PasswordRecoveryScreen({
 
           {step === "request" ? (
             <View style={styles.form}>
-              <View style={styles.field}>
-                <Text style={styles.label}>Email</Text>
-                <TextInput
-                  accessibilityLabel="Recovery email"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  autoCorrect={false}
-                  editable={!isBusy}
-                  keyboardType="email-address"
-                  onChangeText={setEmail}
-                  onSubmitEditing={() => void handleRequest()}
-                  placeholder="you@example.com"
-                  placeholderTextColor="#7B8794"
-                  returnKeyType="send"
-                  style={[styles.input, errors.email && styles.inputError]}
-                  textContentType="emailAddress"
-                  value={email}
-                />
-                {errors.email ? (
-                  <Text accessibilityRole="alert" style={styles.fieldError}>
-                    {errors.email}
-                  </Text>
-                ) : null}
-              </View>
+              <Field
+                accessibilityLabel="Recovery email"
+                autoCapitalize="none"
+                autoComplete="email"
+                autoCorrect={false}
+                editable={!isBusy}
+                error={errors.email}
+                keyboardType="email-address"
+                label="Email"
+                onChangeText={setEmail}
+                onSubmitEditing={() => void handleRequest()}
+                placeholder="you@example.com"
+                returnKeyType="send"
+                textContentType="emailAddress"
+                value={email}
+              />
 
-              <PrimaryButton
+              <AppButton
+                busy={isRequesting}
                 disabled={isBusy}
-                isLoading={isRequesting}
                 label="Send reset code"
                 onPress={() => void handleRequest()}
               />
@@ -210,47 +203,48 @@ export function PasswordRecoveryScreen({
             </View>
           ) : (
             <View style={styles.form}>
-              <View style={styles.field}>
-                <Text style={styles.label}>Reset code</Text>
-                <TextInput
-                  accessibilityLabel="Reset code"
-                  autoComplete="one-time-code"
-                  autoFocus
-                  editable={!isBusy}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  onChangeText={handleTokenChange}
-                  placeholder="123456"
-                  placeholderTextColor="#7B8794"
-                  returnKeyType="next"
-                  style={[
-                    styles.input,
-                    styles.codeInput,
-                    errors.token && styles.inputError,
-                  ]}
-                  textContentType="oneTimeCode"
-                  value={token}
-                />
-                {errors.token ? (
-                  <Text accessibilityRole="alert" style={styles.fieldError}>
-                    {errors.token}
-                  </Text>
-                ) : null}
-              </View>
+              <Field
+                accessibilityLabel="Reset code"
+                autoComplete="one-time-code"
+                autoFocus
+                editable={!isBusy}
+                error={errors.token}
+                keyboardType="number-pad"
+                label="Reset code"
+                maxLength={6}
+                onChangeText={handleTokenChange}
+                placeholder="123456"
+                returnKeyType="next"
+                style={styles.codeInput}
+                textContentType="oneTimeCode"
+                value={token}
+              />
 
-              <PasswordField
-                disabled={isBusy}
+              <Field
+                autoCapitalize="none"
+                autoComplete="new-password"
+                editable={!isBusy}
                 error={errors.password}
                 label="New password"
                 onChangeText={setPassword}
+                passwordRules="minlength: 8;"
+                returnKeyType="next"
+                secureTextEntry
+                textContentType="newPassword"
                 value={password}
               />
-              <PasswordField
-                disabled={isBusy}
+              <Field
+                autoCapitalize="none"
+                autoComplete="new-password"
+                editable={!isBusy}
                 error={errors.confirmPassword}
                 label="Confirm new password"
                 onChangeText={setConfirmPassword}
-                onSubmit={() => void handleReset()}
+                onSubmitEditing={() => void handleReset()}
+                passwordRules="minlength: 8;"
+                returnKeyType="done"
+                secureTextEntry
+                textContentType="newPassword"
                 value={confirmPassword}
               />
 
@@ -268,9 +262,9 @@ export function PasswordRecoveryScreen({
                 </Text>
               ) : null}
 
-              <PrimaryButton
+              <AppButton
+                busy={isResetting}
                 disabled={isBusy}
-                isLoading={isResetting}
                 label="Update password"
                 onPress={() => void handleReset()}
               />
@@ -299,97 +293,19 @@ export function PasswordRecoveryScreen({
   );
 }
 
-type PrimaryButtonProps = {
-  disabled: boolean;
-  isLoading: boolean;
-  label: string;
-  onPress: () => void;
-};
-
-function PrimaryButton({
-  disabled,
-  isLoading,
-  label,
-  onPress,
-}: PrimaryButtonProps) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.primaryButton,
-        pressed && !disabled && styles.primaryButtonPressed,
-        disabled && styles.disabled,
-      ]}
-    >
-      {isLoading ? (
-        <ActivityIndicator color="#FFFFFF" />
-      ) : (
-        <Text style={styles.primaryLabel}>{label}</Text>
-      )}
-    </Pressable>
-  );
-}
-
-type PasswordFieldProps = {
-  disabled: boolean;
-  error?: string;
-  label: string;
-  onChangeText: (value: string) => void;
-  onSubmit?: () => void;
-  value: string;
-};
-
-function PasswordField({
-  disabled,
-  error,
-  label,
-  onChangeText,
-  onSubmit,
-  value,
-}: PasswordFieldProps) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        accessibilityLabel={label}
-        autoCapitalize="none"
-        autoComplete="new-password"
-        editable={!disabled}
-        onChangeText={onChangeText}
-        onSubmitEditing={onSubmit}
-        passwordRules="minlength: 8;"
-        returnKeyType={onSubmit ? "done" : "next"}
-        secureTextEntry
-        style={[styles.input, error && styles.inputError]}
-        textContentType="newPassword"
-        value={value}
-      />
-      {error ? (
-        <Text accessibilityRole="alert" style={styles.fieldError}>
-          {error}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   brand: {
-    color: "#208AEF",
-    fontSize: 26,
-    fontWeight: "800",
+    ...typeScale.title,
+    color: color.brand,
     letterSpacing: -1,
-    marginBottom: 30,
+    marginBottom: spacing.xxl,
   },
   brandBlock: {
-    marginBottom: 30,
+    marginBottom: spacing.xxl,
   },
   centeredLink: {
-    color: "#0969C3",
-    fontSize: 15,
-    fontWeight: "700",
+    ...typeScale.label,
+    color: color.brand,
     textAlign: "center",
   },
   codeInput: {
@@ -398,88 +314,31 @@ const styles = StyleSheet.create({
     letterSpacing: 8,
     textAlign: "center",
   },
-  disabled: {
-    opacity: 0.55,
-  },
   disabledLink: {
-    color: "#7B8794",
+    color: color.textMuted,
   },
-  error: {
-    color: "#B42318",
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  field: {
-    gap: 8,
-  },
-  fieldError: {
-    color: "#B42318",
-    fontSize: 13,
-  },
+  error: { ...typeScale.cardBody, color: color.criticalText },
   form: {
-    gap: 20,
-  },
-  input: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#C8D3DE",
-    borderRadius: 14,
-    borderWidth: 1,
-    color: "#102A43",
-    fontSize: 16,
-    minHeight: 54,
-    paddingHorizontal: 16,
-  },
-  inputError: {
-    borderColor: "#D92D20",
+    gap: spacing.xl,
   },
   keyboardView: {
     flex: 1,
   },
-  label: {
-    color: "#243B53",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: "#208AEF",
-    borderRadius: 14,
-    justifyContent: "center",
-    minHeight: 54,
-  },
-  primaryButtonPressed: {
-    backgroundColor: "#0969C3",
-  },
-  primaryLabel: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-  },
   safeArea: {
-    backgroundColor: "#F5FAFF",
+    backgroundColor: color.canvas,
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxl,
   },
-  subtitle: {
-    color: "#52606D",
-    fontSize: 17,
-    lineHeight: 25,
-  },
-  success: {
-    color: "#087A4B",
-    fontSize: 14,
-    lineHeight: 20,
-  },
+  subtitle: { ...typeScale.body, color: color.textSecondary },
+  success: { ...typeScale.cardBody, color: color.textPrimary },
   title: {
-    color: "#102A43",
-    fontSize: 32,
-    fontWeight: "800",
-    letterSpacing: -0.8,
-    marginBottom: 10,
+    ...typeScale.title,
+    color: color.textPrimary,
+    marginBottom: spacing.sm,
   },
 });

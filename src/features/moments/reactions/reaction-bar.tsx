@@ -30,6 +30,8 @@ import {
 import { useReducedMotion } from "@/lib/use-reduced-motion";
 
 const GLYPH_SIZE = 22;
+/** Icon-only on a card, so the glyph carries the whole control. */
+const COMPACT_GLYPH_SIZE = 24;
 
 /**
  * Two mutually exclusive controls and a modest count.
@@ -76,46 +78,58 @@ export function ReactionBar({
     });
 
   return (
-    <View style={styles.bar}>
+    // On a card the row is reversed so the count sits to the *right* of the two
+    // controls, as the design draws it, while the children stay in the order
+    // the contract requires them to be announced: summary first, then Heart and
+    // Superheart. `row-reverse` moves boxes, not the view hierarchy VoiceOver
+    // walks, so the reading order survives the visual reordering.
+    <View style={compact ? styles.compactBar : styles.bar}>
       {label ? (
         <Pressable
           accessibilityHint="Shows who reacted"
           accessibilityLabel={label}
           accessibilityRole="button"
           onPress={onOpenPeople}
-          style={styles.summary}
+          style={compact ? styles.compactSummary : styles.summary}
         >
           <Text style={styles.summaryLabel}>{label}</Text>
-          <SymbolView
-            accessibilityElementsHidden
-            importantForAccessibility="no"
-            name="chevron.right"
-            resizeMode="scaleAspectFit"
-            size={12}
-            tintColor={color.textSecondary}
-          />
+          {compact ? null : (
+            <SymbolView
+              accessibilityElementsHidden
+              importantForAccessibility="no"
+              name="chevron.right"
+              resizeMode="scaleAspectFit"
+              size={12}
+              tintColor={color.textSecondary}
+            />
+          )}
         </Pressable>
       ) : null}
 
       {canReact ? (
         <View style={styles.controls}>
           <ReactionControl
-            accent={color.brand}
+            // The design fills a selected Heart with the primary ink rather
+            // than the brand teal, which keeps the two reactions further apart
+            // than a single hue rotation would.
+            accent={color.textPrimary}
+            compact={compact}
             disabled={setReaction.isPending}
             label="Heart"
             onPress={() => react("heart")}
-            pressedSurface={color.border}
+            pressedSurface={color.fillSubtlePressed}
             selected={summary.viewerReaction === "heart"}
-            surface={color.brandSurface}
+            surface={color.fillSubtle}
             symbol={summary.viewerReaction === "heart" ? "heart.fill" : "heart"}
           />
           <ReactionControl
             accent={color.superheart}
+            compact={compact}
             disabled={setReaction.isPending}
             hint={superheartHint(remaining)}
             label="Superheart"
             onPress={() => react("superheart")}
-            pressedSurface={color.border}
+            pressedSurface={color.fillSubtlePressed}
             selected={summary.viewerReaction === "superheart"}
             surface={color.superheartSurface}
             symbol={
@@ -161,6 +175,7 @@ function superheartHint(remaining: number | undefined) {
  */
 function ReactionControl({
   accent,
+  compact = false,
   disabled,
   hint,
   label,
@@ -171,6 +186,8 @@ function ReactionControl({
   symbol,
 }: {
   accent: string;
+  /** A card shows the glyph alone; detail has room for the word beside it. */
+  compact?: boolean;
   disabled: boolean;
   hint?: string;
   label: string;
@@ -204,7 +221,7 @@ function ReactionControl({
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
-        styles.control,
+        compact ? styles.compactControl : styles.control,
         selected && { backgroundColor: surface },
         pressed && { backgroundColor: pressedSurface },
       ]}
@@ -215,19 +232,40 @@ function ReactionControl({
           importantForAccessibility="no"
           name={symbol}
           resizeMode="scaleAspectFit"
-          size={GLYPH_SIZE}
+          size={compact ? COMPACT_GLYPH_SIZE : GLYPH_SIZE}
           tintColor={selected ? accent : color.textSecondary}
         />
       </Animated.View>
-      <Text style={[styles.controlLabel, selected && { color: accent }]}>
-        {label}
-      </Text>
+      {compact ? null : (
+        <Text style={[styles.controlLabel, selected && { color: accent }]}>
+          {label}
+        </Text>
+      )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   bar: { gap: spacing.sm },
+  compactBar: {
+    alignItems: "center",
+    flexDirection: "row-reverse",
+    gap: spacing.md,
+    // `row-reverse` fills from the right, so the row has to be told to pack
+    // toward the left edge it now ends at.
+    justifyContent: "flex-end",
+  },
+  compactControl: {
+    alignItems: "center",
+    borderRadius: radius.control,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  compactSummary: {
+    justifyContent: "center",
+    minHeight: MINIMUM_TOUCH_TARGET,
+  },
   control: {
     alignItems: "center",
     backgroundColor: color.surfaceSunken,

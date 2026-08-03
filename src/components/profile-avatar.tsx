@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Image, StyleSheet, Text, View } from "react-native";
 
+import { color } from "@/constants/design";
 import { createAvatarSignedUrl } from "@/features/profiles/avatar-api";
 
 /** Signed URLs last five minutes; refetching a minute early means a rendered
@@ -73,11 +74,11 @@ export function initialsFor(displayName: string) {
 }
 
 const styles = StyleSheet.create({
-  image: { backgroundColor: "#DCEEFB" },
-  initials: { color: "#1769AA", fontWeight: "800" },
+  image: { backgroundColor: color.brandSurface },
+  initials: { color: color.brand, fontWeight: "600" },
   placeholder: {
     alignItems: "center",
-    backgroundColor: "#DCEEFB",
+    backgroundColor: color.brandSurface,
     justifyContent: "center",
   },
 });

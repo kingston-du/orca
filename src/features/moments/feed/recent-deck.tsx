@@ -21,6 +21,7 @@ import Animated, {
 import {
   MINIMUM_TOUCH_TARGET,
   color,
+  elevation,
   radius,
   spacing,
   typeScale,
@@ -43,15 +44,16 @@ import { MomentCard } from "@/features/moments/feed/moment-card";
 const MEDIA_RADIUS = 1;
 
 /** How much of each neighbouring card stays visible past the focused one. */
-const PEEK = 20;
+const PEEK = 36;
 
 /** The breathing room between two cards' edges. */
 const GUTTER = spacing.md;
 
 /** How far a neighbour recedes. Small on purpose: the cards behind are context,
- * and a steep scale reads as a broken layout rather than as depth. */
+ * and a steep scale reads as a broken layout rather than as depth. The design
+ * pushes the neighbours well back so the focused card is unambiguous. */
 const NEIGHBOUR_SCALE = 0.92;
-const NEIGHBOUR_OPACITY = 0.6;
+const NEIGHBOUR_OPACITY = 0.3;
 
 /**
  * The geometry of one page of the deck.
@@ -380,10 +382,7 @@ const styles = StyleSheet.create({
     // A restrained lift, so the focused card separates from the ones behind it
     // without the whole screen looking like it is floating.
     elevation: 6,
-    shadowColor: "#1F2A2E",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.14,
-    shadowRadius: 14,
+    ...elevation.card,
   },
   control: {
     alignItems: "center",

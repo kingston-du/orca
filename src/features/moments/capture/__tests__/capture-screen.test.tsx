@@ -225,16 +225,17 @@ describe("CaptureScreen", () => {
     await waitFor(() => expect(mockStartDraft).toHaveBeenCalledWith(photo));
   });
 
-  test("keeps the flash and flip controls clear of the status bar", async () => {
+  test("keeps the camera controls clear of the home indicator", async () => {
     const screen = await render(<CaptureScreen />);
     await act(() => mockAppStateListener?.("active"));
 
-    // The mocked device has a 59-point top inset. Anything at or above that
-    // line is underneath the clock and the battery, which is precisely the
-    // defect this asserts against; a hard-coded offset would sit at 24.
+    // 9C moves every control into one bottom row, so the inset that matters is
+    // now the bottom one. The mocked device reserves 34 points for the home
+    // indicator; a row padded by less than that sits under it, which is the
+    // defect this asserts against. A hard-coded offset would sit at 24.
     const controls = screen.getByTestId("camera-overlay-controls");
-    const { top } = StyleSheet.flatten(controls.props.style);
-    expect(top).toBeGreaterThan(59);
+    const { paddingBottom } = StyleSheet.flatten(controls.props.style);
+    expect(paddingBottom).toBeGreaterThan(34);
   });
 
   test("states flash by glyph rather than by colour alone", async () => {

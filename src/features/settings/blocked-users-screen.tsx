@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,6 +8,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppButton } from "@/components/app-button";
+import { InlineAlert } from "@/components/inline-alert";
+import { ListRow } from "@/components/list-row";
+import { ScreenHeader } from "@/components/screen-header";
+import { color, spacing, typeScale } from "@/constants/design";
 import {
   listBlockedProfiles,
   unblockUser,
@@ -17,8 +21,10 @@ import {
 const blockedKey = ["blocked-profiles"] as const;
 
 export function BlockedUsersScreen({
+  onBack,
   onReport,
 }: {
+  onBack: () => void;
   onReport: (profileId: string, displayName: string | null) => void;
 }) {
   const queryClient = useQueryClient();
@@ -40,11 +46,9 @@ export function BlockedUsersScreen({
   });
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      <ScreenHeader onBack={onBack} title="Blocked Users" />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text accessibilityRole="header" style={styles.title}>
-          Blocked Users
-        </Text>
         <Text style={styles.body}>
           Unblocking does not make you friends again. It may restore access to
           history you shared before the block.
@@ -55,15 +59,17 @@ export function BlockedUsersScreen({
         ) : null}
 
         {blocked.isError ? (
-          <View style={styles.retryRow}>
-            <Text style={styles.message}>Couldn’t load your blocks.</Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => void blocked.refetch()}
-            >
-              <Text style={styles.link}>Try again</Text>
-            </Pressable>
-          </View>
+          <InlineAlert
+            action={
+              <AppButton
+                label="Try again"
+                onPress={() => void blocked.refetch()}
+                variant="secondary"
+              />
+            }
+            message="Couldn’t load your blocks."
+            tone="critical"
+          />
         ) : null}
 
         {blocked.data?.length === 0 ? (
@@ -71,46 +77,39 @@ export function BlockedUsersScreen({
         ) : null}
 
         {unblock.isError ? (
-          <Text accessibilityLiveRegion="polite" style={styles.message}>
-            That block changed. Refresh and try again.
-          </Text>
+          <InlineAlert message="That block changed. Refresh and try again." />
         ) : null}
 
         {blocked.data?.map((entry) => (
-          <View key={entry.id} style={styles.personRow}>
-            <View style={styles.flex}>
-              <Text style={styles.cardTitle}>
-                {entry.display_name ?? "Account unavailable"}
-              </Text>
-              <Text style={styles.body}>
-                {entry.username ? `@${entry.username}` : "Still blocked"}
-              </Text>
-            </View>
-            {/* The safety path from the block list: someone who blocked first
-             * and wants a review afterwards has nowhere else to start. */}
-            <Pressable
-              accessibilityLabel={`Report ${entry.display_name ?? "this account"}`}
-              accessibilityRole="button"
-              onPress={() => onReport(entry.id, entry.display_name)}
-              style={styles.smallOutlineButton}
-            >
-              <Text style={styles.smallOutlineLabel}>Report</Text>
-            </Pressable>
-            <Pressable
-              accessibilityLabel={`Unblock ${entry.display_name ?? "this account"}`}
-              accessibilityRole="button"
-              disabled={unblock.isPending}
-              onPress={() =>
-                unblock.mutate({
-                  generationId: entry.generation_id,
-                  profileId: entry.id,
-                })
-              }
-              style={styles.smallButton}
-            >
-              <Text style={styles.smallButtonLabel}>Unblock</Text>
-            </Pressable>
-          </View>
+          <ListRow
+            key={entry.id}
+            subtitle={entry.username ? `@${entry.username}` : "Still blocked"}
+            title={entry.display_name ?? "Account unavailable"}
+            trailing={
+              <View style={styles.actions}>
+                {/* The safety path from the block list: someone who blocked
+                 * first and wants a review afterwards has nowhere else to
+                 * start. */}
+                <AppButton
+                  accessibilityLabel={`Report ${entry.display_name ?? "this account"}`}
+                  label="Report"
+                  onPress={() => onReport(entry.id, entry.display_name)}
+                  variant="danger"
+                />
+                <AppButton
+                  accessibilityLabel={`Unblock ${entry.display_name ?? "this account"}`}
+                  disabled={unblock.isPending}
+                  label="Unblock"
+                  onPress={() =>
+                    unblock.mutate({
+                      generationId: entry.generation_id,
+                      profileId: entry.id,
+                    })
+                  }
+                />
+              </View>
+            }
+          />
         ))}
       </ScrollView>
     </SafeAreaView>
@@ -118,43 +117,8 @@ export function BlockedUsersScreen({
 }
 
 const styles = StyleSheet.create({
-  body: { color: "#52606D", fontSize: 14, lineHeight: 20 },
-  cardTitle: { color: "#102A43", fontSize: 16, fontWeight: "800" },
-  content: { gap: 16, padding: 20, paddingBottom: 48 },
-  flex: { flex: 1, gap: 2 },
-  link: { color: "#1769AA", fontWeight: "800" },
-  message: { color: "#52606D", fontSize: 14 },
-  personRow: {
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    flexDirection: "row",
-    gap: 8,
-    minHeight: 64,
-    padding: 12,
-  },
-  retryRow: { alignItems: "center", flexDirection: "row", gap: 12 },
-  safeArea: { backgroundColor: "#F5FAFF", flex: 1 },
-  smallButton: {
-    alignItems: "center",
-    backgroundColor: "#208AEF",
-    borderRadius: 10,
-    justifyContent: "center",
-    minHeight: 44,
-    minWidth: 84,
-    paddingHorizontal: 12,
-  },
-  smallButtonLabel: { color: "#FFFFFF", fontWeight: "800" },
-  smallOutlineButton: {
-    alignItems: "center",
-    borderColor: "#BA2525",
-    borderRadius: 10,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: 44,
-    minWidth: 72,
-    paddingHorizontal: 12,
-  },
-  smallOutlineLabel: { color: "#BA2525", fontWeight: "800" },
-  title: { color: "#102A43", fontSize: 34, fontWeight: "900" },
+  actions: { flexDirection: "row", gap: spacing.sm },
+  body: { ...typeScale.cardBody, color: color.textSecondary },
+  content: { gap: spacing.lg, padding: spacing.xl, paddingBottom: 48 },
+  safeArea: { backgroundColor: color.canvas, flex: 1 },
 });

@@ -2,15 +2,19 @@ import { useQuery } from "@tanstack/react-query";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppButton } from "@/components/app-button";
+import { Icon } from "@/components/icon";
 import { ProfileAvatar } from "@/components/profile-avatar";
+import { ScreenHeader } from "@/components/screen-header";
 import {
   MINIMUM_TOUCH_TARGET,
   color,
-  radius,
   spacing,
   typeScale,
 } from "@/constants/design";
 import { useAuth } from "@/features/auth/auth-provider";
+import { FriendCountLink } from "@/features/friends/friend-count-link";
+import { getProfileSummary } from "@/features/friends/friends-api";
 import { HistoryGrid } from "@/features/moments/history/history-grid";
 import {
   listDiaryMoments,
@@ -20,7 +24,9 @@ import {
 type DiaryScreenProps = {
   avatarPath: string | null;
   displayName: string;
+  onBack: () => void;
   onEditProfile: () => void;
+  onOpenFriends: () => void;
   onOpenMoment: (momentId: string) => void;
   onOpenPastShares: () => void;
   onOpenSettings: () => void;
@@ -42,7 +48,9 @@ type DiaryScreenProps = {
 export function DiaryScreen({
   avatarPath,
   displayName,
+  onBack,
   onEditProfile,
+  onOpenFriends,
   onOpenMoment,
   onOpenPastShares,
   onOpenSettings,
@@ -58,55 +66,64 @@ export function DiaryScreen({
   });
   const hasPastShares = (pastShares.data?.moments.length ?? 0) > 0;
 
+  // The self tier always carries a friend count, so this is the one place the
+  // number is guaranteed rather than withheld.
+  const summary = useQuery({
+    enabled: Boolean(user?.id),
+    queryKey: ["profile-summary", user?.id],
+    queryFn: () => getProfileSummary(user?.id as string),
+  });
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      <ScreenHeader
+        onBack={onBack}
+        trailing={
+          <Pressable
+            accessibilityLabel="Open Settings"
+            accessibilityRole="button"
+            hitSlop={spacing.sm}
+            onPress={onOpenSettings}
+            style={({ pressed }) => [styles.gear, pressed ? styles.dim : null]}
+          >
+            <Icon name="settings" size={22} />
+          </Pressable>
+        }
+      />
       <HistoryGrid
         emptyBody="Moments you share, and Moments friends tag you in, collect here in the order they happened."
         emptyTitle="Your history starts here"
         fetchPage={listDiaryMoments}
         header={
           <View style={styles.header}>
-            <View style={styles.identityRow}>
-              <View style={styles.identity}>
-                <ProfileAvatar
-                  avatarPath={avatarPath}
-                  displayName={displayName}
-                  size={72}
-                />
-                <Text accessibilityRole="header" style={styles.title}>
-                  {displayName}
-                </Text>
-                <Text style={styles.username}>@{username}</Text>
-              </View>
-              <Pressable
-                accessibilityLabel="Open Settings"
-                accessibilityRole="button"
-                onPress={onOpenSettings}
-                style={styles.gear}
-              >
-                <Text accessibilityElementsHidden style={styles.gearText}>
-                  ⚙︎
-                </Text>
-              </Pressable>
+            <ProfileAvatar
+              avatarPath={avatarPath}
+              displayName={displayName}
+              size={88}
+            />
+            <View style={styles.identity}>
+              <Text accessibilityRole="header" style={styles.title}>
+                {displayName}
+              </Text>
+              <Text style={styles.username}>@{username}</Text>
             </View>
-
+            <FriendCountLink
+              count={summary.data?.friend_count ?? null}
+              onPress={onOpenFriends}
+            />
             <View style={styles.actions}>
-              <Pressable
-                accessibilityRole="button"
+              <AppButton
+                label="Edit Profile"
                 onPress={onEditProfile}
-                style={styles.secondaryAction}
-              >
-                <Text style={styles.secondaryLabel}>Edit Profile</Text>
-              </Pressable>
+                variant="secondary"
+              />
               {hasPastShares ? (
-                <Pressable
+                <AppButton
                   accessibilityHint="Moments shared with you by people you are no longer friends with"
-                  accessibilityRole="button"
+                  label="Past Shares"
                   onPress={onOpenPastShares}
-                  style={styles.secondaryAction}
-                >
-                  <Text style={styles.secondaryLabel}>Past Shares</Text>
-                </Pressable>
+                  variant="secondary"
+                />
               ) : null}
             </View>
           </View>
@@ -119,31 +136,29 @@ export function DiaryScreen({
 }
 
 const styles = StyleSheet.create({
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
+  actions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    justifyContent: "center",
+    paddingTop: spacing.sm,
+  },
+  dim: { opacity: 0.6 },
   gear: {
     alignItems: "center",
+    height: MINIMUM_TOUCH_TARGET,
     justifyContent: "center",
-    minHeight: MINIMUM_TOUCH_TARGET,
-    minWidth: MINIMUM_TOUCH_TARGET,
+    marginRight: -spacing.md,
+    width: MINIMUM_TOUCH_TARGET,
   },
-  gearText: { color: color.textPrimary, fontSize: 28 },
-  header: { gap: spacing.lg, paddingBottom: spacing.md },
-  identity: { alignItems: "flex-start", gap: spacing.xs },
-  identityRow: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  safeArea: { backgroundColor: color.canvas, flex: 1 },
-  secondaryAction: {
+  header: {
     alignItems: "center",
-    backgroundColor: color.brandSurface,
-    borderRadius: radius.pill,
-    justifyContent: "center",
-    minHeight: MINIMUM_TOUCH_TARGET,
-    paddingHorizontal: spacing.xl,
+    gap: spacing.sm,
+    paddingBottom: spacing.lg,
+    paddingTop: spacing.xs,
   },
-  secondaryLabel: { ...typeScale.label, color: color.brand },
+  identity: { alignItems: "center", gap: 2 },
+  safeArea: { backgroundColor: color.canvas, flex: 1 },
   title: { ...typeScale.title, color: color.textPrimary },
   username: { ...typeScale.caption, color: color.textSecondary },
 });

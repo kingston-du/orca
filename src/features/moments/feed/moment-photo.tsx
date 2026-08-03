@@ -56,6 +56,11 @@ export function useOverlayFitsOnPhoto() {
 type MomentPhotoFrameProps = {
   availableWidth: number;
   children: ReactNode;
+  /**
+   * Rounds only the top corners. A card sits the photo flush against its own
+   * top edge, so the bottom two corners belong to the card, not the photo.
+   */
+  flushBottom?: boolean;
   /** Drawn over the foot of the photo, inside the frame's rounded clip. */
   footer?: ReactNode;
 };
@@ -75,11 +80,15 @@ type MomentPhotoFrameProps = {
 export function MomentPhotoFrame({
   availableWidth,
   children,
+  flushBottom = false,
   footer,
 }: MomentPhotoFrameProps) {
   const size = usePhotoFrameSize(availableWidth);
   return (
-    <View style={[styles.frame, size]} testID="moment-photo-frame">
+    <View
+      style={[styles.frame, flushBottom ? styles.frameFlushBottom : null, size]}
+      testID="moment-photo-frame"
+    >
       {children}
       {footer ? <View style={styles.footer}>{footer}</View> : null}
     </View>
@@ -94,6 +103,8 @@ type MomentPhotoProps = {
    * else stays unmounted so the deck holds a bounded number of decoded
    * images. */
   enabled: boolean;
+  /** Rounds only the top corners — see `MomentPhotoFrameProps`. */
+  flushBottom?: boolean;
   /** Identity, drawn on a scrim over the foot of the photo. */
   footer?: ReactNode;
 };
@@ -112,6 +123,7 @@ export function MomentPhoto({
   authorDisplayName,
   availableWidth,
   enabled,
+  flushBottom = false,
   footer,
 }: MomentPhotoProps) {
   const { user } = useAuth();
@@ -127,7 +139,11 @@ export function MomentPhoto({
   }, [enabled]);
 
   return (
-    <MomentPhotoFrame availableWidth={availableWidth} footer={footer}>
+    <MomentPhotoFrame
+      availableWidth={availableWidth}
+      flushBottom={flushBottom}
+      footer={footer}
+    >
       {signed.data ? (
         <Image
           accessibilityIgnoresInvertColors
@@ -165,18 +181,23 @@ export function MomentPhoto({
 }
 
 const styles = StyleSheet.create({
-  frame: {
-    backgroundColor: color.photoBacking,
-    borderRadius: radius.lg,
-    overflow: "hidden",
-  },
   footer: {
     backgroundColor: color.photoScrim,
     bottom: 0,
     left: 0,
-    padding: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     position: "absolute",
     right: 0,
+  },
+  frame: {
+    backgroundColor: color.photoBacking,
+    borderRadius: radius.md,
+    overflow: "hidden",
+  },
+  frameFlushBottom: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
   },
   image: { height: "100%", width: "100%" },
   overlay: {

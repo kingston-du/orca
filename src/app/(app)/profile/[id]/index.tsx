@@ -18,7 +18,10 @@ export default function FriendProfileRoute() {
 
   return (
     <FriendProfileScreen
-      onOpenProfile={(profileId) => router.push(`/profile/${profileId}`)}
+      onBack={() => router.back()}
+      onOpenFriends={(profileId) =>
+        router.push(`/profile/${profileId}/friends`)
+      }
       onOpenSharedMoments={(profileId) =>
         router.push(`/profile/${profileId}/shared`)
       }

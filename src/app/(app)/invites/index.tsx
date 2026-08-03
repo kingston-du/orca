@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
@@ -25,7 +26,13 @@ export default function MyInviteLinkRoute() {
 
   // The local token is bound to both account and environment so a build
   // pointed at a different backend never surfaces an unusable link.
-  return <MyInviteLinkScreen environmentUrl={supabaseUrl} userId={user.id} />;
+  return (
+    <MyInviteLinkScreen
+      environmentUrl={supabaseUrl}
+      onBack={() => router.back()}
+      userId={user.id}
+    />
+  );
 }
 
 const styles = StyleSheet.create({

@@ -16,6 +16,13 @@ import {
   View,
 } from "react-native";
 
+import {
+  MINIMUM_TOUCH_TARGET,
+  color,
+  radius,
+  spacing,
+  typeScale,
+} from "@/constants/design";
 import { useAuth } from "@/features/auth/auth-provider";
 import { supabase } from "@/lib/supabase";
 
@@ -114,7 +121,7 @@ export function PrivacyShield({ children }: PropsWithChildren) {
               accessibilityLabel="Unlocking Orca"
               accessibilityRole="progressbar"
             >
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={color.textInverse} />
             </View>
           )}
         </View>
@@ -124,31 +131,38 @@ export function PrivacyShield({ children }: PropsWithChildren) {
 }
 
 const styles = StyleSheet.create({
-  brand: { color: "#FFFFFF", fontSize: 36, fontWeight: "900" },
+  // Matches the "orca" wordmark style used elsewhere (see
+  // verify-email-screen's `brand`), inverted for this screen's brand-colour
+  // background.
+  brand: { ...typeScale.title, color: color.textInverse, letterSpacing: -1 },
   container: { flex: 1 },
-  message: { color: "#FFFFFF", fontSize: 16, textAlign: "center" },
+  message: { ...typeScale.body, color: color.textInverse, textAlign: "center" },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    minHeight: 48,
+    backgroundColor: color.surface,
+    borderRadius: radius.md,
     justifyContent: "center",
-    paddingHorizontal: 24,
+    minHeight: MINIMUM_TOUCH_TARGET + spacing.xs,
+    paddingHorizontal: spacing.xl,
   },
-  primaryLabel: { color: "#1769AA", fontWeight: "800" },
-  secondaryButton: { minHeight: 44, justifyContent: "center", padding: 12 },
-  secondaryLabel: { color: "#FFFFFF", fontWeight: "700" },
+  primaryLabel: { ...typeScale.label, color: color.brand },
+  secondaryButton: {
+    justifyContent: "center",
+    minHeight: MINIMUM_TOUCH_TARGET,
+    padding: spacing.md,
+  },
+  secondaryLabel: { ...typeScale.label, color: color.textInverse },
   shield: {
+    alignItems: "center",
+    backgroundColor: color.brand,
     bottom: 0,
+    gap: spacing.xl,
+    justifyContent: "center",
     left: 0,
+    padding: spacing.xl,
     position: "absolute",
     right: 0,
     top: 0,
-    alignItems: "center",
-    backgroundColor: "#208AEF",
-    gap: 20,
-    justifyContent: "center",
-    padding: 24,
     zIndex: 1000,
   },
 });

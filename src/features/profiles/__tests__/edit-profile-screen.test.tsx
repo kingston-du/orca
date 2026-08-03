@@ -38,6 +38,7 @@ function renderScreen(avatarPath: string | null = null) {
   return render(
     <QueryClientProvider client={client}>
       <EditProfileScreen
+        onBack={jest.fn()}
         avatarPath={avatarPath}
         displayName="Kingston"
         onDone={jest.fn()}

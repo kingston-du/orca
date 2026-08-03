@@ -34,6 +34,7 @@ export default function DeleteAccountRoute() {
 
   return (
     <DeleteAccountScreen
+      onBack={() => router.back()}
       onOpenStatus={() => router.push("/deletion-status")}
       onRequestDeletion={handleRequest}
     />

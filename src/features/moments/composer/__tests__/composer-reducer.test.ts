@@ -42,6 +42,7 @@ function friendList(count: number): ComposerFriend[] {
     id: `friend-${String(index).padStart(3, "0")}`,
     username: `friend${index}`,
     displayName: `Friend ${index}`,
+    avatarPath: null,
   }));
 }
 

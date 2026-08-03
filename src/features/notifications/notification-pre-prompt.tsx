@@ -1,4 +1,7 @@
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, StyleSheet, Text, View } from "react-native";
+
+import { AppButton } from "@/components/app-button";
+import { color, radius, spacing, typeScale } from "@/constants/design";
 
 type NotificationPrePromptProps = {
   onDecline: () => void;
@@ -34,21 +37,13 @@ export function NotificationPrePrompt({
             Notifications never show a name, a caption, or a photo on your lock
             screen — just that something happened.
           </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={onEnable}
-            style={styles.primaryButton}
-          >
-            <Text style={styles.primaryLabel}>Turn on notifications</Text>
-          </Pressable>
-          <Pressable
+          <AppButton label="Turn on notifications" onPress={onEnable} />
+          <AppButton
             accessibilityHint="You can turn them on later in Settings"
-            accessibilityRole="button"
+            label="Not now"
             onPress={onDecline}
-            style={styles.secondaryButton}
-          >
-            <Text style={styles.secondaryLabel}>Not now</Text>
-          </Pressable>
+            variant="text"
+          />
         </View>
       </View>
     </Modal>
@@ -58,50 +53,19 @@ export function NotificationPrePrompt({
 const styles = StyleSheet.create({
   backdrop: {
     alignItems: "center",
-    backgroundColor: "rgba(16, 42, 67, 0.55)",
+    backgroundColor: color.cameraScrim,
     flex: 1,
     justifyContent: "center",
-    padding: 24,
+    padding: spacing.xl,
   },
-  body: {
-    color: "#52606D",
-    fontSize: 15,
-    lineHeight: 22,
-  },
+  body: { ...typeScale.cardBody, color: color.textSecondary },
   card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    gap: 14,
+    backgroundColor: color.surface,
+    borderRadius: radius.lg,
+    gap: spacing.md,
     maxWidth: 420,
-    padding: 24,
+    padding: spacing.xl,
     width: "100%",
   },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: "#208AEF",
-    borderRadius: 14,
-    justifyContent: "center",
-    minHeight: 50,
-    paddingHorizontal: 24,
-  },
-  primaryLabel: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  secondaryButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 44,
-  },
-  secondaryLabel: {
-    color: "#52606D",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  title: {
-    color: "#102A43",
-    fontSize: 22,
-    fontWeight: "800",
-  },
+  title: { ...typeScale.title, color: color.textPrimary },
 });

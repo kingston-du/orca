@@ -215,6 +215,7 @@ export function MomentDraftProvider({ children }: PropsWithChildren) {
         id: friend.id,
         username: friend.username,
         displayName: friend.display_name,
+        avatarPath: friend.avatar_path,
       })),
     });
   }, [friendRows]);

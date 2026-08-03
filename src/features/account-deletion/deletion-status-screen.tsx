@@ -1,11 +1,8 @@
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { AppButton } from "@/components/app-button";
+import { color, spacing, typeScale } from "@/constants/design";
 
 import type { AccountDeletionStatus } from "./account-deletion-api";
 
@@ -62,13 +59,11 @@ export function DeletionStatusScreen({
               Check your connection and try again. This does not reverse a
               request that already started.
             </Text>
-            <Pressable
-              accessibilityRole="button"
+            <AppButton
+              label="Try again"
               onPress={onRetry}
               style={styles.primaryButton}
-            >
-              <Text style={styles.primaryLabel}>Try again</Text>
-            </Pressable>
+            />
           </View>
         ) : status ? (
           <View style={styles.centered}>
@@ -83,13 +78,11 @@ export function DeletionStatusScreen({
               </Text>
             </View>
             {status.status === "complete" ? (
-              <Pressable
-                accessibilityRole="button"
+              <AppButton
+                label="Done"
                 onPress={onDismiss}
                 style={styles.primaryButton}
-              >
-                <Text style={styles.primaryLabel}>Done</Text>
-              </Pressable>
+              />
             ) : null}
           </View>
         ) : (
@@ -100,13 +93,7 @@ export function DeletionStatusScreen({
               deletion while signed in, return to that account or contact
               Support.
             </Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={onRetry}
-              style={styles.secondaryButton}
-            >
-              <Text style={styles.secondaryLabel}>Check again</Text>
-            </Pressable>
+            <AppButton label="Check again" onPress={onRetry} variant="text" />
           </View>
         )}
       </View>
@@ -115,45 +102,40 @@ export function DeletionStatusScreen({
 }
 
 const styles = StyleSheet.create({
-  body: { color: "#52606D", fontSize: 16, lineHeight: 24, textAlign: "center" },
-  centered: { alignItems: "center", gap: 18 },
-  content: { flex: 1, gap: 36, justifyContent: "center", padding: 24 },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: "#208AEF",
-    borderRadius: 14,
+  body: {
+    ...typeScale.body,
+    color: color.textSecondary,
+    textAlign: "center",
+  },
+  centered: { alignItems: "center", gap: spacing.lg },
+  content: {
+    flex: 1,
+    gap: spacing.xxl,
     justifyContent: "center",
-    minHeight: 50,
-    minWidth: 160,
-    paddingHorizontal: 20,
+    padding: spacing.xl,
   },
-  primaryLabel: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
-  receipt: { alignItems: "center", gap: 6 },
-  receiptLabel: { color: "#52606D", fontSize: 13, fontWeight: "700" },
-  receiptValue: { color: "#102A43", fontSize: 14, textAlign: "center" },
-  safeArea: { backgroundColor: "#F5FAFF", flex: 1 },
-  secondaryButton: {
-    minHeight: 44,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  primaryButton: { minWidth: 160 },
+  receipt: { alignItems: "center", gap: spacing.xs },
+  receiptLabel: { ...typeScale.sectionLabel, color: color.textSecondary },
+  receiptValue: {
+    ...typeScale.caption,
+    color: color.textPrimary,
+    textAlign: "center",
   },
-  secondaryLabel: { color: "#146CC0", fontSize: 16, fontWeight: "800" },
+  safeArea: { backgroundColor: color.canvas, flex: 1 },
   sectionTitle: {
-    color: "#102A43",
-    fontSize: 22,
-    fontWeight: "800",
+    ...typeScale.heading,
+    color: color.textPrimary,
     textAlign: "center",
   },
   status: {
-    color: "#102A43",
-    fontSize: 22,
-    fontWeight: "900",
+    ...typeScale.title,
+    color: color.textPrimary,
     textTransform: "capitalize",
   },
   title: {
-    color: "#102A43",
-    fontSize: 30,
-    fontWeight: "900",
+    ...typeScale.title,
+    color: color.textPrimary,
     textAlign: "center",
   },
 });

@@ -9,6 +9,11 @@ import {
   useWindowDimensions,
 } from "react-native";
 
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { AppButton } from "@/components/app-button";
+import { EmptyState } from "@/components/empty-state";
+import { SegmentedControl } from "@/components/segmented-control";
 import {
   MINIMUM_TOUCH_TARGET,
   color,
@@ -190,7 +195,7 @@ export function HomeScreen({
 
   if (failedOutright) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView edges={["top"]} style={styles.container}>
         {switcher}
         <HomeMessage
           action={{
@@ -202,13 +207,13 @@ export function HomeScreen({
           body="Moments could not be loaded right now."
           title="Something went wrong"
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (deck.moments.length === 0) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView edges={["top"]} style={styles.container}>
         {switcher}
         {showingRecent ? (
           <NewMomentsPill count={feed.newMomentCount} onPress={startOver} />
@@ -220,7 +225,7 @@ export function HomeScreen({
           onOpenCamera={onOpenCamera}
           onShowRecent={() => switchTo("recent")}
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -229,7 +234,7 @@ export function HomeScreen({
     deck.moments.at(-1)?.moment_id === deck.currentId;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={["top"]} style={styles.container}>
       {switcher}
 
       {showingRecent && feed.isError ? (
@@ -295,7 +300,7 @@ export function HomeScreen({
           </Pressable>
         </View>
       ) : null}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -308,10 +313,13 @@ const noop = () => {};
  * Two segments rather than a route, because Highlights is a view of Home and
  * not a place: pushing a screen would give it a back button, its own header,
  * and its own scroll position, all of which say "you have gone somewhere" about
- * something the viewer thinks of as flipping a card over. Both segments are
- * always visible and always at least 44 points high, and the selected one is
- * carried by `selected` state as well as by tint.
+ * something the viewer thinks of as flipping a card over.
  */
+const MODE_OPTIONS = [
+  { label: "Recent", value: "recent" },
+  { label: "Highlights", value: "highlights" },
+] as const satisfies readonly { label: string; value: HomeMode }[];
+
 function ModeSwitch({
   mode,
   onChange,
@@ -320,33 +328,15 @@ function ModeSwitch({
   onChange: (mode: HomeMode) => void;
 }) {
   return (
-    <View accessibilityRole="tablist" style={styles.switcher}>
-      {(["recent", "highlights"] as const).map((value) => {
-        const selected = mode === value;
-        return (
-          <Pressable
-            accessibilityLabel={value === "recent" ? "Recent" : "Highlights"}
-            accessibilityRole="tab"
-            accessibilityState={{ selected }}
-            key={value}
-            onPress={() => onChange(value)}
-            style={({ pressed }) => [
-              styles.segment,
-              selected && styles.segmentSelected,
-              pressed && !selected && styles.segmentPressed,
-            ]}
-          >
-            <Text
-              style={[
-                styles.segmentLabel,
-                selected && styles.segmentLabelSelected,
-              ]}
-            >
-              {value === "recent" ? "Recent" : "Highlights"}
-            </Text>
-          </Pressable>
-        );
-      })}
+    <View style={styles.switcherRow}>
+      <SegmentedControl
+        accessibilityLabel="Home view"
+        onChange={onChange}
+        options={MODE_OPTIONS}
+        role="tablist"
+        testID="home-mode"
+        value={mode}
+      />
     </View>
   );
 }
@@ -464,7 +454,7 @@ function HomeSkeleton({
 }) {
   const cardWidth = deckGeometry(width).card;
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={["top"]} style={styles.container}>
       {switcher}
       <View style={[styles.skeleton, { width: cardWidth }]}>
         <View accessibilityElementsHidden style={styles.skeletonAuthor}>
@@ -483,7 +473,7 @@ function HomeSkeleton({
           </View>
         </MomentPhotoFrame>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -497,22 +487,18 @@ function HomeMessage({
   title: string;
 }) {
   return (
-    <View style={styles.message}>
-      <Text accessibilityRole="header" style={styles.messageTitle}>
-        {title}
-      </Text>
-      <Text style={styles.messageBody}>{body}</Text>
-      <Pressable
-        accessibilityRole="button"
-        onPress={action.onPress}
-        style={({ pressed }) => [
-          styles.messageAction,
-          pressed && styles.messageActionPressed,
-        ]}
-      >
-        <Text style={styles.messageActionLabel}>{action.label}</Text>
-      </Pressable>
-    </View>
+    <EmptyState
+      action={
+        <AppButton
+          label={action.label}
+          onPress={action.onPress}
+          style={styles.messageAction}
+          variant="secondary"
+        />
+      }
+      body={body}
+      title={title}
+    />
   );
 }
 
@@ -543,34 +529,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   inlineErrorText: { ...typeScale.caption, color: color.criticalText },
-  message: {
-    alignItems: "center",
-    flex: 1,
-    gap: spacing.md,
-    justifyContent: "center",
-    padding: spacing.xl,
-  },
-  messageAction: {
-    alignItems: "center",
-    backgroundColor: color.brand,
-    borderRadius: radius.pill,
-    justifyContent: "center",
-    marginTop: spacing.sm,
-    minHeight: MINIMUM_TOUCH_TARGET,
-    paddingHorizontal: spacing.xl,
-  },
-  messageActionLabel: { ...typeScale.label, color: color.textInverse },
-  messageActionPressed: { backgroundColor: color.brandPressed },
-  messageBody: {
-    ...typeScale.body,
-    color: color.textSecondary,
-    textAlign: "center",
-  },
-  messageTitle: {
-    ...typeScale.title,
-    color: color.textPrimary,
-    textAlign: "center",
-  },
+  messageAction: { marginTop: spacing.sm },
   pill: {
     alignItems: "center",
     backgroundColor: color.brand,
@@ -582,18 +541,6 @@ const styles = StyleSheet.create({
   pillLabel: { ...typeScale.label, color: color.textInverse },
   pillPressed: { backgroundColor: color.brandPressed },
   pillRow: { alignItems: "center", paddingTop: spacing.sm },
-  segment: {
-    alignItems: "center",
-    borderRadius: radius.pill,
-    flexGrow: 1,
-    justifyContent: "center",
-    minHeight: MINIMUM_TOUCH_TARGET,
-    paddingHorizontal: spacing.lg,
-  },
-  segmentLabel: { ...typeScale.label, color: color.textSecondary },
-  segmentLabelSelected: { color: color.brand },
-  segmentPressed: { backgroundColor: color.border },
-  segmentSelected: { backgroundColor: color.surface },
   skeleton: {
     alignSelf: "center",
     gap: spacing.md,
@@ -622,13 +569,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  switcher: {
-    alignSelf: "center",
-    backgroundColor: color.surfaceSunken,
-    borderRadius: radius.pill,
-    flexDirection: "row",
-    marginTop: spacing.sm,
-    padding: spacing.xs,
+  switcherRow: {
+    alignItems: "center",
+    paddingBottom: spacing.lg,
+    paddingTop: spacing.md,
   },
   warmingUp: {
     ...typeScale.caption,

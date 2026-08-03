@@ -28,6 +28,7 @@ async function renderReport(
   return await render(
     <QueryClientProvider client={client}>
       <ReportScreen
+        onBack={jest.fn()}
         onDone={jest.fn()}
         subjectId="11111111-1111-4111-8111-111111111111"
         subjectKind="moment"

@@ -2,7 +2,6 @@ import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
-  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -11,10 +10,21 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppButton } from "@/components/app-button";
+import { ScreenHeader } from "@/components/screen-header";
+import {
+  MINIMUM_TOUCH_TARGET,
+  color,
+  radius,
+  spacing,
+  typeScale,
+} from "@/constants/design";
+
 import type { PermissionState } from "./notification-permission";
 import type { NotificationPreferences } from "./notifications-api";
 
 type NotificationSettingsScreenProps = {
+  onBack: () => void;
   permission: PermissionState;
   preferences: NotificationPreferences | null;
   isLoading: boolean;
@@ -38,6 +48,7 @@ type NotificationSettingsScreenProps = {
  */
 export function NotificationSettingsScreen({
   isLoading,
+  onBack,
   isSaving,
   loadError,
   onEnablePermission,
@@ -80,7 +91,8 @@ export function NotificationSettingsScreen({
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+        <ScreenHeader onBack={onBack} title="Notifications" />
         <View
           accessibilityLabel="Loading notification settings"
           accessibilityRole="progressbar"
@@ -94,29 +106,24 @@ export function NotificationSettingsScreen({
 
   if (loadError || !draft) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+        <ScreenHeader onBack={onBack} title="Notifications" />
         <View style={styles.centered}>
           <Text style={styles.title}>We couldn’t load your settings</Text>
           <Text style={styles.body}>
             Check your connection and try again. Your current settings are
             unchanged.
           </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={onRetryLoad}
-            style={styles.primaryButton}
-          >
-            <Text style={styles.primaryLabel}>Try again</Text>
-          </Pressable>
+          <AppButton label="Try again" onPress={onRetryLoad} />
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      <ScreenHeader onBack={onBack} title="Notifications" />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Notifications</Text>
         <Text style={styles.subtitle}>
           Orca sends a small number of notifications, and never says who or what
           they are about on your lock screen.
@@ -131,13 +138,10 @@ export function NotificationSettingsScreen({
               Turn them on to hear when a friend shares a Moment, adds you to
               one, or accepts your friend request.
             </Text>
-            <Pressable
-              accessibilityRole="button"
+            <AppButton
+              label="Turn on notifications"
               onPress={onEnablePermission}
-              style={styles.primaryButton}
-            >
-              <Text style={styles.primaryLabel}>Turn on notifications</Text>
-            </Pressable>
+            />
           </View>
         ) : null}
 
@@ -151,16 +155,13 @@ export function NotificationSettingsScreen({
               changed in Settings. The switches below stay saved for when you
               do.
             </Text>
-            <Pressable
-              accessibilityRole="button"
+            <AppButton
+              label="Open iOS Settings"
               onPress={() => {
                 if (openSystemSettings) openSystemSettings();
                 else void Linking.openSettings();
               }}
-              style={styles.primaryButton}
-            >
-              <Text style={styles.primaryLabel}>Open iOS Settings</Text>
-            </Pressable>
+            />
           </View>
         ) : null}
 
@@ -234,6 +235,7 @@ function PreferenceRow({
         accessibilityState={{ checked: value, disabled }}
         disabled={disabled}
         onValueChange={onValueChange}
+        trackColor={{ true: color.brand }}
         value={value}
       />
     </View>
@@ -241,94 +243,51 @@ function PreferenceRow({
 }
 
 const styles = StyleSheet.create({
-  body: {
-    color: "#52606D",
-    fontSize: 15,
-    lineHeight: 22,
-  },
+  body: { ...typeScale.cardBody, color: color.textSecondary },
   card: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#D9E2EC",
-    borderRadius: 16,
+    backgroundColor: color.surface,
+    borderColor: color.border,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    gap: 20,
-    padding: 18,
+    gap: spacing.xl,
+    padding: spacing.lg,
   },
   centered: {
     alignItems: "center",
     flex: 1,
-    gap: 16,
+    gap: spacing.lg,
     justifyContent: "center",
-    padding: 24,
+    padding: spacing.xl,
   },
   content: {
-    gap: 20,
-    padding: 24,
+    gap: spacing.xl,
+    padding: spacing.xl,
   },
-  error: {
-    color: "#B42318",
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  footnote: {
-    color: "#52606D",
-    fontSize: 13,
-    lineHeight: 20,
-  },
+  error: { ...typeScale.cardBody, color: color.criticalText },
+  footnote: { ...typeScale.caption, color: color.textSecondary },
   notice: {
-    backgroundColor: "#EDF6FF",
-    borderColor: "#B6DDFF",
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 12,
-    padding: 18,
+    backgroundColor: color.brandSurface,
+    borderRadius: radius.lg,
+    gap: spacing.md,
+    padding: spacing.lg,
   },
-  noticeTitle: {
-    color: "#102A43",
-    fontSize: 17,
-    fontWeight: "800",
-  },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: "#208AEF",
-    borderRadius: 14,
-    justifyContent: "center",
-    minHeight: 50,
-    paddingHorizontal: 24,
-  },
-  primaryLabel: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-  },
+  noticeTitle: { ...typeScale.heading, color: color.textPrimary },
   row: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 16,
+    gap: spacing.lg,
     justifyContent: "space-between",
-    minHeight: 44,
+    minHeight: MINIMUM_TOUCH_TARGET,
   },
-  rowLabel: {
-    color: "#102A43",
-    fontSize: 17,
-    fontWeight: "700",
-  },
+  rowLabel: { ...typeScale.body, color: color.textPrimary },
   rowText: {
     flex: 1,
-    gap: 4,
+    gap: spacing.xs,
   },
   safeArea: {
-    backgroundColor: "#F5FAFF",
+    backgroundColor: color.canvas,
     flex: 1,
   },
-  subtitle: {
-    color: "#52606D",
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  title: {
-    color: "#102A43",
-    fontSize: 32,
-    fontWeight: "800",
-  },
+  subtitle: { ...typeScale.body, color: color.textSecondary },
+  title: { ...typeScale.heading, color: color.textPrimary },
 });

@@ -22,29 +22,32 @@ jest.mock("@/features/friends/friends-api", () => ({
 
 const onOpenSharedMoments = jest.fn();
 
-async function renderProfile(onOpenProfile = jest.fn()) {
+async function renderProfile(onOpenFriends = jest.fn()) {
   const client = new QueryClient({
     defaultOptions: {
       mutations: { gcTime: Infinity, retry: false },
       queries: { gcTime: Infinity, retry: false },
     },
   });
-  return await render(
+  const screen = await render(
     <QueryClientProvider client={client}>
       <FriendProfileScreen
-        onOpenProfile={onOpenProfile}
+        onBack={jest.fn()}
+        onOpenFriends={onOpenFriends}
         onOpenSharedMoments={onOpenSharedMoments}
         onReport={jest.fn()}
         profileId="friend-1"
       />
     </QueryClientProvider>,
   );
+  return Object.assign(screen, { onOpenFriends });
 }
 
 const friendSummary = {
   access_tier: "friend",
   avatar_path: null,
   display_name: "Bob",
+  friend_count: 4,
   id: "friend-1",
   mutual_friend_count: 2,
   relationship_state: "accepted",
@@ -57,31 +60,28 @@ describe("FriendProfileScreen", () => {
     jest.mocked(listFriendFriends).mockResolvedValue([]);
   });
 
-  test("shows a friend's identity and their friend list", async () => {
+  test("shows a friend's identity and a tappable friend count", async () => {
     jest.mocked(getProfileSummary).mockResolvedValue(friendSummary);
-    jest.mocked(listFriendFriends).mockResolvedValue([
-      {
-        avatar_path: null,
-        display_name: "Carol",
-        id: "fof-1",
-        mutual_friend_count: 1,
-        relationship_state: "none",
-        username: "carol",
-      },
-    ]);
 
+    const user = userEvent.setup();
     const screen = await renderProfile();
 
     await waitFor(() => expect(screen.getByText("Bob")).toBeOnTheScreen());
     expect(screen.getByText("@bob")).toBeOnTheScreen();
-    await waitFor(() => expect(screen.getByText("Carol")).toBeOnTheScreen());
-    expect(screen.getByText("@carol · 1 mutual friend")).toBeOnTheScreen();
+
+    // The list itself is a route now, not an inline section, so this screen's
+    // job is to report the number and hand off.
+    await user.press(screen.getByText("4 friends"));
+    expect(screen.onOpenFriends).toHaveBeenCalledWith("friend-1");
   });
 
-  test("a friend-of-friend sees mutual context and no friend list", async () => {
+  test("a friend-of-friend sees mutual context and no friend count", async () => {
     jest.mocked(getProfileSummary).mockResolvedValue({
       ...friendSummary,
       access_tier: "friend_of_friend",
+      // The server withholds the number below the friend tier; the client must
+      // draw nothing rather than fall back to zero.
+      friend_count: null,
       relationship_state: "none",
     });
 
@@ -91,9 +91,9 @@ describe("FriendProfileScreen", () => {
       expect(screen.getByText("2 mutual friends")).toBeOnTheScreen(),
     );
     // The friend list is the boundary that stops the graph being walkable, so
-    // it must not even be requested for a friend-of-friend.
+    // it must not even be reachable for a friend-of-friend.
     expect(listFriendFriends).not.toHaveBeenCalled();
-    expect(screen.queryByText("Their friends")).not.toBeOnTheScreen();
+    expect(screen.queryByTestId("friend-count")).not.toBeOnTheScreen();
   });
 
   test("an unavailable profile is generic and offers no actions", async () => {
@@ -112,6 +112,7 @@ describe("FriendProfileScreen", () => {
     jest.mocked(getProfileSummary).mockResolvedValue({
       ...friendSummary,
       access_tier: "stranger",
+      friend_count: null,
       mutual_friend_count: 0,
       relationship_state: "none",
     });
@@ -158,6 +159,7 @@ describe("FriendProfileScreen", () => {
     jest.mocked(getProfileSummary).mockResolvedValue({
       ...friendSummary,
       access_tier: "self",
+      friend_count: 4,
       mutual_friend_count: 0,
       relationship_state: "self",
     });

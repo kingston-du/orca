@@ -1,3 +1,5 @@
+import { router } from "expo-router";
+
 import { useAuth } from "@/features/auth/auth-provider";
 import { SupportScreen } from "@/features/safety/support-screen";
 import { useOwnOnboardingState } from "@/features/onboarding/use-own-onboarding-state";
@@ -11,5 +13,10 @@ export default function SupportRoute() {
   const { user } = useAuth();
   const state = useOwnOnboardingState(user?.id);
 
-  return <SupportScreen accountState={state.data?.account_state} />;
+  return (
+    <SupportScreen
+      accountState={state.data?.account_state}
+      onBack={() => router.back()}
+    />
+  );
 }

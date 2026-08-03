@@ -29,6 +29,7 @@ export default function EditProfileRoute() {
     <EditProfileScreen
       avatarPath={state.data.avatar_path}
       displayName={state.data.display_name ?? "Orca member"}
+      onBack={() => router.back()}
       onDone={() => router.back()}
       username={state.data.username ?? "unavailable"}
     />

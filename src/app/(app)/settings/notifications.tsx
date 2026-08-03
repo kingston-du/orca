@@ -1,3 +1,5 @@
+import { router } from "expo-router";
+
 import { NotificationSettingsScreen } from "@/features/notifications/notification-settings-screen";
 import { useNotifications } from "@/features/notifications/notifications-provider";
 import {
@@ -15,6 +17,7 @@ export default function NotificationSettingsRoute() {
       isLoading={settings.isPending}
       isSaving={save.isPending}
       loadError={settings.isError}
+      onBack={() => router.back()}
       onEnablePermission={() => void enable()}
       onRetryLoad={() => void settings.refetch()}
       onSave={(preferences) => save.mutate(preferences)}

@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,6 +8,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppButton } from "@/components/app-button";
+import { color, radius, spacing, typeScale } from "@/constants/design";
 import { runFriendOperation } from "@/features/friends/friends-api";
 
 import { resolveInvite } from "./invite-api";
@@ -68,16 +69,13 @@ export function InvitePreviewScreen({
         <Text style={styles.body}>
           It may have expired or been replaced. Ask for a new one.
         </Text>
-        <Pressable
-          accessibilityRole="button"
+        <AppButton
+          label="Done"
           onPress={() => {
             void clearInviteIntent(intentId);
             onDone();
           }}
-          style={styles.primaryButton}
-        >
-          <Text style={styles.primaryLabel}>Done</Text>
-        </Pressable>
+        />
       </SafeAreaView>
     );
   }
@@ -113,14 +111,11 @@ export function InvitePreviewScreen({
         </Text>
 
         {canSend ? (
-          <Pressable
-            accessibilityRole="button"
+          <AppButton
             disabled={send.isPending}
+            label="Send friend request"
             onPress={() => send.mutate(inviter.id)}
-            style={styles.primaryButton}
-          >
-            <Text style={styles.primaryLabel}>Send friend request</Text>
-          </Pressable>
+          />
         ) : null}
 
         {send.isError ? (
@@ -129,18 +124,14 @@ export function InvitePreviewScreen({
           </Text>
         ) : null}
 
-        <Pressable
-          accessibilityRole="button"
+        <AppButton
+          label={isSelf ? "Done" : "Not now"}
           onPress={() => {
             void clearInviteIntent(intentId);
             onDone();
           }}
-          style={styles.secondaryButton}
-        >
-          <Text style={styles.secondaryLabel}>
-            {isSelf ? "Done" : "Not now"}
-          </Text>
-        </Pressable>
+          variant="secondary"
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -159,45 +150,26 @@ function invitationCopy(relationshipState: string) {
 const styles = StyleSheet.create({
   avatarPlaceholder: {
     alignItems: "center",
-    backgroundColor: "#DCEEFB",
-    borderRadius: 36,
+    backgroundColor: color.brandSurface,
+    borderRadius: radius.pill,
     height: 72,
     justifyContent: "center",
     width: 72,
   },
-  avatarText: { color: "#1769AA", fontSize: 28, fontWeight: "800" },
-  body: { color: "#52606D", fontSize: 14, lineHeight: 20 },
+  avatarText: { ...typeScale.title, color: color.brand },
+  body: { ...typeScale.cardBody, color: color.textSecondary },
   centered: {
     alignItems: "center",
-    backgroundColor: "#F5FAFF",
+    backgroundColor: color.canvas,
     flex: 1,
-    gap: 12,
+    gap: spacing.md,
     justifyContent: "center",
-    padding: 24,
+    padding: spacing.xl,
   },
-  content: { gap: 20, padding: 20, paddingBottom: 48 },
-  context: { color: "#1769AA", fontSize: 14, fontWeight: "700" },
-  identity: { alignItems: "center", gap: 6 },
-  message: { color: "#52606D", fontSize: 14 },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: "#208AEF",
-    borderRadius: 12,
-    justifyContent: "center",
-    minHeight: 48,
-    paddingHorizontal: 20,
-  },
-  primaryLabel: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
-  safeArea: { backgroundColor: "#F5FAFF", flex: 1 },
-  secondaryButton: {
-    alignItems: "center",
-    borderColor: "#BCCCDC",
-    borderRadius: 12,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: 48,
-    paddingHorizontal: 20,
-  },
-  secondaryLabel: { color: "#102A43", fontSize: 15, fontWeight: "800" },
-  title: { color: "#102A43", fontSize: 28, fontWeight: "900" },
+  content: { gap: spacing.xl, padding: spacing.xl, paddingBottom: 48 },
+  context: { ...typeScale.personName, color: color.brand },
+  identity: { alignItems: "center", gap: spacing.sm },
+  message: { ...typeScale.cardBody, color: color.textSecondary },
+  safeArea: { backgroundColor: color.canvas, flex: 1 },
+  title: { ...typeScale.title, color: color.textPrimary },
 });

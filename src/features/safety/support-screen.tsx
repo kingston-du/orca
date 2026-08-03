@@ -8,6 +8,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ScreenHeader } from "@/components/screen-header";
+
 import {
   MINIMUM_TOUCH_TARGET,
   color,
@@ -30,11 +32,20 @@ import {
  */
 export const SUPPORT_EMAIL = process.env.EXPO_PUBLIC_SUPPORT_EMAIL ?? null;
 
-export function SupportScreen({ accountState }: { accountState?: string }) {
+export function SupportScreen({
+  accountState,
+  onBack,
+}: {
+  accountState?: string;
+  onBack: () => void;
+}) {
   const suspended = accountState === "suspended";
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      {/* 9C removed the native header; this is a pushed route, so the chevron
+       * is the only way back. The title is drawn below. */}
+      <ScreenHeader onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content}>
         <Text accessibilityRole="header" style={styles.title}>
           Support

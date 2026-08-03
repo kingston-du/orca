@@ -32,6 +32,17 @@ jest.mock("@/features/friends/friends-api", () => ({
   runFriendOperation: jest.fn(),
 }));
 
+/**
+ * Requests and search now live behind the header's add-friend control, so
+ * reaching either means opening that sheet first.
+ */
+async function openAddFriend(
+  screen: Awaited<ReturnType<typeof render>>,
+  user: ReturnType<typeof userEvent.setup>,
+) {
+  await user.press(screen.getByTestId("people-add-friend"));
+}
+
 function renderPeople(
   onOpenMyProfile = jest.fn(),
   onOpenProfile = jest.fn(),
@@ -68,18 +79,21 @@ describe("PeopleScreen", () => {
     });
   });
 
-  test("opens My Profile from the real People entry", async () => {
+  // 9C makes the header avatar the app's only route to My Profile, and
+  // therefore to Settings — Home no longer has a header to hang it on.
+  test("opens My Profile from the header avatar", async () => {
     const onOpenMyProfile = jest.fn();
     const user = userEvent.setup();
     const screen = await renderPeople(onOpenMyProfile);
-    await user.press(screen.getByRole("button", { name: /my profile/i }));
+    await user.press(screen.getByRole("button", { name: "Your profile" }));
     expect(onOpenMyProfile).toHaveBeenCalledTimes(1);
   });
 
   test("requires exact username shape before calling the server", async () => {
     const user = userEvent.setup();
     const screen = await renderPeople();
-    await user.type(screen.getByLabelText("Exact username"), "??");
+    await openAddFriend(screen, user);
+    await user.type(screen.getByLabelText("Friend’s username"), "??");
     await user.press(screen.getByText("Search"));
     expect(screen.getByText("Enter an exact Orca username.")).toBeOnTheScreen();
     expect(lookupProfileExact).not.toHaveBeenCalled();
@@ -97,7 +111,8 @@ describe("PeopleScreen", () => {
     });
     const user = userEvent.setup();
     const screen = await renderPeople();
-    await user.type(screen.getByLabelText("Exact username"), "Bob");
+    await openAddFriend(screen, user);
+    await user.type(screen.getByLabelText("Friend’s username"), "Bob");
     await user.press(screen.getByText("Search"));
     await user.press(await screen.findByText("Add"));
     await waitFor(() =>

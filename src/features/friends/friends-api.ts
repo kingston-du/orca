@@ -97,9 +97,18 @@ export async function runFriendOperation(
 
 type GeneratedProfileSummary =
   Database["public"]["Functions"]["get_profile_summary"]["Returns"][number];
-// The stranger tier deliberately receives no avatar path at all.
-export type ProfileSummary = Omit<GeneratedProfileSummary, "avatar_path"> & {
+/**
+ * The stranger tier deliberately receives no avatar path at all, and
+ * `friend_count` is null for every tier below `friend` — a stranger and a
+ * friend-of-friend are not entitled to learn how large someone's graph is, so
+ * the server withholds the number rather than reporting a misleading zero.
+ */
+export type ProfileSummary = Omit<
+  GeneratedProfileSummary,
+  "avatar_path" | "friend_count"
+> & {
   avatar_path: string | null;
+  friend_count: number | null;
 };
 type GeneratedFriendOfFriend =
   Database["public"]["Functions"]["list_friend_friends"]["Returns"][number];

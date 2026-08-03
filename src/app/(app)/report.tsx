@@ -26,6 +26,7 @@ export default function ReportRoute() {
 
   return (
     <ReportScreen
+      onBack={() => router.back()}
       onDone={() => router.back()}
       subjectId={id}
       subjectKind={subjectKind}

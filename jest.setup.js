@@ -57,6 +57,30 @@ jest.mock("react-native-reanimated", () => {
   };
 });
 
+/**
+ * SF Symbols are the app's icon system as of Checkpoint 9C, so almost every
+ * screen now reaches `expo-symbols` — and its real `SymbolView` is a native
+ * view. Loading it into a test renderer corrupts React Native's own native
+ * component registry: the observable symptom is that an unrelated `Switch`
+ * elsewhere in the tree renders `undefined` and the whole screen throws.
+ *
+ * The stub keeps the one thing worth asserting on. A glyph cannot be checked
+ * in a test renderer, but *which* symbol was asked for can, and that is what
+ * carries state wherever two symbols distinguish one — flash off versus auto,
+ * an empty Heart versus a filled one. Four test files each declared this mock
+ * before; it is here so that a screen test does not have to know its subject
+ * happens to draw an icon.
+ */
+jest.mock("expo-symbols", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+
+  return {
+    SymbolView: ({ name, ...props }) =>
+      React.createElement(View, { ...props, testID: `symbol-${name}` }),
+  };
+});
+
 jest.mock("react-native-safe-area-context", () => {
   const React = require("react");
   const actual = jest.requireActual("react-native-safe-area-context");

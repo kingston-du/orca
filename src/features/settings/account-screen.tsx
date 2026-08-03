@@ -1,15 +1,21 @@
 import { useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppButton } from "@/components/app-button";
+import { Icon } from "@/components/icon";
+import { ListRow } from "@/components/list-row";
+import { ScreenHeader } from "@/components/screen-header";
+import {
+  MINIMUM_TOUCH_TARGET,
+  color,
+  radius,
+  spacing,
+  typeScale,
+} from "@/constants/design";
+
 type AccountScreenProps = {
+  onBack: () => void;
   displayName: string;
   email: string;
   username: string;
@@ -24,6 +30,7 @@ type AccountScreenProps = {
 export function AccountScreen({
   displayName,
   email,
+  onBack,
   onEditProfile,
   onOpenBlockedUsers,
   onOpenDeleteAccount,
@@ -60,9 +67,9 @@ export function AccountScreen({
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      <ScreenHeader onBack={onBack} title="Settings" />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Settings</Text>
         <Text style={styles.subtitle}>
           Your private Orca account on this device.
         </Text>
@@ -84,61 +91,37 @@ export function AccountScreen({
 
         <View style={styles.signOutSection}>
           <Text style={styles.sectionTitle}>Profile</Text>
-          <Pressable
-            accessibilityHint="Change or remove your profile photo"
-            accessibilityRole="button"
+          <ListRow
+            accessibilityLabel="Edit Profile"
             onPress={onEditProfile}
-            style={styles.navRow}
-          >
-            <Text style={styles.value}>Edit Profile</Text>
-            <Text accessibilityElementsHidden style={styles.chevron}>
-              ›
-            </Text>
-          </Pressable>
+            title="Edit Profile"
+          />
         </View>
 
         <View style={styles.signOutSection}>
           <Text style={styles.sectionTitle}>Notifications</Text>
-          <Pressable
-            accessibilityHint="Choose which notifications Orca sends you"
-            accessibilityRole="button"
+          <ListRow
+            accessibilityLabel="Notifications"
             onPress={onOpenNotifications}
-            style={styles.navRow}
-          >
-            <Text style={styles.value}>Notifications</Text>
-            <Text accessibilityElementsHidden style={styles.chevron}>
-              ›
-            </Text>
-          </Pressable>
+            title="Notifications"
+          />
         </View>
 
         <View style={styles.signOutSection}>
           <Text style={styles.sectionTitle}>Privacy &amp; Safety</Text>
-          <Pressable
-            accessibilityHint="Review and lift accounts you have blocked"
-            accessibilityRole="button"
+          <ListRow
+            accessibilityLabel="Blocked Users"
             onPress={onOpenBlockedUsers}
-            style={styles.navRow}
-          >
-            <Text style={styles.value}>Blocked Users</Text>
-            <Text accessibilityElementsHidden style={styles.chevron}>
-              ›
-            </Text>
-          </Pressable>
+            title="Blocked Users"
+          />
           {/* Apple requires a reachable contact channel for user-generated
            * content, and an appeal path is the other half of a system that can
            * restrict an account. Both live behind this row. */}
-          <Pressable
-            accessibilityHint="Contact support, appeal a decision, and read what Orca keeps"
-            accessibilityRole="button"
+          <ListRow
+            accessibilityLabel="Support & Safety"
             onPress={onOpenSupport}
-            style={styles.navRow}
-          >
-            <Text style={styles.value}>Support &amp; Safety</Text>
-            <Text accessibilityElementsHidden style={styles.chevron}>
-              ›
-            </Text>
-          </Pressable>
+            title="Support & Safety"
+          />
         </View>
 
         <View style={styles.signOutSection}>
@@ -152,25 +135,13 @@ export function AccountScreen({
               {signOutError}
             </Text>
           ) : null}
-          <Pressable
-            accessibilityLabel="Sign out from this device"
-            accessibilityRole="button"
+          <AppButton
+            busy={isSigningOut}
             disabled={isSigningOut}
+            label="Sign out from this device"
             onPress={() => void handleSignOut()}
-            style={({ pressed }) => [
-              styles.signOutButton,
-              pressed && !isSigningOut && styles.signOutButtonPressed,
-              isSigningOut && styles.signOutButtonDisabled,
-            ]}
-          >
-            {isSigningOut ? (
-              <ActivityIndicator color="#B42318" />
-            ) : (
-              <Text style={styles.signOutButtonLabel}>
-                Sign out from this device
-              </Text>
-            )}
-          </Pressable>
+            variant="danger"
+          />
         </View>
 
         <View style={styles.signOutSection}>
@@ -185,9 +156,7 @@ export function AccountScreen({
             style={styles.deleteRow}
           >
             <Text style={styles.deleteRowLabel}>Delete Account</Text>
-            <Text accessibilityElementsHidden style={styles.chevron}>
-              ›
-            </Text>
+            <Icon name="disclosure" size={16} tint={color.criticalText} />
           </Pressable>
         </View>
       </ScrollView>
@@ -196,105 +165,37 @@ export function AccountScreen({
 }
 
 const styles = StyleSheet.create({
-  body: {
-    color: "#52606D",
-    fontSize: 15,
-    lineHeight: 22,
-  },
+  body: { ...typeScale.cardBody, color: color.textSecondary },
   content: {
-    gap: 20,
-    padding: 24,
-  },
-  detail: {
-    gap: 4,
-  },
-  detailsCard: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#D9E2EC",
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 20,
-    padding: 18,
+    gap: spacing.xl,
+    paddingBottom: 48,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xs,
   },
   deleteRow: {
     alignItems: "center",
-    backgroundColor: "#FFF5F5",
-    borderRadius: 14,
+    backgroundColor: color.criticalSurface,
+    borderRadius: radius.md,
     flexDirection: "row",
     justifyContent: "space-between",
-    minHeight: 52,
-    paddingHorizontal: 16,
+    minHeight: MINIMUM_TOUCH_TARGET + spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
-  deleteRowLabel: { color: "#B42318", fontSize: 16, fontWeight: "800" },
-  error: {
-    color: "#B42318",
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  label: {
-    color: "#52606D",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  safeArea: {
-    backgroundColor: "#F5FAFF",
-    flex: 1,
-  },
-  sectionTitle: {
-    color: "#102A43",
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  signOutButton: {
-    alignItems: "center",
-    borderColor: "#B42318",
-    borderRadius: 14,
+  deleteRowLabel: { ...typeScale.label, color: color.criticalText },
+  detail: { gap: spacing.xs },
+  detailsCard: {
+    backgroundColor: color.surface,
+    borderColor: color.border,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    justifyContent: "center",
-    minHeight: 52,
-    paddingHorizontal: 18,
+    gap: spacing.xl,
+    padding: spacing.lg,
   },
-  signOutButtonDisabled: {
-    opacity: 0.55,
-  },
-  signOutButtonLabel: {
-    color: "#B42318",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  signOutButtonPressed: {
-    backgroundColor: "#FFF5F5",
-  },
-  navRow: {
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    minHeight: 52,
-    paddingHorizontal: 16,
-  },
-  chevron: {
-    color: "#52606D",
-    fontSize: 28,
-  },
-  signOutSection: {
-    gap: 14,
-    marginTop: 12,
-  },
-  subtitle: {
-    color: "#52606D",
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  title: {
-    color: "#102A43",
-    fontSize: 32,
-    fontWeight: "800",
-  },
-  value: {
-    color: "#102A43",
-    fontSize: 17,
-    lineHeight: 24,
-  },
+  error: { ...typeScale.caption, color: color.criticalText },
+  label: { ...typeScale.sectionLabel, color: color.textSecondary },
+  safeArea: { backgroundColor: color.canvas, flex: 1 },
+  sectionTitle: { ...typeScale.heading, color: color.textPrimary },
+  signOutSection: { gap: spacing.md, marginTop: spacing.md },
+  subtitle: { ...typeScale.body, color: color.textSecondary },
+  value: { ...typeScale.body, color: color.textPrimary },
 });

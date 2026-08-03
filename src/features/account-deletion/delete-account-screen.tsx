@@ -1,19 +1,17 @@
 import { useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppButton } from "@/components/app-button";
+import { ScreenHeader } from "@/components/screen-header";
+import { color, radius, spacing, typeScale } from "@/constants/design";
+
 export function DeleteAccountScreen({
+  onBack,
   onOpenStatus,
   onRequestDeletion,
 }: {
+  onBack: () => void;
   onOpenStatus: () => void;
   onRequestDeletion: () => Promise<void>;
 }) {
@@ -42,11 +40,9 @@ export function DeleteAccountScreen({
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      <ScreenHeader onBack={onBack} title="Delete Account" />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text accessibilityRole="header" style={styles.title}>
-          Delete Account
-        </Text>
         <Text style={styles.intro}>
           Deletion hides your account immediately and cannot be undone once the
           cleanup reaches Auth.
@@ -92,83 +88,57 @@ export function DeleteAccountScreen({
               The request may still have started. Check its status or retry the
               same protected request.
             </Text>
-            <Pressable
-              accessibilityRole="button"
+            <AppButton
+              label="Check deletion status"
               onPress={onOpenStatus}
-              style={styles.statusButton}
-            >
-              <Text style={styles.statusLabel}>Check deletion status</Text>
-            </Pressable>
+              variant="text"
+            />
           </View>
         ) : null}
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !confirmed || isRequesting }}
-          disabled={!confirmed || isRequesting}
+        <AppButton
+          busy={isRequesting}
+          disabled={!confirmed}
+          label="Delete my account"
           onPress={() => void requestDeletion()}
-          style={({ pressed }) => [
-            styles.deleteButton,
-            (!confirmed || isRequesting) && styles.disabled,
-            pressed && confirmed && !isRequesting && styles.pressed,
-          ]}
-        >
-          {isRequesting ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.deleteLabel}>Delete my account</Text>
-          )}
-        </Pressable>
+          variant="danger"
+        />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  body: { color: "#52606D", fontSize: 16, lineHeight: 24 },
+  body: { ...typeScale.body, color: color.textSecondary },
   card: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#D9E2EC",
-    borderRadius: 16,
+    backgroundColor: color.surface,
+    borderColor: color.border,
+    borderRadius: radius.md,
     borderWidth: 1,
-    gap: 12,
-    padding: 18,
+    gap: spacing.md,
+    padding: spacing.lg,
   },
-  confirmation: { gap: 8 },
-  content: { gap: 20, padding: 24 },
-  deleteButton: {
-    alignItems: "center",
-    backgroundColor: "#B42318",
-    borderRadius: 14,
-    justifyContent: "center",
-    minHeight: 52,
-    paddingHorizontal: 18,
-  },
-  deleteLabel: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
-  disabled: { opacity: 0.45 },
+  confirmation: { gap: spacing.sm },
+  content: { gap: spacing.xl, padding: spacing.xl },
   input: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#9FB3C8",
-    borderRadius: 12,
+    ...typeScale.body,
+    backgroundColor: color.surface,
+    borderColor: color.border,
+    borderRadius: radius.md,
     borderWidth: 1,
-    color: "#102A43",
-    fontSize: 18,
+    color: color.textPrimary,
     minHeight: 52,
-    paddingHorizontal: 14,
+    paddingHorizontal: spacing.lg,
   },
-  intro: { color: "#52606D", fontSize: 17, lineHeight: 26 },
-  label: { color: "#102A43", fontSize: 15, fontWeight: "800" },
-  pressed: { backgroundColor: "#8A1C13" },
-  safeArea: { backgroundColor: "#F5FAFF", flex: 1 },
-  sectionTitle: { color: "#102A43", fontSize: 20, fontWeight: "800" },
-  statusButton: { minHeight: 44, paddingVertical: 10 },
-  statusLabel: { color: "#146CC0", fontSize: 16, fontWeight: "800" },
-  title: { color: "#102A43", fontSize: 30, fontWeight: "900" },
+  intro: { ...typeScale.body, color: color.textSecondary },
+  label: { ...typeScale.sectionLabel, color: color.textSecondary },
+  safeArea: { backgroundColor: color.canvas, flex: 1 },
+  sectionTitle: { ...typeScale.heading, color: color.textPrimary },
   warning: {
-    backgroundColor: "#FFF8E6",
-    borderRadius: 14,
-    gap: 8,
-    padding: 16,
+    backgroundColor: color.criticalSurface,
+    borderRadius: radius.md,
+    gap: spacing.sm,
+    padding: spacing.lg,
   },
-  warningTitle: { color: "#7A4D00", fontSize: 17, fontWeight: "800" },
+  warningTitle: { ...typeScale.label, color: color.criticalText },
 });

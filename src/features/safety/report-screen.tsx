@@ -11,6 +11,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ScreenHeader } from "@/components/screen-header";
+
 import {
   MINIMUM_TOUCH_TARGET,
   color,
@@ -47,11 +49,13 @@ import {
  * is a switch the reporter sets rather than a side effect of reporting.
  */
 export function ReportScreen({
+  onBack,
   onDone,
   subjectId,
   subjectKind,
   subjectLabel,
 }: {
+  onBack: () => void;
   onDone: () => void;
   subjectId: string;
   subjectKind: ReportSubjectKind;
@@ -106,7 +110,12 @@ export function ReportScreen({
   const canSubmit = category !== null && remaining >= 0 && !submit.isPending;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      {/* 9C removed the native header, and this is a pushed route: without a
+       * chevron there would be no way out of the form except submitting it.
+       * The screen draws its own title below, so the row carries only the
+       * back affordance. */}
+      <ScreenHeader onBack={onBack} />
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Image,
   Pressable,
@@ -8,7 +8,15 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppButton } from "@/components/app-button";
+import { EmptyState } from "@/components/empty-state";
+import { Icon } from "@/components/icon";
+import { InlineAlert } from "@/components/inline-alert";
+import { ProfileAvatar } from "@/components/profile-avatar";
+import { ScreenHeader } from "@/components/screen-header";
+import { SegmentedControl } from "@/components/segmented-control";
 import {
   color,
   MINIMUM_TOUCH_TARGET,
@@ -31,6 +39,10 @@ import {
   type ComposerNotice,
   type ComposerState,
 } from "@/features/moments/composer/composer-reducer";
+import {
+  FriendPickerSheet,
+  type PickerMode,
+} from "@/features/moments/composer/friend-picker-sheet";
 import type { ComposerAudience } from "@/features/moments/composer/moment-draft";
 import {
   canCancelPublish,
@@ -42,11 +54,17 @@ import type { PublishController } from "@/features/moments/publish/use-publish-c
 /**
  * The composer's presentation.
  *
- * The Publish control is deliberately not a fire-and-forget button. Sharing a
- * private photo is the highest-consequence action in the product, so the states
- * that follow it — progress, cancel, "we could not tell whether it shared", and
- * "nothing was shared, review this" — are first-class here rather than a
- * spinner that resolves into silence.
+ * The screen is deliberately quiet: a photo, a caption, one audience switch,
+ * and a row of faces. Everything that used to be a labelled card — the capture
+ * classification, the per-friend Share and Tag chips — is either a single line
+ * of meta text or has moved into a picker sheet, because the author is deciding
+ * something emotional and a form does not help them do it.
+ *
+ * What has *not* moved is the publish contract. Sharing a private photo is the
+ * highest-consequence action in the product, so the states that follow it —
+ * progress, cancel, "we could not tell whether it shared", and "nothing was
+ * shared, review this" — remain first-class here rather than a spinner that
+ * resolves into silence.
  */
 
 type ComposerScreenProps = {
@@ -116,24 +134,31 @@ export function ComposerScreen({
   onDiscard,
   publish,
 }: ComposerScreenProps) {
+  const [picker, setPicker] = useState<PickerMode | null>(null);
   const draft = state.draft;
-  const friends = state.friends ?? [];
+  const friends = useMemo(() => state.friends ?? [], [state.friends]);
   const locked = useMemo(() => new Set(lockedRecipientIds(state)), [state]);
 
   const friendName = (friendId: string) =>
     friends.find((friend: ComposerFriend) => friend.id === friendId)
       ?.displayName ?? "That friend";
 
+  const taggedFriends = useMemo(
+    () =>
+      draft === null
+        ? []
+        : friends.filter((friend) => draft.tagIds.includes(friend.id)),
+    [draft, friends],
+  );
+
   if (draft === null) {
     return (
-      <View style={styles.empty}>
-        <Text accessibilityRole="header" style={styles.title}>
-          No Moment in progress
-        </Text>
-        <Text style={styles.body}>
-          Take a photo or choose one to start a Moment.
-        </Text>
-      </View>
+      <SafeAreaView edges={["top"]} style={styles.container}>
+        <EmptyState
+          body="Take a photo or choose one to start a Moment."
+          title="No Moment in progress"
+        />
+      </SafeAreaView>
     );
   }
 
@@ -145,270 +170,41 @@ export function ComposerScreen({
   const remaining = captionCharactersRemaining(draft.caption);
   const publishing = isPublishInFlight(publish.state);
   const publishMessage = publishStatusMessage(publish.state);
+  const uploading = publish.state.status === "uploading";
   // The button is disabled by the same validation the reducer exposes, so what
   // the composer refuses and what the server would refuse never drift apart.
   const canPublish = !publishing && validateComposer(state).ok;
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-      style={styles.container}
-    >
-      <View style={styles.photoFrame}>
-        <Image
-          accessibilityLabel="Photo in this Moment"
-          resizeMode="contain"
-          source={{ uri: draft.photo.uri }}
-          style={styles.photo}
-          testID="composer-photo"
-        />
-      </View>
+    <SafeAreaView edges={["top"]} style={styles.container}>
+      <ScreenHeader
+        trailing={
+          <AppButton
+            accessibilityLabel="Discard this Moment"
+            disabled={publishing}
+            label="Cancel"
+            onPress={onDiscard}
+            variant="text"
+          />
+        }
+      />
 
-      <View
-        // Announced without stealing focus: the classification changes what the
-        // author is allowed to choose, so it must be spoken, not just shown.
-        accessibilityLiveRegion="polite"
-        style={styles.evidenceCard}
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.label}>
-          {isArchive ? "Archive Moment" : "Recent Moment"}
-        </Text>
-        <Text style={styles.body} testID="composer-capture-label">
-          {capturedLabel === null
-            ? "Capture date unavailable, so this stays out of your friends’ Home."
-            : `Taken ${capturedLabel}`}
-        </Text>
-      </View>
-
-      {state.status === "needs_review" ? (
-        // The alert role sits on the text, not the card: a container marked
-        // accessible would swallow the button inside it.
-        <View style={styles.reviewCard}>
-          <Text
-            accessibilityRole="alert"
-            style={styles.reviewText}
-            testID="composer-review"
-          >
-            This Moment changed while you were away. Review who can see it
-            before sharing.
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => dispatch({ type: "review_acknowledged" })}
-            style={styles.primaryButton}
-          >
-            <Text style={styles.primaryLabel}>Review audience</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
-      <View style={styles.section}>
-        <Text style={styles.label}>Caption</Text>
-        <TextInput
-          accessibilityLabel="Caption"
-          accessibilityHint={`Up to ${MAX_CAPTION_CHARACTERS} characters`}
-          maxLength={MAX_CAPTION_CHARACTERS * 2}
-          multiline
-          onChangeText={(caption) =>
-            dispatch({ type: "caption_changed", caption })
-          }
-          placeholder="Say something about this Moment"
-          placeholderTextColor={color.textSecondary}
-          style={styles.captionInput}
-          testID="composer-caption"
-          value={draft.caption}
-        />
-        <Text
-          style={remaining < 0 ? styles.captionCountOver : styles.captionCount}
-        >
-          {remaining < 0
-            ? `${Math.abs(remaining)} characters over the limit`
-            : `${remaining} characters left`}
-        </Text>
-      </View>
-
-      {isArchive ? (
-        <View style={styles.section}>
-          <Text style={styles.label}>Who can see this</Text>
-          <Text style={styles.body} testID="composer-archive-explanation">
-            Only you and tagged friends. With no tags, this Moment stays private
-            to you.
-          </Text>
-        </View>
-      ) : (
-        <View style={styles.section}>
-          <Text style={styles.label}>Who can see this</Text>
-          <View accessibilityRole="radiogroup" style={styles.audienceRow}>
-            {AUDIENCE_OPTIONS.map((option) => {
-              const active = draft.audience === option.value;
-              return (
-                <Pressable
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: active }}
-                  key={option.value}
-                  onPress={() =>
-                    dispatch({
-                      type: "audience_chosen",
-                      audience: option.value,
-                    })
-                  }
-                  style={[styles.chip, active ? styles.chipActive : null]}
-                >
-                  {/* The checkmark carries the selected state without relying
-                      on colour alone. */}
-                  <Text
-                    style={active ? styles.chipLabelActive : styles.chipLabel}
-                  >
-                    {active ? `✓ ${option.label}` : option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          {draft.audience === "all_friends" ? (
-            <Text style={styles.body}>
-              Everyone you are friends with when this shares.
-            </Text>
-          ) : null}
-          {isSelected ? (
-            <Text style={styles.body} testID="composer-recipient-count">
-              {draft.recipientIds.length} of {MAX_SELECTED_RECIPIENTS} friends
-              selected
-            </Text>
-          ) : null}
-        </View>
-      )}
-
-      {state.pendingTransition !== null ? (
-        <View style={styles.reviewCard}>
-          <Text
-            accessibilityRole="alert"
-            style={styles.reviewText}
-            testID="composer-transition"
-          >
-            {state.pendingTransition.kind === "confirm_only_me"
-              ? "Only Me keeps this Moment private and clears the friends and tags you chose. Continue?"
-              : `You have ${state.pendingTransition.friendCount} friends and Selected is limited to 50. Start choosing from an empty list?`}
-          </Text>
-          <View style={styles.transitionRow}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => dispatch({ type: "transition_confirmed" })}
-              style={styles.primaryButton}
-            >
-              <Text style={styles.primaryLabel}>Continue</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => dispatch({ type: "transition_canceled" })}
-              style={styles.secondaryButton}
-            >
-              <Text style={styles.secondaryLabel}>Cancel</Text>
-            </Pressable>
-          </View>
-        </View>
-      ) : null}
-
-      {state.notice !== null ? (
-        <View
-          accessibilityLiveRegion="polite"
-          accessibilityRole="alert"
-          style={styles.noticeCard}
-        >
-          <Text style={styles.body} testID="composer-notice">
-            {noticeMessage(state.notice, friendName)}
-          </Text>
-        </View>
-      ) : null}
-
-      <View style={styles.section}>
-        <Text style={styles.label}>Friends</Text>
-        {state.friends === null ? (
-          <Text style={styles.body}>Loading your friends…</Text>
-        ) : friends.length === 0 ? (
-          <Text style={styles.body}>
-            You have no friends yet, so this Moment stays private to you.
-          </Text>
-        ) : (
-          friends.map((friend) => {
-            const isRecipient = draft.recipientIds.includes(friend.id);
-            const isTagged = draft.tagIds.includes(friend.id);
-            return (
-              <View key={friend.id} style={styles.friendRow}>
-                <View style={styles.friendIdentity}>
-                  <Text style={styles.friendName}>{friend.displayName}</Text>
-                  <Text style={styles.friendHandle}>@{friend.username}</Text>
-                </View>
-                {isSelected ? (
-                  <Pressable
-                    accessibilityRole="checkbox"
-                    accessibilityLabel={`Share with ${friend.displayName}`}
-                    accessibilityState={{
-                      checked: isRecipient,
-                      disabled: locked.has(friend.id),
-                    }}
-                    onPress={() =>
-                      dispatch({
-                        type: "recipient_toggled",
-                        friendId: friend.id,
-                      })
-                    }
-                    style={[
-                      styles.chip,
-                      isRecipient ? styles.chipActive : null,
-                    ]}
-                  >
-                    <Text
-                      style={
-                        isRecipient ? styles.chipLabelActive : styles.chipLabel
-                      }
-                    >
-                      {locked.has(friend.id)
-                        ? "Locked"
-                        : isRecipient
-                          ? "Sharing"
-                          : "Share"}
-                    </Text>
-                  </Pressable>
-                ) : null}
-                {canTag ? (
-                  <Pressable
-                    accessibilityRole="checkbox"
-                    accessibilityLabel={`Tag ${friend.displayName}`}
-                    accessibilityState={{ checked: isTagged }}
-                    onPress={() =>
-                      dispatch({ type: "tag_toggled", friendId: friend.id })
-                    }
-                    style={[styles.chip, isTagged ? styles.chipActive : null]}
-                  >
-                    <Text
-                      style={
-                        isTagged ? styles.chipLabelActive : styles.chipLabel
-                      }
-                    >
-                      {isTagged ? "Tagged" : "Tag"}
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            );
-          })
-        )}
-      </View>
-
-      {publishMessage !== null ? (
-        <View
-          accessibilityLiveRegion="polite"
-          style={styles.publishCard}
-          testID="publish-status-card"
-        >
-          <Text style={styles.body} testID="publish-status">
-            {publishMessage}
-          </Text>
-          {publish.state.status === "uploading" ? (
-            // A plain proportional bar. It is decorative: the percentage above
-            // is what actually conveys progress.
+        <View style={styles.photoFrame}>
+          <Image
+            accessibilityLabel="Photo in this Moment"
+            resizeMode="contain"
+            source={{ uri: draft.photo.uri }}
+            style={[styles.photo, uploading ? styles.photoUploading : null]}
+            testID="composer-photo"
+          />
+          {/* Progress is drawn on the photo itself, so the thing being sent and
+           * the sending of it are one object. It is decorative — the spoken
+           * percentage below is what actually conveys progress. */}
+          {uploading ? (
             <View accessibilityElementsHidden style={styles.progressTrack}>
               <View
                 style={[
@@ -418,173 +214,320 @@ export function ComposerScreen({
               />
             </View>
           ) : null}
-          {canCancelPublish(publish.state) ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={publish.cancel}
-              style={styles.secondaryButton}
-              testID="publish-cancel"
-            >
-              <Text style={styles.secondaryLabel}>Cancel sharing</Text>
-            </Pressable>
-          ) : null}
-          {publish.state.status === "retryable_unknown" ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={publish.checkStatus}
-              style={styles.primaryButton}
-              testID="publish-check-status"
-            >
-              <Text style={styles.primaryLabel}>Check again</Text>
-            </Pressable>
-          ) : null}
         </View>
-      ) : null}
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Share this Moment"
-        accessibilityState={{ disabled: !canPublish }}
-        disabled={!canPublish}
-        onPress={publish.publish}
-        style={[
-          styles.primaryButton,
-          canPublish ? null : styles.buttonDisabled,
-        ]}
-        testID="composer-publish"
-      >
-        <Text style={styles.primaryLabel}>Share</Text>
-      </Pressable>
+        <Text
+          // Announced without stealing focus: the classification changes what
+          // the author is allowed to choose, so it must be spoken, not shown.
+          accessibilityLiveRegion="polite"
+          style={styles.meta}
+          testID="composer-capture-label"
+        >
+          {isArchive ? "Archive Moment" : "Recent Moment"}
+          {" · "}
+          {capturedLabel === null
+            ? "Capture date unavailable, so this stays out of your friends’ Home."
+            : `Taken ${capturedLabel}`}
+        </Text>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Discard this Moment"
-        disabled={publishing}
-        onPress={onDiscard}
-        style={[
-          styles.secondaryButton,
-          publishing ? styles.buttonDisabled : null,
-        ]}
-      >
-        <Text style={styles.secondaryLabel}>Discard</Text>
-      </Pressable>
-    </ScrollView>
+        {state.status === "needs_review" ? (
+          <InlineAlert
+            action={
+              <AppButton
+                label="Review audience"
+                onPress={() => dispatch({ type: "review_acknowledged" })}
+                variant="secondary"
+              />
+            }
+            message="This Moment changed while you were away. Review who can see it before sharing."
+            testID="composer-review"
+            tone="critical"
+          />
+        ) : null}
+
+        <View style={styles.captionBlock}>
+          <TextInput
+            accessibilityLabel="Caption"
+            accessibilityHint={`Up to ${MAX_CAPTION_CHARACTERS} characters`}
+            maxLength={MAX_CAPTION_CHARACTERS * 2}
+            multiline
+            onChangeText={(caption) =>
+              dispatch({ type: "caption_changed", caption })
+            }
+            placeholder="Add a caption…"
+            placeholderTextColor={color.textSecondary}
+            style={styles.captionInput}
+            testID="composer-caption"
+            value={draft.caption}
+          />
+          <Text
+            style={
+              remaining < 0 ? styles.captionCountOver : styles.captionCount
+            }
+          >
+            {remaining < 0
+              ? `${Math.abs(remaining)} characters over the limit`
+              : `${remaining} characters left`}
+          </Text>
+        </View>
+
+        {isArchive ? (
+          <Text style={styles.meta} testID="composer-archive-explanation">
+            Only you and tagged friends. With no tags, this Moment stays private
+            to you.
+          </Text>
+        ) : (
+          <SegmentedControl
+            accessibilityLabel="Who can see this"
+            onChange={(audience) =>
+              dispatch({ type: "audience_chosen", audience })
+            }
+            options={AUDIENCE_OPTIONS}
+            role="radiogroup"
+            stretch
+            testID="composer-audience"
+            value={draft.audience}
+          />
+        )}
+
+        {isSelected ? (
+          <Pressable
+            accessibilityHint="Choose which friends can see this Moment"
+            accessibilityRole="button"
+            onPress={() => setPicker("recipient")}
+            style={({ pressed }) => [
+              styles.chooseRow,
+              pressed ? styles.chooseRowPressed : null,
+            ]}
+            testID="composer-choose-recipients"
+          >
+            <Text style={styles.chooseLabel} testID="composer-recipient-count">
+              {draft.recipientIds.length} of {MAX_SELECTED_RECIPIENTS} friends
+              selected
+            </Text>
+            <Icon name="disclosure" size={16} tint={color.textSecondary} />
+          </Pressable>
+        ) : null}
+
+        {canTag ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Who’s here?</Text>
+            <View style={styles.faceRow}>
+              {taggedFriends.map((friend) => (
+                <View
+                  accessible
+                  accessibilityLabel={`${friend.displayName} is tagged`}
+                  key={friend.id}
+                >
+                  <ProfileAvatar
+                    avatarPath={friend.avatarPath}
+                    displayName={friend.displayName}
+                    size={36}
+                  />
+                </View>
+              ))}
+              <Pressable
+                accessibilityHint="Tag the friends who are in this Moment"
+                accessibilityLabel="Tag friends"
+                accessibilityRole="button"
+                onPress={() => setPicker("tag")}
+                style={({ pressed }) => [
+                  styles.addFace,
+                  pressed ? styles.addFacePressed : null,
+                ]}
+                testID="composer-choose-tags"
+              >
+                <Icon name="plus" size={16} tint={color.textSecondary} />
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
+        {state.pendingTransition !== null ? (
+          <InlineAlert
+            action={
+              <View style={styles.transitionRow}>
+                <AppButton
+                  label="Continue"
+                  onPress={() => dispatch({ type: "transition_confirmed" })}
+                  style={styles.transitionButton}
+                />
+                {/* "Go back" rather than "Cancel": the header already owns a
+                 * Cancel, and two controls of the same name in one screen is
+                 * ambiguous to a screen reader reaching for either. */}
+                <AppButton
+                  label="Go back"
+                  onPress={() => dispatch({ type: "transition_canceled" })}
+                  style={styles.transitionButton}
+                  variant="secondary"
+                />
+              </View>
+            }
+            message={
+              state.pendingTransition.kind === "confirm_only_me"
+                ? "Only Me keeps this Moment private and clears the friends and tags you chose. Continue?"
+                : `You have ${state.pendingTransition.friendCount} friends and Selected is limited to 50. Start choosing from an empty list?`
+            }
+            testID="composer-transition"
+          />
+        ) : null}
+
+        {state.notice !== null ? (
+          <InlineAlert
+            message={noticeMessage(state.notice, friendName)}
+            testID="composer-notice"
+          />
+        ) : null}
+
+        {publishMessage !== null ? (
+          <View
+            accessibilityLiveRegion="polite"
+            style={styles.publishBlock}
+            testID="publish-status-card"
+          >
+            <Text
+              style={
+                publish.state.status === "retryable_unknown" ||
+                publish.state.status === "needs_review"
+                  ? styles.publishError
+                  : styles.meta
+              }
+              testID="publish-status"
+            >
+              {publishMessage}
+            </Text>
+            {canCancelPublish(publish.state) ? (
+              <AppButton
+                label="Cancel sharing"
+                onPress={publish.cancel}
+                testID="publish-cancel"
+                variant="secondary"
+              />
+            ) : null}
+            {publish.state.status === "retryable_unknown" ? (
+              <AppButton
+                label="Check again"
+                onPress={publish.checkStatus}
+                testID="publish-check-status"
+                variant="secondary"
+              />
+            ) : null}
+          </View>
+        ) : null}
+      </ScrollView>
+
+      {/* Pinned rather than scrolled: the design puts one unmissable action at
+       * the foot of the screen, and a Publish button that can scroll out of
+       * reach is the one control that must never do so. */}
+      <View style={styles.footer}>
+        <AppButton
+          accessibilityLabel="Share this Moment"
+          busy={publishing}
+          disabled={!canPublish}
+          label={publishing ? "Publishing…" : "Publish"}
+          onPress={publish.publish}
+          testID="composer-publish"
+        />
+      </View>
+
+      <FriendPickerSheet
+        friends={friends}
+        lockedIds={locked}
+        mode={picker ?? "tag"}
+        onClose={() => setPicker(null)}
+        onToggle={(friendId) =>
+          dispatch(
+            picker === "tag"
+              ? { type: "tag_toggled", friendId }
+              : { type: "recipient_toggled", friendId },
+          )
+        }
+        selectedIds={picker === "tag" ? draft.tagIds : draft.recipientIds}
+        visible={picker !== null}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: color.canvas, flex: 1 },
-  content: { gap: spacing.lg, padding: spacing.xl },
-  empty: {
-    backgroundColor: color.canvas,
-    flex: 1,
-    gap: spacing.md,
+  addFace: {
+    alignItems: "center",
+    borderColor: color.border,
+    borderRadius: radius.pill,
+    borderStyle: "dashed",
+    borderWidth: 1.5,
+    height: 36,
     justifyContent: "center",
-    padding: spacing.xl,
+    width: 36,
   },
-  title: { ...typeScale.title, color: color.textPrimary },
-  label: { ...typeScale.label, color: color.textPrimary },
-  body: { ...typeScale.body, color: color.textSecondary },
-  section: { gap: spacing.sm },
+  addFacePressed: { backgroundColor: color.fillSubtle },
+  captionBlock: { gap: spacing.sm },
+  captionCount: { ...typeScale.caption, color: color.textSecondary },
+  captionCountOver: { ...typeScale.caption, color: color.criticalText },
+  captionInput: {
+    ...typeScale.cardBody,
+    color: color.textPrimary,
+    minHeight: MINIMUM_TOUCH_TARGET,
+    textAlignVertical: "top",
+  },
+  chooseLabel: { ...typeScale.cardBody, color: color.textPrimary, flex: 1 },
+  chooseRow: {
+    alignItems: "center",
+    backgroundColor: color.fillSubtle,
+    borderRadius: radius.md,
+    flexDirection: "row",
+    gap: spacing.sm,
+    minHeight: MINIMUM_TOUCH_TARGET,
+    paddingHorizontal: spacing.lg,
+  },
+  chooseRowPressed: { backgroundColor: color.fillSubtlePressed },
+  container: { backgroundColor: color.canvas, flex: 1 },
+  content: {
+    gap: spacing.xl,
+    paddingBottom: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xs,
+  },
+  faceRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  footer: {
+    paddingBottom: spacing.xxl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+  },
+  meta: { ...typeScale.caption, color: color.textSecondary },
+  photo: { height: "100%", width: "100%" },
   photoFrame: {
     // A fixed container with a neutral backing keeps arbitrary aspect ratios
     // legible without cropping the author's photo.
     aspectRatio: 4 / 5,
     backgroundColor: color.photoBacking,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     overflow: "hidden",
   },
-  photo: { height: "100%", width: "100%" },
-  evidenceCard: {
-    backgroundColor: color.surface,
-    borderColor: color.border,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    gap: spacing.xs,
-    padding: spacing.lg,
-  },
-  captionInput: {
-    ...typeScale.body,
-    backgroundColor: color.surface,
-    borderColor: color.border,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    color: color.textPrimary,
-    minHeight: MINIMUM_TOUCH_TARGET * 2,
-    padding: spacing.md,
-  },
-  captionCount: { ...typeScale.caption, color: color.textSecondary },
-  captionCountOver: { ...typeScale.caption, color: color.criticalText },
-  audienceRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  chip: {
-    alignItems: "center",
-    backgroundColor: color.surface,
-    borderColor: color.border,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: MINIMUM_TOUCH_TARGET,
-    paddingHorizontal: spacing.lg,
-  },
-  chipActive: { backgroundColor: color.brand, borderColor: color.brand },
-  chipLabel: { ...typeScale.label, color: color.brand },
-  chipLabelActive: { ...typeScale.label, color: color.textInverse },
-  friendRow: {
-    alignItems: "center",
-    backgroundColor: color.surface,
-    borderRadius: radius.md,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-    padding: spacing.md,
-  },
-  friendIdentity: { flexGrow: 1, flexShrink: 1, minWidth: 120 },
-  friendName: { ...typeScale.label, color: color.textPrimary },
-  friendHandle: { ...typeScale.caption, color: color.textSecondary },
-  reviewCard: {
-    backgroundColor: color.brandSurface,
-    borderRadius: radius.md,
-    gap: spacing.md,
-    padding: spacing.lg,
-  },
-  reviewText: { ...typeScale.body, color: color.textPrimary },
-  noticeCard: {
-    backgroundColor: color.surfaceSunken,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-  },
-  publishCard: {
-    backgroundColor: color.surfaceSunken,
-    borderRadius: radius.md,
-    gap: spacing.md,
-    padding: spacing.lg,
+  photoUploading: { opacity: 0.5 },
+  progressFill: {
+    backgroundColor: color.brand,
+    borderRadius: 2,
+    height: "100%",
   },
   progressTrack: {
-    backgroundColor: color.border,
-    borderRadius: radius.pill,
-    height: spacing.sm,
-    overflow: "hidden",
+    backgroundColor: "rgba(255, 255, 255, 0.55)",
+    borderRadius: 2,
+    bottom: spacing.lg,
+    height: 3,
+    left: spacing.lg,
+    position: "absolute",
+    right: spacing.lg,
   },
-  progressFill: { backgroundColor: color.brand, height: "100%" },
-  buttonDisabled: { opacity: 0.5 },
-  transitionRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: color.brand,
-    borderRadius: radius.md,
-    justifyContent: "center",
-    minHeight: MINIMUM_TOUCH_TARGET,
-    paddingHorizontal: spacing.xl,
-  },
-  primaryLabel: { ...typeScale.label, color: color.textInverse },
-  secondaryButton: {
-    alignItems: "center",
-    borderColor: color.border,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: MINIMUM_TOUCH_TARGET,
-    paddingHorizontal: spacing.xl,
-  },
-  secondaryLabel: { ...typeScale.label, color: color.brand },
+  publishBlock: { gap: spacing.md },
+  publishError: { ...typeScale.cardBody, color: color.criticalText },
+  section: { gap: spacing.md },
+  sectionLabel: { ...typeScale.sectionLabel, color: color.textSecondary },
+  transitionButton: { flexGrow: 1 },
+  transitionRow: { flexDirection: "row", gap: spacing.sm },
 });

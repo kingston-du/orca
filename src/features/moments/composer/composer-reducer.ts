@@ -33,6 +33,8 @@ export type ComposerFriend = {
   id: string;
   username: string;
   displayName: string;
+  /** Carried so the composer can show real faces rather than initials. */
+  avatarPath: string | null;
 };
 
 export type ComposerNotice =

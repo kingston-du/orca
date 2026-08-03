@@ -34,6 +34,7 @@ async function renderScreen() {
   return await render(
     <QueryClientProvider client={client}>
       <MyInviteLinkScreen
+        onBack={jest.fn()}
         environmentUrl="https://example.test"
         userId="user-1"
       />

@@ -12,6 +12,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppButton } from "@/components/app-button";
+import { ScreenHeader } from "@/components/screen-header";
+import { color, radius, spacing, typeScale } from "@/constants/design";
+
 import {
   createInviteLink,
   getInviteStatus,
@@ -28,12 +32,14 @@ import {
 const statusKey = ["invite-status"] as const;
 
 type MyInviteLinkScreenProps = {
+  onBack: () => void;
   environmentUrl: string;
   userId: string;
 };
 
 export function MyInviteLinkScreen({
   environmentUrl,
+  onBack,
   userId,
 }: MyInviteLinkScreenProps) {
   const queryClient = useQueryClient();
@@ -85,11 +91,9 @@ export function MyInviteLinkScreen({
   const canShare = Boolean(status.data && localToken);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      <ScreenHeader onBack={onBack} title="My Invite Link" />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text accessibilityRole="header" style={styles.title}>
-          My Invite Link
-        </Text>
         <Text style={styles.body}>
           Anyone with this link can see your name and send you a friend request.
           It never adds a friend on its own.
@@ -112,14 +116,11 @@ export function MyInviteLinkScreen({
         ) : null}
 
         {!status.isPending && !isReadingLocal && !status.data ? (
-          <Pressable
-            accessibilityRole="button"
+          <AppButton
             disabled={busy}
+            label="Create link"
             onPress={() => issue.mutate(false)}
-            style={styles.primaryButton}
-          >
-            <Text style={styles.primaryLabel}>Create link</Text>
-          </Pressable>
+          />
         ) : null}
 
         {status.data ? (
@@ -141,39 +142,34 @@ export function MyInviteLinkScreen({
         ) : null}
 
         {canShare && localToken ? (
-          <Pressable
-            accessibilityRole="button"
+          <AppButton
             disabled={busy}
+            label="Share link"
             onPress={() =>
               void Share.share({
                 message: inviteLinkFor(localToken, Linking.createURL("invite")),
               })
             }
-            style={styles.primaryButton}
-          >
-            <Text style={styles.primaryLabel}>Share link</Text>
-          </Pressable>
+          />
         ) : null}
 
         {status.data ? (
           <View style={styles.actions}>
-            <Pressable
+            <AppButton
               accessibilityHint="Replaces your link so the old one stops working"
-              accessibilityRole="button"
               disabled={busy}
+              label="Rotate"
               onPress={() => issue.mutate(true)}
-              style={styles.secondaryButton}
-            >
-              <Text style={styles.secondaryLabel}>Rotate</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
+              style={styles.action}
+              variant="secondary"
+            />
+            <AppButton
               disabled={busy}
+              label="Revoke"
               onPress={() => revoke.mutate()}
-              style={styles.dangerButton}
-            >
-              <Text style={styles.dangerLabel}>Revoke</Text>
-            </Pressable>
+              style={styles.action}
+              variant="danger"
+            />
           </View>
         ) : null}
 
@@ -188,49 +184,20 @@ export function MyInviteLinkScreen({
 }
 
 const styles = StyleSheet.create({
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  body: { color: "#52606D", fontSize: 14, lineHeight: 20 },
+  action: { flexGrow: 1 },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
+  body: { ...typeScale.cardBody, color: color.textSecondary },
   card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    gap: 4,
-    padding: 16,
+    backgroundColor: color.surface,
+    borderRadius: radius.md,
+    gap: spacing.xs,
+    padding: spacing.lg,
   },
-  content: { gap: 16, padding: 20, paddingBottom: 48 },
-  dangerButton: {
-    alignItems: "center",
-    borderColor: "#BA2525",
-    borderRadius: 12,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: 48,
-    paddingHorizontal: 20,
-  },
-  dangerLabel: { color: "#BA2525", fontSize: 15, fontWeight: "800" },
-  label: { color: "#52606D", fontSize: 13, fontWeight: "700" },
-  link: { color: "#1769AA", fontWeight: "800" },
-  message: { color: "#52606D", fontSize: 14, lineHeight: 20 },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: "#208AEF",
-    borderRadius: 12,
-    justifyContent: "center",
-    minHeight: 48,
-    paddingHorizontal: 20,
-  },
-  primaryLabel: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
-  retryRow: { alignItems: "center", flexDirection: "row", gap: 12 },
-  safeArea: { backgroundColor: "#F5FAFF", flex: 1 },
-  secondaryButton: {
-    alignItems: "center",
-    borderColor: "#BCCCDC",
-    borderRadius: 12,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: 48,
-    paddingHorizontal: 20,
-  },
-  secondaryLabel: { color: "#102A43", fontSize: 15, fontWeight: "800" },
-  title: { color: "#102A43", fontSize: 34, fontWeight: "900" },
-  value: { color: "#102A43", fontSize: 17, lineHeight: 24 },
+  content: { gap: spacing.lg, padding: spacing.xl, paddingBottom: 48 },
+  label: { ...typeScale.sectionLabel, color: color.textSecondary },
+  link: { ...typeScale.label, color: color.brand },
+  message: { ...typeScale.cardBody, color: color.textSecondary },
+  retryRow: { alignItems: "center", flexDirection: "row", gap: spacing.md },
+  safeArea: { backgroundColor: color.canvas, flex: 1 },
+  value: { ...typeScale.body, color: color.textPrimary },
 });

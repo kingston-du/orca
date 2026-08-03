@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,7 +9,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppButton } from "@/components/app-button";
 import { ProfileAvatar } from "@/components/profile-avatar";
+import { ScreenHeader } from "@/components/screen-header";
+import { color, spacing, typeScale } from "@/constants/design";
 
 import { chooseAvatar } from "./avatar-image";
 import {
@@ -21,6 +23,7 @@ import {
 } from "./avatar-api";
 
 type EditProfileScreenProps = {
+  onBack: () => void;
   avatarPath: string | null;
   displayName: string;
   onDone: () => void;
@@ -37,6 +40,7 @@ type Phase =
 export function EditProfileScreen({
   avatarPath,
   displayName,
+  onBack,
   onDone,
   username,
 }: EditProfileScreenProps) {
@@ -136,7 +140,8 @@ export function EditProfileScreen({
   const busy = phase.kind === "preparing" || phase.kind === "uploading";
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      <ScreenHeader onBack={onBack} title="Edit Profile" />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.identity}>
           <ProfileAvatar
@@ -172,39 +177,25 @@ export function EditProfileScreen({
         ) : null}
 
         <View style={styles.actions}>
-          <Pressable
+          <AppButton
             accessibilityHint="Opens your photo library to pick one image"
-            accessibilityRole="button"
-            accessibilityState={{ busy, disabled: busy }}
+            busy={busy}
             disabled={busy}
+            label={avatarPath ? "Change photo" : "Add photo"}
             onPress={() => replace.mutate()}
-            style={styles.primaryButton}
-          >
-            <Text style={styles.primaryLabel}>
-              {avatarPath ? "Change photo" : "Add photo"}
-            </Text>
-          </Pressable>
+          />
 
           {busy ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={cancel}
-              style={styles.secondaryButton}
-            >
-              <Text style={styles.secondaryLabel}>Cancel</Text>
-            </Pressable>
+            <AppButton label="Cancel" onPress={cancel} variant="secondary" />
           ) : null}
 
           {avatarPath && !busy ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: remove.isPending }}
+            <AppButton
               disabled={remove.isPending}
+              label="Remove photo"
               onPress={() => remove.mutate()}
-              style={styles.secondaryButton}
-            >
-              <Text style={styles.secondaryLabel}>Remove photo</Text>
-            </Pressable>
+              variant="secondary"
+            />
           ) : null}
         </View>
 
@@ -213,45 +204,20 @@ export function EditProfileScreen({
           photo. Anyone who has already seen it may still have a copy.
         </Text>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={onDone}
-          style={styles.secondaryButton}
-        >
-          <Text style={styles.secondaryLabel}>Done</Text>
-        </Pressable>
+        <AppButton label="Done" onPress={onDone} variant="secondary" />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  actions: { gap: 12 },
-  body: { color: "#52606D", fontSize: 15, lineHeight: 22 },
-  content: { gap: 24, padding: 20, paddingBottom: 48 },
-  footnote: { color: "#52606D", fontSize: 13, lineHeight: 19 },
-  identity: { alignItems: "center", gap: 8 },
-  message: { color: "#BA2525", fontSize: 14, lineHeight: 20 },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: "#208AEF",
-    borderRadius: 12,
-    justifyContent: "center",
-    minHeight: 48,
-    paddingHorizontal: 20,
-  },
-  primaryLabel: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
-  progressRow: { alignItems: "center", flexDirection: "row", gap: 12 },
-  safeArea: { backgroundColor: "#F5FAFF", flex: 1 },
-  secondaryButton: {
-    alignItems: "center",
-    borderColor: "#829AB1",
-    borderRadius: 12,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: 48,
-    paddingHorizontal: 20,
-  },
-  secondaryLabel: { color: "#243B53", fontSize: 15, fontWeight: "700" },
-  title: { color: "#102A43", fontSize: 26, fontWeight: "900" },
+  actions: { gap: spacing.md },
+  body: { ...typeScale.cardBody, color: color.textSecondary },
+  content: { gap: spacing.xl, padding: spacing.xl, paddingBottom: 48 },
+  footnote: { ...typeScale.caption, color: color.textSecondary },
+  identity: { alignItems: "center", gap: spacing.sm },
+  message: { ...typeScale.caption, color: color.criticalText },
+  progressRow: { alignItems: "center", flexDirection: "row", gap: spacing.md },
+  safeArea: { backgroundColor: color.canvas, flex: 1 },
+  title: { ...typeScale.title, color: color.textPrimary },
 });

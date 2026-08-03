@@ -6,6 +6,7 @@ describe("AccountScreen", () => {
   test("shows the account information and explains local-device sign-out", async () => {
     const screen = await render(
       <AccountScreen
+        onBack={jest.fn()}
         displayName="Kingston"
         email="kingston@example.com"
 
@@ -36,6 +37,7 @@ describe("AccountScreen", () => {
     const user = userEvent.setup();
     const screen = await render(
       <AccountScreen
+        onBack={jest.fn()}
         displayName="Kingston"
         email="kingston@example.com"
 
@@ -66,6 +68,7 @@ describe("AccountScreen", () => {
     const user = userEvent.setup();
     const screen = await render(
       <AccountScreen
+        onBack={jest.fn()}
         displayName="Kingston"
         email="kingston@example.com"
 
@@ -95,6 +98,7 @@ describe("AccountScreen", () => {
     const user = userEvent.setup();
     const screen = await render(
       <AccountScreen
+        onBack={jest.fn()}
         displayName="Kingston"
         email="kingston@example.com"
 

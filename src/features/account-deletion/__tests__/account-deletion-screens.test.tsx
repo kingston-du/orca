@@ -9,6 +9,7 @@ describe("account deletion screens", () => {
     const user = userEvent.setup();
     const screen = await render(
       <DeleteAccountScreen
+        onBack={jest.fn()}
         onOpenStatus={jest.fn()}
         onRequestDeletion={onRequestDeletion}
       />,
@@ -30,6 +31,7 @@ describe("account deletion screens", () => {
     const user = userEvent.setup();
     const screen = await render(
       <DeleteAccountScreen
+        onBack={jest.fn()}
         onOpenStatus={onOpenStatus}
         onRequestDeletion={jest.fn().mockRejectedValue(new Error("private"))}
       />,

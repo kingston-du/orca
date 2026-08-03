@@ -34,6 +34,7 @@ import {
 } from "@/features/moments/capture/photo-picker";
 import { PhotosTile } from "@/features/moments/capture/photos-tile";
 import { useMomentDraft } from "@/features/moments/composer/composer-provider";
+import { hapticShutter } from "@/lib/haptics";
 
 /**
  * The Camera tab: shutter, scoped picker, and the review of the single draft.
@@ -385,23 +386,45 @@ export function CaptureScreen() {
           )}
         </View>
       ) : cameraIsMounted ? (
-        <View style={styles.cameraControls} pointerEvents="box-none">
-          <View style={styles.tileSlot}>
-            <PhotosTile
-              busy={activeAction === "library"}
-              disabled={activeAction !== null}
-              onPress={() => void chooseFromLibrary()}
-              previewUri={draft?.photo.uri ?? null}
-            />
-          </View>
-          {/* The overlay row clears the status bar rather than sitting under
-           * the clock and the battery. `insets.top` is the only number that
-           * knows how tall that bar actually is on this device. */}
-          <View
-            pointerEvents="box-none"
-            style={[styles.overlayRow, { top: insets.top + spacing.lg }]}
-            testID="camera-overlay-controls"
-          >
+        // Every control now sits in one bottom row, thumb-height, with the
+        // frame above it completely unobstructed. The row is lifted clear of
+        // the home indicator by the bottom inset rather than a fixed offset.
+        <View
+          pointerEvents="box-none"
+          style={[
+            styles.cameraControls,
+            { paddingBottom: insets.bottom + spacing.xxl },
+          ]}
+          testID="camera-overlay-controls"
+        >
+          <PhotosTile
+            busy={activeAction === "library"}
+            disabled={activeAction !== null}
+            onPress={() => void chooseFromLibrary()}
+            previewUri={draft?.photo.uri ?? null}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Take photo"
+            accessibilityState={{
+              busy: activeAction === "camera",
+              disabled: !canTakePicture,
+            }}
+            disabled={!canTakePicture}
+            onPress={() => {
+              hapticShutter();
+              void takePicture();
+            }}
+            style={({ pressed }) => [
+              styles.shutter,
+              // The ring has no fill to dim on press, so the press has to show
+              // somewhere or the control reads as dead.
+              pressed ? styles.shutterPressed : null,
+              !canTakePicture ? styles.disabled : null,
+            ]}
+            testID="camera-shutter"
+          />
+          <View style={styles.overlayColumn}>
             <OverlayControl
               accessibilityLabel={`Set flash ${flash === "off" ? "to automatic" : "off"}`}
               disabled={activeAction !== null}
@@ -426,24 +449,6 @@ export function CaptureScreen() {
               symbol="arrow.triangle.2.circlepath.camera.fill"
             />
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Take photo"
-            accessibilityState={{
-              busy: activeAction === "camera",
-              disabled: !canTakePicture,
-            }}
-            disabled={!canTakePicture}
-            onPress={() => void takePicture()}
-            style={({ pressed }) => [
-              styles.shutter,
-              // The ring has no fill to dim on press, so the press has to show
-              // somewhere or the control reads as dead.
-              pressed ? styles.shutterPressed : null,
-              !canTakePicture ? styles.disabled : null,
-            ]}
-            testID="camera-shutter"
-          />
         </View>
       ) : (
         <View style={styles.fallback}>
@@ -576,20 +581,17 @@ function OverlayControl({
 const styles = StyleSheet.create({
   container: { backgroundColor: color.cameraCanvas, flex: 1 },
   cameraControls: {
+    alignItems: "center",
     bottom: 0,
-    left: 0,
-    position: "absolute",
-    right: 0,
-    top: 0,
-  },
-  tileSlot: { bottom: spacing.xl, left: spacing.xl, position: "absolute" },
-  overlayRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    left: spacing.xl,
+    left: 0,
+    paddingHorizontal: spacing.xxl,
     position: "absolute",
-    right: spacing.xl,
+    right: 0,
   },
+  /** Flash above flip, stacked at the row's right end. */
+  overlayColumn: { alignItems: "center", gap: spacing.lg },
   overlayButton: {
     alignItems: "center",
     backgroundColor: color.cameraScrim,
@@ -601,14 +603,10 @@ const styles = StyleSheet.create({
   overlayButtonPressed: { opacity: 0.7 },
   shutter: {
     borderColor: color.textInverse,
-    borderRadius: 42,
-    borderWidth: 4,
-    bottom: 18,
-    height: 84,
-    left: "50%",
-    marginLeft: -42,
-    position: "absolute",
-    width: 84,
+    borderRadius: 37,
+    borderWidth: 3.5,
+    height: 74,
+    width: 74,
   },
   shutterPressed: { backgroundColor: color.cameraScrim, borderWidth: 6 },
   disabled: { opacity: 0.5 },

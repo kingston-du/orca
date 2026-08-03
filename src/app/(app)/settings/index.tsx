@@ -26,6 +26,7 @@ export default function SettingsRoute() {
     <AccountScreen
       displayName={state.data.display_name ?? "Orca member"}
       email={user.email ?? "Email unavailable"}
+      onBack={() => router.back()}
       onEditProfile={() => router.push("/settings/profile")}
       onOpenBlockedUsers={() => router.push("/settings/blocked")}
       onOpenDeleteAccount={() => router.push("/delete-account")}

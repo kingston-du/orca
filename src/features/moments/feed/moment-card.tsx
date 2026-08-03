@@ -14,9 +14,15 @@ import type { RecentMoment } from "@/features/moments/feed/recent-api";
 import { ReactionBar } from "@/features/moments/reactions/reaction-bar";
 
 const AVATAR_SIZE = 36;
+/** On the scrim the avatar is a marker beside a name, not a portrait. */
+const SCRIM_AVATAR_SIZE = 26;
 
-/** The white card is a thin mount around the photo, not a frame with a mat. */
-export const CARD_INSET = 8;
+/**
+ * The photo runs flush to the card's edges, so the card adds no inset of its
+ * own. Kept as a named zero because the deck still reasons about the card's
+ * media width and a bare `0` there would say nothing.
+ */
+export const CARD_INSET = 0;
 
 /**
  * The card's V1 anatomy, in the order VoiceOver reads it: author, then the
@@ -86,35 +92,47 @@ export function MomentCard({
 }: MomentCardProps) {
   const overlaid = useOverlayFitsOnPhoto();
 
-  const identity = (
-    <>
-      <MomentAuthor moment={moment} onScrim={overlaid} />
-      <MomentCaptureTime moment={moment} now={now} onScrim={overlaid} />
-    </>
-  );
-
   return (
     <View style={[styles.card, { width: availableWidth }]}>
-      {overlaid ? null : <View style={styles.stackedIdentity}>{identity}</View>}
+      {/* At large text the overlay is abandoned and identity stacks above the
+       * photo, where a wrapped name has the full card width. */}
+      {overlaid ? null : (
+        <View style={styles.stackedIdentity}>
+          <MomentAuthor moment={moment} />
+          <MomentCaptureTime moment={moment} now={now} />
+        </View>
+      )}
       <MomentPhoto
         authorDisplayName={moment.author_display_name}
         availableWidth={availableWidth - CARD_INSET * 2}
         enabled={mediaEnabled}
-        footer={overlaid ? identity : undefined}
+        flushBottom
+        footer={
+          overlaid ? (
+            <View style={styles.scrimRow}>
+              <MomentAuthor moment={moment} onScrim />
+              <View style={styles.pushRight}>
+                <MomentCaptureTime moment={moment} now={now} onScrim />
+              </View>
+            </View>
+          ) : undefined
+        }
         objectPath={moment.object_path}
       />
-      <MomentCaption caption={moment.caption} />
-      <ReactionBar
-        canReact={canReact}
-        compact
-        momentId={moment.moment_id}
-        onOpenPeople={() => onOpenReactions(moment.moment_id)}
-        summary={{
-          heartCount: moment.heart_count,
-          superheartCount: moment.superheart_count,
-          viewerReaction: moment.viewer_reaction,
-        }}
-      />
+      <View style={styles.body}>
+        <MomentCaption caption={moment.caption} />
+        <ReactionBar
+          canReact={canReact}
+          compact
+          momentId={moment.moment_id}
+          onOpenPeople={() => onOpenReactions(moment.moment_id)}
+          summary={{
+            heartCount: moment.heart_count,
+            superheartCount: moment.superheart_count,
+            viewerReaction: moment.viewer_reaction,
+          }}
+        />
+      </View>
     </View>
   );
 }
@@ -142,7 +160,7 @@ export function MomentAuthor({
       <ProfileAvatar
         avatarPath={moment.author_avatar_path}
         displayName={moment.author_display_name}
-        size={AVATAR_SIZE}
+        size={onScrim ? SCRIM_AVATAR_SIZE : AVATAR_SIZE}
       />
       <View style={styles.authorNames}>
         <Text
@@ -151,12 +169,14 @@ export function MomentAuthor({
         >
           {moment.author_display_name}
         </Text>
-        <Text
-          numberOfLines={1}
-          style={[styles.username, onScrim && styles.usernameOnScrim]}
-        >
-          @{moment.author_username}
-        </Text>
+        {/* The scrim band shows the name alone — the handle would crowd a
+         * strip that also has to hold the capture time. VoiceOver still hears
+         * both, from this row's own label. */}
+        {onScrim ? null : (
+          <Text numberOfLines={1} style={styles.username}>
+            @{moment.author_username}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -208,20 +228,35 @@ const styles = StyleSheet.create({
   authorRow: {
     alignItems: "center",
     flexDirection: "row",
-    gap: spacing.md,
+    flexShrink: 1,
+    gap: spacing.sm,
   },
-  caption: { ...typeScale.body, color: color.textPrimary },
+  body: {
+    gap: spacing.md,
+    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+  },
+  caption: { ...typeScale.cardBody, color: color.textPrimary },
   captureTime: { ...typeScale.caption, color: color.textSecondary },
   captureTimeOnScrim: { color: color.photoScrimTextMuted },
   card: {
     backgroundColor: color.surface,
-    borderRadius: radius.xl,
-    gap: spacing.md,
-    padding: CARD_INSET,
+    borderRadius: radius.md,
+    overflow: "hidden",
   },
-  displayName: { ...typeScale.label, color: color.textPrimary },
-  displayNameOnScrim: { color: color.photoScrimText },
-  stackedIdentity: { gap: spacing.sm },
+  displayName: { ...typeScale.personName, color: color.textPrimary },
+  displayNameOnScrim: {
+    color: color.photoScrimText,
+    fontWeight: "600",
+  },
+  /** Pushes the capture time to the far end of the scrim band. */
+  pushRight: { marginLeft: "auto", paddingLeft: spacing.sm },
+  scrimRow: { alignItems: "center", flexDirection: "row" },
+  stackedIdentity: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+  },
   username: { ...typeScale.caption, color: color.textSecondary },
-  usernameOnScrim: { color: color.photoScrimTextMuted },
 });

@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, userEvent } from "@testing-library/react-native";
 
 import { UNKNOWN_CAPTURE_EVIDENCE } from "@/features/moments/capture/capture-evidence";
@@ -16,6 +17,13 @@ import {
   type PublishState,
 } from "@/features/moments/publish/publish-machine";
 import type { PublishController } from "@/features/moments/publish/use-publish-controller";
+
+// The composer now shows real faces in "Who's here?" and in the picker, so it
+// reaches the avatar boundary. Stubbed rather than pulling the Supabase client
+// and the encrypted store into a test about composition.
+jest.mock("@/features/profiles/avatar-api", () => ({
+  createAvatarSignedUrl: jest.fn(async () => null),
+}));
 
 const photo: NormalizedPhoto = {
   uri: "file:///draft/media.jpg",
@@ -43,8 +51,8 @@ const draft: MomentDraft = {
 };
 
 const friends: ComposerFriend[] = [
-  { id: "friend-a", username: "ada", displayName: "Ada" },
-  { id: "friend-b", username: "ben", displayName: "Ben" },
+  { id: "friend-a", username: "ada", displayName: "Ada", avatarPath: null },
+  { id: "friend-b", username: "ben", displayName: "Ben", avatarPath: null },
 ];
 
 function stateWith(actions: ComposerAction[]): ComposerState {
@@ -69,13 +77,20 @@ async function renderComposer(
 ) {
   const dispatch = jest.fn();
   const onDiscard = jest.fn();
+  // Avatars resolve their signed URL through a query, so the composer needs a
+  // client even though the screen itself owns no server state.
+  const client = new QueryClient({
+    defaultOptions: { queries: { gcTime: Infinity, retry: false } },
+  });
   const screen = await render(
-    <ComposerScreen
-      dispatch={dispatch}
-      onDiscard={onDiscard}
-      publish={publish}
-      state={state}
-    />,
+    <QueryClientProvider client={client}>
+      <ComposerScreen
+        dispatch={dispatch}
+        onDiscard={onDiscard}
+        publish={publish}
+        state={state}
+      />
+    </QueryClientProvider>,
   );
   return { screen, dispatch, onDiscard, publish };
 }
@@ -187,6 +202,9 @@ describe("ComposerScreen", () => {
       screen.getByTestId("composer-archive-explanation"),
     ).toHaveTextContent(/Only you and tagged friends/);
     // Tagging is still available on Archive; only the audience choice is gone.
+    // The friends themselves now live in a picker, so reaching one means
+    // opening it.
+    await userEvent.setup().press(screen.getByTestId("composer-choose-tags"));
     expect(screen.getByRole("checkbox", { name: "Tag Ada" })).toBeOnTheScreen();
   });
 
@@ -205,6 +223,7 @@ describe("ComposerScreen", () => {
   });
 
   test("explains inline when a tag locks a friend into the audience", async () => {
+    const user = userEvent.setup();
     const { screen } = await renderComposer(
       stateWith([
         { type: "friends_loaded", friends },
@@ -218,6 +237,7 @@ describe("ComposerScreen", () => {
     expect(screen.getByTestId("composer-notice")).toHaveTextContent(
       "Ada is tagged, so they were added to this Moment’s audience.",
     );
+    await user.press(screen.getByTestId("composer-choose-recipients"));
     expect(screen.getByRole("checkbox", { name: "Share with Ada" })).toHaveProp(
       "accessibilityState",
       expect.objectContaining({ checked: true, disabled: true }),
@@ -234,6 +254,9 @@ describe("ComposerScreen", () => {
       ]),
     );
 
+    // Not merely hidden behind a closed picker: under Only Me there is no way
+    // to open one.
+    expect(screen.queryByTestId("composer-choose-tags")).toBeNull();
     expect(screen.queryByRole("checkbox", { name: "Tag Ada" })).toBeNull();
   });
 
@@ -251,7 +274,8 @@ describe("ComposerScreen", () => {
       /clears the friends and tags you chose/,
     );
     expect(screen.getByRole("alert")).toBeOnTheScreen();
-    await user.press(screen.getByRole("button", { name: "Cancel" }));
+    // "Go back", not "Cancel": the header owns the only Cancel on this screen.
+    await user.press(screen.getByRole("button", { name: "Go back" }));
     expect(dispatch).toHaveBeenCalledWith({ type: "transition_canceled" });
   });
 

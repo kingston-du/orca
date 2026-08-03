@@ -5,6 +5,7 @@ import { BlockedUsersScreen } from "@/features/settings/blocked-users-screen";
 export default function BlockedUsersRoute() {
   return (
     <BlockedUsersScreen
+      onBack={() => router.back()}
       onReport={(profileId, displayName) =>
         router.push({
           params: {

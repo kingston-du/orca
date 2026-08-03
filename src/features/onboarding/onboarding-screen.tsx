@@ -13,6 +13,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppButton } from "@/components/app-button";
+import { Field } from "@/components/field";
+import {
+  MINIMUM_TOUCH_TARGET,
+  color,
+  radius,
+  spacing,
+  typeScale,
+} from "@/constants/design";
+
 import {
   documentBody,
   LEGAL_DOCUMENT_ENTRIES,
@@ -156,60 +166,63 @@ export function OnboardingScreen({
             </Text>
           </View>
 
+          {/* Hand-styled rather than <Field>: the always-visible helper caption
+           * sits between the input and the conditional error, an order Field's
+           * single error slot can't express. The shell/input styling below
+           * mirrors Field's own tokens so the two fields still match. */}
           <View style={styles.field}>
             <Text style={styles.label}>Username</Text>
-            <TextInput
-              accessibilityLabel="Username"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isBusy && initialUsername.length === 0}
-              maxLength={20}
-              onChangeText={(value) => {
-                setUsername(value.toLowerCase());
-                setUsernameError(null);
-                setFormError(null);
-              }}
-              placeholder="kingston"
-              placeholderTextColor="#7B8794"
-              style={[styles.input, usernameError && styles.inputError]}
-              value={username}
-            />
+            <View
+              style={[
+                styles.inputShell,
+                usernameError ? styles.inputShellInvalid : null,
+              ]}
+            >
+              <TextInput
+                accessibilityLabel="Username"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!isBusy && initialUsername.length === 0}
+                maxLength={20}
+                onChangeText={(value) => {
+                  setUsername(value.toLowerCase());
+                  setUsernameError(null);
+                  setFormError(null);
+                }}
+                placeholder="kingston"
+                placeholderTextColor={color.textSecondary}
+                style={styles.input}
+                value={username}
+              />
+            </View>
             <Text style={styles.helper}>
               Your V1 username cannot be changed.
             </Text>
             {usernameError ? (
-              <Text accessibilityRole="alert" style={styles.errorText}>
+              <Text accessibilityRole="alert" style={styles.fieldError}>
                 {usernameError}
               </Text>
             ) : null}
           </View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Display name</Text>
-            <TextInput
-              accessibilityLabel="Display name"
-              autoCapitalize="words"
-              autoComplete="name"
-              editable={!isBusy}
-              maxLength={50}
-              onChangeText={(value) => {
-                setDisplayName(value);
-                setDisplayNameError(null);
-                setFormError(null);
-              }}
-              placeholder="Kingston"
-              placeholderTextColor="#7B8794"
-              returnKeyType="done"
-              style={[styles.input, displayNameError && styles.inputError]}
-              textContentType="name"
-              value={displayName}
-            />
-            {displayNameError ? (
-              <Text accessibilityRole="alert" style={styles.errorText}>
-                {displayNameError}
-              </Text>
-            ) : null}
-          </View>
+          <Field
+            accessibilityLabel="Display name"
+            autoCapitalize="words"
+            autoComplete="name"
+            editable={!isBusy}
+            error={displayNameError}
+            label="Display name"
+            maxLength={50}
+            onChangeText={(value) => {
+              setDisplayName(value);
+              setDisplayNameError(null);
+              setFormError(null);
+            }}
+            placeholder="Kingston"
+            returnKeyType="done"
+            textContentType="name"
+            value={displayName}
+          />
 
           <View style={styles.documents}>
             {LEGAL_DOCUMENT_ENTRIES.map(([key, document]) => (
@@ -246,22 +259,12 @@ export function OnboardingScreen({
             </Text>
           ) : null}
 
-          <Pressable
-            accessibilityRole="button"
+          <AppButton
+            busy={isSubmitting}
             disabled={isBusy}
+            label="Finish setup"
             onPress={() => void handleComplete()}
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && !isBusy && styles.primaryButtonPressed,
-              isBusy && styles.disabled,
-            ]}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.primaryLabel}>Finish setup</Text>
-            )}
-          </Pressable>
+          />
 
           <Pressable
             accessibilityRole="button"
@@ -270,7 +273,7 @@ export function OnboardingScreen({
             style={styles.signOutButton}
           >
             {isSigningOut ? (
-              <ActivityIndicator color="#52606D" />
+              <ActivityIndicator color={color.textSecondary} />
             ) : (
               <Text style={styles.signOutLabel}>Sign out</Text>
             )}
@@ -283,134 +286,86 @@ export function OnboardingScreen({
 
 const styles = StyleSheet.create({
   brand: {
-    color: "#208AEF",
-    fontSize: 26,
-    fontWeight: "800",
+    ...typeScale.title,
+    color: color.brand,
     letterSpacing: -1,
-    marginBottom: 30,
+    marginBottom: spacing.xxl,
   },
   developmentNotice: {
-    backgroundColor: "#FFF4E5",
-    borderRadius: 12,
-    marginVertical: 24,
-    padding: 14,
+    backgroundColor: color.fillSubtle,
+    borderRadius: radius.md,
+    marginVertical: spacing.xxl,
+    padding: spacing.lg,
   },
-  developmentNoticeText: {
-    color: "#7A3E00",
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  disabled: {
-    opacity: 0.55,
-  },
-  documentBody: {
-    color: "#52606D",
-    fontSize: 14,
-    lineHeight: 21,
-  },
+  developmentNoticeText: { ...typeScale.cardBody, color: color.textPrimary },
+  documentBody: { ...typeScale.cardBody, color: color.textSecondary },
   documentCard: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#D9E2EC",
-    borderRadius: 14,
+    backgroundColor: color.surface,
+    borderColor: color.border,
+    borderRadius: radius.md,
     borderWidth: 1,
-    gap: 12,
-    padding: 16,
+    gap: spacing.md,
+    padding: spacing.lg,
   },
   documentHeader: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 12,
+    gap: spacing.md,
     justifyContent: "space-between",
   },
   documents: {
-    gap: 14,
-    marginVertical: 24,
+    gap: spacing.lg,
+    marginVertical: spacing.xxl,
   },
-  documentTitle: {
-    color: "#243B53",
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "800",
-  },
+  documentTitle: { ...typeScale.label, color: color.textPrimary, flex: 1 },
   errorText: {
-    color: "#B42318",
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 14,
+    ...typeScale.cardBody,
+    color: color.criticalText,
+    marginBottom: spacing.lg,
   },
   field: {
-    gap: 8,
+    gap: spacing.sm,
   },
-  helper: {
-    color: "#52606D",
-    fontSize: 13,
-    lineHeight: 18,
-  },
+  fieldError: { ...typeScale.caption, color: color.criticalText },
+  helper: { ...typeScale.caption, color: color.textSecondary },
   input: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#C8D3DE",
-    borderRadius: 14,
+    ...typeScale.body,
+    color: color.textPrimary,
+    flex: 1,
+    minHeight: MINIMUM_TOUCH_TARGET,
+    paddingVertical: spacing.sm,
+  },
+  inputShell: {
+    backgroundColor: color.fillSubtle,
+    borderColor: "transparent",
+    borderRadius: radius.md,
     borderWidth: 1,
-    color: "#102A43",
-    fontSize: 16,
-    minHeight: 54,
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
   },
-  inputError: {
-    borderColor: "#D92D20",
-  },
+  inputShellInvalid: { borderColor: color.criticalText },
   keyboardView: {
     flex: 1,
   },
-  label: {
-    color: "#243B53",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: "#208AEF",
-    borderRadius: 14,
-    justifyContent: "center",
-    minHeight: 54,
-  },
-  primaryButtonPressed: {
-    backgroundColor: "#0969C3",
-  },
-  primaryLabel: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-  },
+  label: { ...typeScale.sectionLabel, color: color.textSecondary },
   safeArea: {
-    backgroundColor: "#F5FAFF",
+    backgroundColor: color.canvas,
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxl,
   },
   signOutButton: {
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 48,
+    minHeight: MINIMUM_TOUCH_TARGET,
   },
-  signOutLabel: {
-    color: "#52606D",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  subtitle: {
-    color: "#52606D",
-    fontSize: 17,
-    lineHeight: 25,
-  },
+  signOutLabel: { ...typeScale.label, color: color.textSecondary },
+  subtitle: { ...typeScale.body, color: color.textSecondary },
   title: {
-    color: "#102A43",
-    fontSize: 32,
-    fontWeight: "800",
-    letterSpacing: -0.8,
-    marginBottom: 10,
+    ...typeScale.title,
+    color: color.textPrimary,
+    marginBottom: spacing.sm,
   },
 });

@@ -1,13 +1,10 @@
 import { Stack } from "expo-router";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
+import { AppButton } from "@/components/app-button";
+import { EmptyState } from "@/components/empty-state";
+import { color, spacing, typeScale } from "@/constants/design";
 import { useAuth } from "@/features/auth/auth-provider";
 import { MomentDraftProvider } from "@/features/moments/composer/composer-provider";
 import { NotificationsProvider } from "@/features/notifications/notifications-provider";
@@ -43,30 +40,26 @@ export default function AppLayout() {
   if (onboardingStateQuery.isError) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>We couldn’t load your account</Text>
-        <Text style={styles.errorBody}>
-          Check your connection and try again. If this continues, sign out and
-          sign back in.
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => void onboardingStateQuery.refetch()}
-          style={styles.primaryButton}
-        >
-          <Text style={styles.primaryLabel}>Try again</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => void handleSignOut()}
-          style={styles.secondaryButton}
-        >
-          <Text style={styles.secondaryLabel}>Sign out</Text>
-        </Pressable>
-        {signOutError ? (
-          <Text accessibilityRole="alert" style={styles.signOutError}>
-            {signOutError}
-          </Text>
-        ) : null}
+        <EmptyState
+          body="Check your connection and try again. If this continues, sign out and sign back in."
+          title="We couldn’t load your account"
+        />
+        <View style={styles.errorActions}>
+          <AppButton
+            label="Try again"
+            onPress={() => void onboardingStateQuery.refetch()}
+          />
+          <AppButton
+            label="Sign out"
+            onPress={() => void handleSignOut()}
+            variant="text"
+          />
+          {signOutError ? (
+            <Text accessibilityRole="alert" style={styles.signOutError}>
+              {signOutError}
+            </Text>
+          ) : null}
+        </View>
       </View>
     );
   }
@@ -95,37 +88,25 @@ export default function AppLayout() {
             <Stack.Screen name="restricted" />
           </Stack.Protected>
 
+          {/* No screen re-enables the native header any more — each draws its
+           * own `ScreenHeader`, which is what lets the design open straight
+           * onto content with at most a chevron and one action. The screens
+           * stay declared here because `Stack.Protected` only guards routes
+           * named inside it; an undeclared route is reachable. */}
           <Stack.Protected guard={canEnterTabs}>
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen
-              name="profile/index"
-              options={{ headerShown: true, title: "My Profile" }}
-            />
-            <Stack.Screen
-              name="settings/index"
-              options={{ headerShown: true, title: "Settings" }}
-            />
-            <Stack.Screen
-              name="settings/notifications"
-              options={{ headerShown: true, title: "Notifications" }}
-            />
-            <Stack.Screen
-              name="moments/compose"
-              options={{ headerShown: true, title: "New Moment" }}
-            />
-            <Stack.Screen
-              name="report"
-              options={{ headerShown: true, title: "Report" }}
-            />
+            <Stack.Screen name="profile/index" />
+            {/* The two friend-list routes join the guarded set because they
+             * show the same graph data as the profile they open from. */}
+            <Stack.Screen name="profile/friends" />
+            <Stack.Screen name="profile/[id]/friends" />
+            <Stack.Screen name="settings/index" />
+            <Stack.Screen name="settings/notifications" />
+            <Stack.Screen name="moments/compose" />
+            <Stack.Screen name="report" />
           </Stack.Protected>
-          <Stack.Screen
-            name="support"
-            options={{ headerShown: true, title: "Support" }}
-          />
-          <Stack.Screen
-            name="delete-account"
-            options={{ headerShown: true, title: "Delete Account" }}
-          />
+          <Stack.Screen name="support" />
+          <Stack.Screen name="delete-account" />
         </Stack>
       </NotificationsProvider>
     </MomentDraftProvider>
@@ -135,54 +116,25 @@ export default function AppLayout() {
 const styles = StyleSheet.create({
   centered: {
     alignItems: "center",
+    backgroundColor: color.canvas,
     flex: 1,
     justifyContent: "center",
   },
-  errorBody: {
-    color: "#52606D",
-    fontSize: 16,
-    lineHeight: 24,
-    textAlign: "center",
+  errorActions: {
+    alignItems: "stretch",
+    alignSelf: "stretch",
+    gap: spacing.sm,
+    paddingBottom: spacing.xxl,
+    paddingHorizontal: spacing.xl,
   },
   errorContainer: {
-    alignItems: "center",
-    backgroundColor: "#F5FAFF",
+    backgroundColor: color.canvas,
     flex: 1,
-    gap: 16,
     justifyContent: "center",
-    padding: 24,
-  },
-  errorTitle: {
-    color: "#102A43",
-    fontSize: 24,
-    fontWeight: "800",
-    textAlign: "center",
-  },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: "#208AEF",
-    borderRadius: 14,
-    justifyContent: "center",
-    minHeight: 50,
-    paddingHorizontal: 24,
-  },
-  primaryLabel: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  secondaryButton: {
-    minHeight: 44,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  secondaryLabel: {
-    color: "#52606D",
-    fontSize: 15,
-    fontWeight: "700",
   },
   signOutError: {
-    color: "#B42318",
-    fontSize: 14,
+    ...typeScale.caption,
+    color: color.criticalText,
+    textAlign: "center",
   },
 });

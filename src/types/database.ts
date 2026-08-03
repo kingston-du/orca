@@ -968,6 +968,7 @@ export type Database = {
           access_tier: string
           avatar_path: string
           display_name: string
+          friend_count: number
           id: string
           mutual_friend_count: number
           relationship_state: string

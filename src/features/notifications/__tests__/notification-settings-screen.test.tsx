@@ -26,7 +26,9 @@ async function renderScreen(
     saveError: false,
     ...overrides,
   };
-  const screen = await render(<NotificationSettingsScreen {...props} />);
+  const screen = await render(
+    <NotificationSettingsScreen onBack={jest.fn()} {...props} />,
+  );
   return { ...props, screen };
 }
 

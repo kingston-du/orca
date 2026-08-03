@@ -7,11 +7,18 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppButton } from "@/components/app-button";
+import { Field } from "@/components/field";
+import {
+  MINIMUM_TOUCH_TARGET,
+  color,
+  spacing,
+  typeScale,
+} from "@/constants/design";
 import type { AuthSubmissionResult } from "@/features/auth/auth-actions";
 
 type VerifyEmailScreenProps = {
@@ -138,7 +145,7 @@ export function VerifyEmailScreen({
             Enter the six-digit code sent to {verifiedEmail}.
           </Text>
 
-          <TextInput
+          <Field
             accessibilityLabel="Confirmation code"
             autoComplete="one-time-code"
             autoFocus
@@ -163,22 +170,13 @@ export function VerifyEmailScreen({
             </Text>
           ) : null}
 
-          <Pressable
-            accessibilityRole="button"
+          <AppButton
+            busy={isVerifying}
             disabled={!canVerify}
+            label="Confirm email"
             onPress={() => void handleVerify()}
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && canVerify && styles.primaryButtonPressed,
-              !canVerify && styles.disabled,
-            ]}
-          >
-            {isVerifying ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.primaryLabel}>Confirm email</Text>
-            )}
-          </Pressable>
+            style={styles.confirmButton}
+          />
 
           <Pressable
             accessibilityRole="button"
@@ -187,7 +185,7 @@ export function VerifyEmailScreen({
             style={styles.resendButton}
           >
             {isResending ? (
-              <ActivityIndicator color="#0969C3" />
+              <ActivityIndicator color={color.brand} />
             ) : (
               <Text style={[styles.link, !canResend && styles.disabledLink]}>
                 {cooldownSeconds > 0
@@ -204,93 +202,56 @@ export function VerifyEmailScreen({
 
 const styles = StyleSheet.create({
   brand: {
-    color: "#208AEF",
-    fontSize: 26,
-    fontWeight: "800",
+    ...typeScale.title,
+    color: color.brand,
     letterSpacing: -1,
-    marginBottom: 30,
+    marginBottom: spacing.xxl,
   },
   centeredContent: {
     flex: 1,
     justifyContent: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.xl,
   },
   codeInput: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#C8D3DE",
-    borderRadius: 14,
-    borderWidth: 1,
-    color: "#102A43",
     fontSize: 30,
     fontWeight: "700",
     letterSpacing: 12,
-    marginTop: 28,
-    minHeight: 64,
-    paddingLeft: 24,
-    paddingRight: 12,
+    marginTop: spacing.xxl,
     textAlign: "center",
   },
-  disabled: {
-    opacity: 0.55,
+  confirmButton: {
+    marginTop: spacing.xl,
   },
   disabledLink: {
-    color: "#7B8794",
+    color: color.textMuted,
   },
   error: {
-    color: "#B42318",
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 16,
+    ...typeScale.cardBody,
+    color: color.criticalText,
+    marginTop: spacing.lg,
   },
   keyboardView: {
     flex: 1,
   },
-  link: {
-    color: "#0969C3",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: "#208AEF",
-    borderRadius: 14,
-    justifyContent: "center",
-    marginTop: 20,
-    minHeight: 54,
-  },
-  primaryButtonPressed: {
-    backgroundColor: "#0969C3",
-  },
-  primaryLabel: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-  },
+  link: { ...typeScale.label, color: color.brand },
   resendButton: {
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 48,
+    minHeight: MINIMUM_TOUCH_TARGET,
   },
   safeArea: {
-    backgroundColor: "#F5FAFF",
+    backgroundColor: color.canvas,
     flex: 1,
   },
-  subtitle: {
-    color: "#52606D",
-    fontSize: 17,
-    lineHeight: 25,
-  },
+  subtitle: { ...typeScale.body, color: color.textSecondary },
   success: {
-    color: "#087A4B",
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 16,
+    ...typeScale.cardBody,
+    color: color.textPrimary,
+    marginTop: spacing.lg,
   },
   title: {
-    color: "#102A43",
-    fontSize: 32,
-    fontWeight: "800",
-    letterSpacing: -0.8,
-    marginBottom: 10,
+    ...typeScale.title,
+    color: color.textPrimary,
+    marginBottom: spacing.sm,
   },
 });

@@ -6,25 +6,42 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppButton } from "@/components/app-button";
+import { EmptyState } from "@/components/empty-state";
+import { Icon } from "@/components/icon";
 import { ProfileAvatar } from "@/components/profile-avatar";
+import { ScreenHeader } from "@/components/screen-header";
+import {
+  MINIMUM_TOUCH_TARGET,
+  color,
+  radius,
+  spacing,
+  typeScale,
+} from "@/constants/design";
 import { useAuth } from "@/features/auth/auth-provider";
+import {
+  AddFriendSheet,
+  lookupAction,
+} from "@/features/friends/add-friend-sheet";
 import { markNotificationPromptEarned } from "@/features/notifications/notification-prompt";
 
 import {
   listFriendRequests,
   listFriends,
-  lookupProfileExact,
   runFriendOperation,
   type ProfileLookup,
 } from "./friends-api";
 
 const friendsKey = ["friends"] as const;
 const requestsKey = ["friend-requests"] as const;
+
+/** Three across, as the design draws it. */
+const GRID_COLUMNS = 3;
+const GRID_AVATAR = 82;
 
 type PeopleScreenProps = {
   ownAvatarPath: string | null;
@@ -34,6 +51,18 @@ type PeopleScreenProps = {
   onOpenProfile: (profileId: string) => void;
 };
 
+/**
+ * People: your friends, as faces.
+ *
+ * The screen is the friend list and nothing else. Requests and search — both
+ * previously permanent sections here — live behind the add-friend control in
+ * the header, because the first thing the tab shows should be the people it is
+ * named after rather than a queue of administration.
+ *
+ * The header's leading avatar is the app's only route to My Profile, and
+ * therefore to Settings. That is deliberate: the design gives Home no header at
+ * all, so this is where "you" has to live.
+ */
 export function PeopleScreen({
   onOpenInviteLink,
   onOpenMyProfile,
@@ -43,15 +72,12 @@ export function PeopleScreen({
 }: PeopleScreenProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const [addOpen, setAddOpen] = useState(false);
   const friends = useQuery({ queryKey: friendsKey, queryFn: listFriends });
   const requests = useQuery({
     queryKey: requestsKey,
     queryFn: listFriendRequests,
   });
-  const [username, setUsername] = useState("");
-  const [lookup, setLookup] = useState<ProfileLookup | null>(null);
-  const [lookupMessage, setLookupMessage] = useState<string | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
 
   const command = useMutation({
     mutationFn: async ({
@@ -63,7 +89,6 @@ export function PeopleScreen({
       otherId: string;
       expectedId?: string;
     }) => runFriendOperation(operation, otherId, expectedId),
-    onError: () => setLookupMessage("That changed. Refresh and try again."),
     onSuccess: async (_result, variables) => {
       // One of the two moments that earn the notification pre-prompt. Having a
       // friend is what makes "tell me when they share" a question somebody can
@@ -71,8 +96,6 @@ export function PeopleScreen({
       if (variables.operation === "accept_friend_request" && user?.id) {
         void markNotificationPromptEarned(user.id);
       }
-      setLookup(null);
-      setLookupMessage(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: friendsKey }),
         queryClient.invalidateQueries({ queryKey: requestsKey }),
@@ -80,200 +103,164 @@ export function PeopleScreen({
     },
   });
 
-  async function search() {
-    if (!/^[a-z][a-z0-9_]{2,19}$/.test(username.trim().toLowerCase())) {
-      setLookup(null);
-      setLookupMessage("Enter an exact Orca username.");
-      return;
-    }
-
-    setIsSearching(true);
-    setLookupMessage(null);
-    try {
-      const result = await lookupProfileExact(username);
-      setLookup(result);
-      if (!result)
-        setLookupMessage("No available account matches that username.");
-    } catch {
-      setLookup(null);
-      setLookupMessage("Search is unavailable. Try again.");
-    } finally {
-      setIsSearching(false);
-    }
-  }
+  // Only inbound requests are something for the viewer to answer, so only they
+  // earn a badge. An outbound request is the viewer's own waiting.
+  const incomingCount =
+    requests.data?.filter((request) => request.direction === "incoming")
+      .length ?? 0;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text accessibilityRole="header" style={styles.title}>
-          People
-        </Text>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={onOpenMyProfile}
-          style={styles.profileCard}
-        >
-          <ProfileAvatar
-            avatarPath={ownAvatarPath}
-            displayName={ownDisplayName}
-            size={48}
-          />
-          <View style={styles.flex}>
-            <Text style={styles.cardTitle}>My Profile</Text>
-            <Text style={styles.body}>
-              Identity, Settings, and your account
-            </Text>
-          </View>
-          <Text accessibilityElementsHidden style={styles.chevron}>
-            ›
-          </Text>
-        </Pressable>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Add Friend</Text>
-          <Text style={styles.body}>Search by exact username.</Text>
-          <View style={styles.searchRow}>
-            <TextInput
-              accessibilityLabel="Exact username"
-              autoCapitalize="none"
-              autoCorrect={false}
-              onChangeText={(value) => {
-                setUsername(value.toLowerCase());
-                setLookup(null);
-                setLookupMessage(null);
-              }}
-              placeholder="username"
-              placeholderTextColor="#7B8794"
-              style={styles.input}
-              value={username}
-            />
-            <Pressable
-              accessibilityRole="button"
-              disabled={isSearching}
-              onPress={() => void search()}
-              style={styles.primaryButton}
-            >
-              {isSearching ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.primaryLabel}>Search</Text>
-              )}
-            </Pressable>
-          </View>
+    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      <ScreenHeader
+        leading={
           <Pressable
-            accessibilityHint="Create or share a personal invite link"
+            accessibilityHint="Opens your profile and settings"
+            accessibilityLabel="Your profile"
             accessibilityRole="button"
-            onPress={onOpenInviteLink}
-            style={styles.inviteRow}
+            onPress={onOpenMyProfile}
+            style={({ pressed }) => (pressed ? styles.dim : null)}
+            testID="people-my-profile"
           >
-            <Text style={styles.link}>My Invite Link</Text>
+            <ProfileAvatar
+              avatarPath={ownAvatarPath}
+              displayName={ownDisplayName}
+              size={32}
+            />
           </Pressable>
-          {lookupMessage ? (
-            <Text accessibilityLiveRegion="polite" style={styles.message}>
-              {lookupMessage}
-            </Text>
-          ) : null}
-          {lookup ? (
-            <PersonRow
-              action={lookupAction(lookup.relationship_state)}
-              disabled={command.isPending}
-              displayName={lookup.display_name}
-              onAction={() => {
-                const operation = lookupOperation(lookup.relationship_state);
-                if (operation) {
-                  command.mutate({
-                    operation,
-                    otherId: lookup.id,
-                    expectedId: lookupExpectedId(lookup) ?? undefined,
-                  });
-                }
-              }}
-              username={lookup.username}
-            />
-          ) : null}
-        </View>
+        }
+        title="People"
+        trailing={
+          <Pressable
+            accessibilityHint="Friend requests and search"
+            accessibilityLabel={
+              incomingCount > 0
+                ? `Add friends, ${incomingCount} pending ${incomingCount === 1 ? "request" : "requests"}`
+                : "Add friends"
+            }
+            accessibilityRole="button"
+            hitSlop={spacing.sm}
+            onPress={() => setAddOpen(true)}
+            style={({ pressed }) => [
+              styles.addButton,
+              pressed ? styles.dim : null,
+            ]}
+            testID="people-add-friend"
+          >
+            <Icon name="addFriend" size={24} />
+            {/* The count is also in the button's accessible name above, so the
+             * badge is a second carrier of the same fact rather than the only
+             * one. */}
+            {incomingCount > 0 ? (
+              <View accessibilityElementsHidden style={styles.badge}>
+                <Text style={styles.badgeLabel}>{incomingCount}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        }
+      />
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Requests</Text>
-          {requests.isPending ? <ActivityIndicator /> : null}
-          {requests.isError ? (
-            <Retry onRetry={() => void requests.refetch()} />
-          ) : null}
-          {requests.data?.length === 0 ? (
-            <Text style={styles.body}>No pending requests.</Text>
-          ) : null}
-          {requests.data?.map((request) => (
-            <PersonRow
-              action={request.direction === "incoming" ? "Accept" : "Cancel"}
-              disabled={command.isPending}
-              displayName={request.display_name}
-              key={request.request_id}
-              onAction={() =>
-                command.mutate({
-                  operation:
-                    request.direction === "incoming"
-                      ? "accept_friend_request"
-                      : "cancel_friend_request",
-                  otherId: request.id,
-                  expectedId: request.request_id,
-                })
-              }
-              secondaryAction={
-                request.direction === "incoming" ? "Reject" : undefined
-              }
-              onSecondaryAction={() =>
-                command.mutate({
-                  operation: "reject_friend_request",
-                  otherId: request.id,
-                  expectedId: request.request_id,
-                })
-              }
-              username={request.username}
-            />
-          ))}
+      {friends.isPending ? (
+        <View style={styles.centered}>
+          <ActivityIndicator accessibilityLabel="Loading friends" />
         </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Friends</Text>
-          {friends.isPending ? <ActivityIndicator /> : null}
-          {friends.isError ? (
-            <Retry onRetry={() => void friends.refetch()} />
-          ) : null}
-          {friends.data?.length === 0 ? (
-            <Text style={styles.body}>
-              Add a friend to begin sharing Moments.
-            </Text>
-          ) : null}
-          {friends.data?.map((friend) => (
-            <PersonRow
-              action="Unfriend"
-              avatarPath={friend.avatar_path}
-              disabled={command.isPending}
-              displayName={friend.display_name}
+      ) : friends.isError ? (
+        <EmptyState
+          action={
+            <AppButton
+              label="Try again"
+              onPress={() => void friends.refetch()}
+              variant="secondary"
+            />
+          }
+          body="Your friends could not be loaded right now."
+          title="Something went wrong"
+        />
+      ) : friends.data.length === 0 ? (
+        <EmptyState
+          action={
+            <AppButton
+              label="Add a friend"
+              onPress={() => setAddOpen(true)}
+              variant="secondary"
+            />
+          }
+          body="Add a friend to begin sharing Moments."
+          title="No friends yet"
+        />
+      ) : (
+        <ScrollView contentContainerStyle={styles.grid}>
+          {friends.data.map((friend) => (
+            <Pressable
+              accessibilityHint="Opens this profile"
+              accessibilityLabel={`${friend.display_name}, @${friend.username}`}
+              accessibilityRole="button"
               key={friend.id}
-              onAction={() =>
-                command.mutate({
-                  operation: "unfriend",
-                  otherId: friend.id,
-                  expectedId: friend.generation_id,
-                })
-              }
-              onOpen={() => onOpenProfile(friend.id)}
-              username={friend.username}
-            />
+              onPress={() => onOpenProfile(friend.id)}
+              style={({ pressed }) => [
+                styles.cell,
+                pressed ? styles.dim : null,
+              ]}
+            >
+              <ProfileAvatar
+                avatarPath={friend.avatar_path}
+                displayName={friend.display_name}
+                size={GRID_AVATAR}
+              />
+              <View style={styles.cellText}>
+                <Text numberOfLines={1} style={styles.cellName}>
+                  {friend.display_name}
+                </Text>
+                <Text numberOfLines={1} style={styles.cellHandle}>
+                  @{friend.username}
+                </Text>
+              </View>
+            </Pressable>
           ))}
-        </View>
-      </ScrollView>
+        </ScrollView>
+      )}
+
+      <AddFriendSheet
+        commandPending={command.isPending}
+        onAcceptRequest={(request) =>
+          command.mutate({
+            operation: "accept_friend_request",
+            otherId: request.id,
+            expectedId: request.request_id,
+          })
+        }
+        onCancelRequest={(request) =>
+          command.mutate({
+            operation: "cancel_friend_request",
+            otherId: request.id,
+            expectedId: request.request_id,
+          })
+        }
+        onClose={() => setAddOpen(false)}
+        onLookupAction={(lookup) => {
+          const operation = lookupOperation(lookup.relationship_state);
+          if (!operation || !lookupAction(lookup.relationship_state)) return;
+          command.mutate({
+            operation,
+            otherId: lookup.id,
+            expectedId: lookupExpectedId(lookup),
+          });
+        }}
+        onOpenInviteLink={onOpenInviteLink}
+        onRejectRequest={(request) =>
+          command.mutate({
+            operation: "reject_friend_request",
+            otherId: request.id,
+            expectedId: request.request_id,
+          })
+        }
+        onRetryRequests={() => void requests.refetch()}
+        requests={requests.data}
+        requestsError={requests.isError}
+        requestsPending={requests.isPending}
+        visible={addOpen}
+      />
     </SafeAreaView>
   );
-}
-
-function lookupAction(state: string) {
-  if (state === "none") return "Add";
-  if (state === "incoming") return "Accept";
-  if (state === "outgoing") return "Cancel";
-  return undefined;
 }
 
 function lookupOperation(state: string) {
@@ -288,154 +275,62 @@ function lookupExpectedId(lookup: ProfileLookup) {
     lookup.relationship_state === "incoming" ||
     lookup.relationship_state === "outgoing"
   ) {
-    return lookup.request_id;
+    return lookup.request_id ?? undefined;
   }
-  if (lookup.relationship_state === "accepted") return lookup.generation_id;
+  if (lookup.relationship_state === "accepted") {
+    return lookup.generation_id ?? undefined;
+  }
   return undefined;
 }
 
-function PersonRow({
-  action,
-  avatarPath,
-  disabled,
-  displayName,
-  onAction,
-  onOpen,
-  onSecondaryAction,
-  secondaryAction,
-  username,
-}: {
-  action?: string;
-  avatarPath?: string | null;
-  disabled: boolean;
-  displayName: string;
-  onAction: () => void;
-  onOpen?: () => void;
-  onSecondaryAction?: () => void;
-  secondaryAction?: string;
-  username: string;
-}) {
-  // Only rows that lead somewhere become a button; a lookup result or pending
-  // request row stays plain so VoiceOver does not announce a dead control.
-  const Identity = onOpen ? Pressable : View;
-
-  return (
-    <View style={styles.personRow}>
-      {avatarPath === undefined ? null : (
-        <ProfileAvatar
-          avatarPath={avatarPath}
-          displayName={displayName}
-          size={40}
-        />
-      )}
-      <Identity
-        accessibilityHint={onOpen ? "Opens this profile" : undefined}
-        accessibilityRole={onOpen ? "button" : undefined}
-        onPress={onOpen}
-        style={styles.flex}
-      >
-        <Text style={styles.cardTitle}>{displayName}</Text>
-        <Text style={styles.body}>@{username}</Text>
-      </Identity>
-      {secondaryAction ? (
-        <Pressable
-          accessibilityRole="button"
-          disabled={disabled}
-          onPress={onSecondaryAction}
-          style={styles.textButton}
-        >
-          <Text style={styles.textButtonLabel}>{secondaryAction}</Text>
-        </Pressable>
-      ) : null}
-      {action ? (
-        <Pressable
-          accessibilityRole="button"
-          disabled={disabled}
-          onPress={onAction}
-          style={styles.smallButton}
-        >
-          <Text style={styles.smallButtonLabel}>{action}</Text>
-        </Pressable>
-      ) : null}
-    </View>
-  );
-}
-
-function Retry({ onRetry }: { onRetry: () => void }) {
-  return (
-    <View style={styles.retryRow}>
-      <Text style={styles.message}>Couldn’t load this section.</Text>
-      <Pressable accessibilityRole="button" onPress={onRetry}>
-        <Text style={styles.link}>Try again</Text>
-      </Pressable>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  body: { color: "#52606D", fontSize: 14, lineHeight: 20 },
-  cardTitle: { color: "#102A43", fontSize: 16, fontWeight: "800" },
-  chevron: { color: "#52606D", fontSize: 32 },
-  content: { gap: 24, padding: 20, paddingBottom: 48 },
-  flex: { flex: 1, gap: 2 },
-  inviteRow: { justifyContent: "center", minHeight: 44 },
-  input: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#BCCCDC",
-    borderRadius: 12,
-    borderWidth: 1,
-    color: "#102A43",
-    flex: 1,
-    fontSize: 16,
-    minHeight: 48,
-    paddingHorizontal: 14,
-  },
-  link: { color: "#1769AA", fontWeight: "800" },
-  message: { color: "#52606D", fontSize: 14 },
-  personRow: {
+  addButton: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    flexDirection: "row",
-    gap: 8,
-    minHeight: 64,
-    padding: 12,
-  },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: "#208AEF",
-    borderRadius: 12,
+    height: MINIMUM_TOUCH_TARGET,
     justifyContent: "center",
-    minHeight: 48,
-    minWidth: 84,
-    paddingHorizontal: 16,
+    marginRight: -spacing.md,
+    width: MINIMUM_TOUCH_TARGET,
   },
-  primaryLabel: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
-  profileCard: {
+  badge: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    flexDirection: "row",
-    gap: 14,
-    minHeight: 76,
-    padding: 14,
-  },
-  retryRow: { alignItems: "center", flexDirection: "row", gap: 12 },
-  safeArea: { backgroundColor: "#F5FAFF", flex: 1 },
-  searchRow: { flexDirection: "row", gap: 10 },
-  section: { gap: 12 },
-  sectionTitle: { color: "#102A43", fontSize: 20, fontWeight: "800" },
-  smallButton: {
-    alignItems: "center",
-    backgroundColor: "#208AEF",
-    borderRadius: 10,
+    backgroundColor: color.brand,
+    borderRadius: radius.pill,
+    height: 18,
     justifyContent: "center",
-    minHeight: 44,
-    minWidth: 68,
-    paddingHorizontal: 12,
+    minWidth: 18,
+    paddingHorizontal: 4,
+    position: "absolute",
+    right: 2,
+    top: 4,
   },
-  smallButtonLabel: { color: "#FFFFFF", fontWeight: "800" },
-  textButton: { justifyContent: "center", minHeight: 44, paddingHorizontal: 8 },
-  textButtonLabel: { color: "#52606D", fontWeight: "700" },
-  title: { color: "#102A43", fontSize: 34, fontWeight: "900" },
+  badgeLabel: {
+    ...typeScale.tabLabel,
+    color: color.textInverse,
+  },
+  cell: {
+    alignItems: "center",
+    gap: spacing.sm,
+    width: `${100 / GRID_COLUMNS}%`,
+  },
+  cellHandle: {
+    ...typeScale.caption,
+    color: color.textSecondary,
+    textAlign: "center",
+  },
+  cellName: {
+    ...typeScale.personName,
+    color: color.textPrimary,
+    textAlign: "center",
+  },
+  cellText: { alignItems: "center", gap: 2 },
+  centered: { alignItems: "center", flex: 1, justifyContent: "center" },
+  dim: { opacity: 0.6 },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    rowGap: spacing.xxl,
+  },
+  safeArea: { backgroundColor: color.canvas, flex: 1 },
 });
