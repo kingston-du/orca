@@ -520,7 +520,7 @@ select throws_ok(
   $$ select public.edit_moment_caption(
        'aaaaaaaa-0000-4000-8000-000000000001', 'Stale write',
        '2020-01-01T00:00:00Z'::timestamptz) $$,
-  '40001', null,
+  '55000', null,
   'a device that never saw the current version cannot overwrite it'
 );
 

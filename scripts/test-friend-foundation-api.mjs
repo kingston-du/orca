@@ -136,6 +136,18 @@ try {
   assert.ifError(requests.error);
   assert.equal(requests.data[0].direction, "incoming");
 
+  // A stale screen can carry an obsolete request ID. This is a deterministic
+  // optimistic-concurrency conflict, not a transaction serialization failure:
+  // class-40 errors make PostgREST retry until its gateway answers 504.
+  const staleAccept = await bob.client.rpc("accept_friend_request", {
+    p_command_id: randomUUID(),
+    p_other_id: alice.id,
+    p_request_id: randomUUID(),
+  });
+  assert.equal(staleAccept.status, 500);
+  assert.equal(staleAccept.error?.code, "55000");
+  assert.equal(staleAccept.error?.message, "Request changed");
+
   const accepted = await bob.client.rpc("accept_friend_request", {
     p_command_id: randomUUID(),
     p_other_id: alice.id,

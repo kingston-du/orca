@@ -411,7 +411,7 @@ select throws_ok(
          %L, 'orca-jpeg-1') $$,
     (select id from t_expired), (select object_path from t_expired), repeat('f', 64)
   ),
-  '40001', 'Reservation changed',
+  '55000', 'Reservation changed',
   'an expired reservation cannot publish'
 );
 

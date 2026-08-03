@@ -2,7 +2,7 @@ begin;
 set local search_path = public, extensions;
 set local role postgres;
 create extension if not exists pgtap with schema extensions;
-select plan(41);
+select plan(42);
 
 select has_table('public', 'friendships', 'friendships exist');
 select has_table('public', 'blocks', 'blocks exist');
@@ -14,6 +14,16 @@ select policies_are('public', 'blocks', array['blocks_select_blocker']::name[], 
 select ok(not has_table_privilege('authenticated', 'public.friendships', 'insert,update,delete'), 'clients cannot mutate friendship rows directly');
 select ok(not has_schema_privilege('authenticated', 'private', 'usage'), 'clients cannot resolve command receipts or rate limits');
 select ok(has_function_privilege('authenticated', 'public.send_friend_request(uuid,uuid)', 'execute') and not has_function_privilege('anon', 'public.send_friend_request(uuid,uuid)', 'execute'), 'friend commands are authenticated-only');
+select ok(
+  not exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname in ('public', 'private')
+      and p.prosrc like '%40001%'
+  ),
+  'API-path functions never raise a class-40 conflict that PostgREST retries'
+);
 
 insert into auth.users (id, email, email_confirmed_at, created_at, updated_at)
 values
@@ -64,7 +74,7 @@ select results_eq($$ select relationship_state from public.lookup_profile_exact(
 
 select throws_ok(
   $$ select * from public.unfriend('11111111-1111-4111-8111-111111111111', '99999999-9999-4999-8999-999999999999', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc') $$,
-  '40001', 'Friendship changed', 'stale generation cannot unfriend a replacement'
+  '55000', 'Friendship changed', 'stale generation cannot unfriend a replacement'
 );
 
 select lives_ok(
@@ -91,7 +101,7 @@ select throws_ok($$ select * from public.send_friend_request('11111111-1111-4111
 select is((select count(*) from public.blocks), 0::bigint, 'blocked party cannot read the blocker row');
 
 set local "request.jwt.claim.sub" = '11111111-1111-4111-8111-111111111111';
-select throws_ok($$ select * from public.unblock_user('22222222-2222-4222-8222-222222222222', '30303030-3030-4030-8030-303030303030', '40404040-4040-4040-8040-404040404040') $$, '40001', 'Block changed', 'stale unblock cannot remove a newer block');
+select throws_ok($$ select * from public.unblock_user('22222222-2222-4222-8222-222222222222', '30303030-3030-4030-8030-303030303030', '40404040-4040-4040-8040-404040404040') $$, '55000', 'Block changed', 'stale unblock cannot remove a newer block');
 select lives_ok($$ select * from public.unblock_user('22222222-2222-4222-8222-222222222222', (select generation_id from public.blocks where blocker_id = '11111111-1111-4111-8111-111111111111'), '50505050-5050-4050-8050-505050505050') $$, 'observed block generation can unblock');
 select is((select count(*) from public.friendships), 0::bigint, 'unblock never recreates friendship');
 

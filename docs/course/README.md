@@ -25,6 +25,7 @@ Only the retained foundations below are current course material. Obsolete and su
 - Lesson 24 — [Frozen sessions, seen state, and the history surfaces](./24-frozen-sessions-and-the-history-surfaces.md)
 - Lesson 25 — [Transactional idempotency, a quota you cannot refund, and counts that keep a secret](./25-transactional-idempotency-and-quota.md)
 - Lesson 26 — [Privacy-preserving moderation: a saga, an operator, and a clock](./26-privacy-preserving-moderation.md)
+- Lesson 27 — [SQLSTATE is an API contract](./27-sqlstate-is-an-api-contract.md)
 
 Lesson 23's claim that the viewer's own Moments fail the Recent read rule described Checkpoint 5A only. Checkpoint 5B made own Recent Moments visible on Home by founder direction; Lesson 24 Part 3 explains what changed and why the old behaviour was an accident of the join rather than a decision. Lessons 23 and 24 also state that no reaction control, count, or people list exists anywhere; that described Phases 5A and 5B only. Phase 6 adds all three, and Lesson 25 covers them.
 
@@ -32,7 +33,7 @@ Lesson 11's native camera lifecycle and normalization boundary remain useful, bu
 
 ## Next lesson
 
-Lesson 27 is created only after Phase 8's notification surfaces are implemented and verified. Course notes never describe speculative code as though it exists.
+Lesson 28 is created only after Phase 8's notification surfaces are implemented and verified. Course notes never describe speculative code as though it exists.
 
 ## Course progression and checkpoint contract
 

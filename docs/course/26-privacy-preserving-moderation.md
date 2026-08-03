@@ -274,10 +274,11 @@ Verified directly against the local stack:
 | `55000`  | 500 `{"code":"55000","message":"Case changed"}` |
 
 Phase 7 uses `55000` (`object_not_in_prerequisite_state`) and says why in a
-comment. The older commands still raise `40001`; that is recorded as a defect to
-fix on its own, not quietly patched here. **The general lesson: an error code is
-part of your API. Something between your function and your caller may have an
-opinion about it.**
+comment. The older commands still raised `40001` at this checkpoint; corrective
+migration `20260805180000_postgrest_conflict_sqlstates.sql` fixes them without
+rewriting promoted history, as [Lesson 27](./27-sqlstate-is-an-api-contract.md)
+explains. **The general lesson: an error code is part of your API. Something
+between your function and your caller may have an opinion about it.**
 
 ## 6. Suspension: two halves, in the right order
 
