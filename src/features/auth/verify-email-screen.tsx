@@ -216,6 +216,7 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: "700",
     letterSpacing: 12,
+    lineHeight: 38,
     marginTop: spacing.xxl,
     textAlign: "center",
   },

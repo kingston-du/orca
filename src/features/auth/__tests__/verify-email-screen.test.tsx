@@ -43,6 +43,21 @@ describe("VerifyEmailScreen", () => {
     });
   });
 
+  test("keeps the enlarged code glyphs inside their line box", async () => {
+    const screen = await render(
+      <VerifyEmailScreen
+        email="friend@example.com"
+        onResend={jest.fn()}
+        onVerify={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Confirmation code")).toHaveStyle({
+      fontSize: 30,
+      lineHeight: 38,
+    });
+  });
+
   test("starts with a 60-second resend cooldown", async () => {
     const screen = await render(
       <VerifyEmailScreen
