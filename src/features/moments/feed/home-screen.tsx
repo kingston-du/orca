@@ -239,19 +239,47 @@ export function HomeScreen({
   const cards = showingRecent ? recentDeckCards : highlightCards;
 
   /**
-   * True once the showing source holds a page for the session it is currently
-   * on. A brand-new session has none, and publishing a Moment starts one — so
+   * True once the showing source has an answer *of its own* for the session it
+   * is currently on.
+   *
+   * A brand-new session has none, and publishing a Moment starts one — so
    * without this the deck would briefly be handed an array holding nothing but
    * the card being shared, collapse to that single card, and refill a moment
    * later. That flicker was visible on every successful share.
+   *
+   * Success, not merely "no longer pending". A session that *failed* is also no
+   * longer pending, and since an error carries no rows it would hand the deck
+   * an empty array and take away the cards the viewer was reading — over a
+   * dropped connection. Nothing leaves this deck except on the authority of a
+   * page the server actually returned.
    */
-  const sourceReady = showingRecent ? !feed.isPending : !highlights.isPending;
+  const sourceReady = showingRecent ? feed.isSuccess : highlights.isSuccess;
+
+  /**
+   * True while a finger is on the deck or the deck is still coasting.
+   *
+   * A page is never applied during either. Growing `deck.moments` re-flattens
+   * the loop the deck lays out, which moves every offset past the first copy —
+   * so a page landing mid-swipe changed which photograph sat under the thumb
+   * and then snapped somewhere else to correct itself. The prefetch margin is
+   * two cards, so this was not a rare race: it was what happened every time
+   * somebody swiped briskly through twenty Moments.
+   *
+   * Deferring costs nothing. The page is already in the query cache, `cards`
+   * still holds the newest value, and this effect re-runs the instant the deck
+   * comes to rest.
+   */
+  const [deckBusy, setDeckBusy] = useState(false);
 
   useEffect(() => {
-    if (!sourceReady || cards.length === 0) return;
+    if (!sourceReady || deckBusy) return;
     markDeckStage("page_rendered");
+    // An empty page is dispatched like any other. It is how the deck learns
+    // that the last Moment it was showing is gone — deleted, blocked, or
+    // unfriended — and skipping it left a revoked card on screen for the life
+    // of the process.
     dispatch({ type: "page_loaded", moments: cards });
-  }, [cards, sourceReady]);
+  }, [cards, deckBusy, sourceReady]);
 
   // Seen is recorded in both modes. A Highlight the viewer dwelled on is a
   // Moment they have genuinely seen, and the server re-derives eligibility per
@@ -338,30 +366,43 @@ export function HomeScreen({
   }, [hasSession, revalidate, sharing, startNewSession, watching]);
 
   const { takeNewSnapshot } = highlights;
+  /**
+   * The guard is read from `mode` rather than from inside a `setMode` updater.
+   *
+   * An updater must be pure. Resetting the deck and taking a snapshot from
+   * inside one meant both ran during the render phase, and React invokes an
+   * updater twice under StrictMode — so every switch into Week bumped the
+   * snapshot counter by two and fetched the ranked page twice.
+   */
   const switchTo = useCallback(
     (next: HomeMode) => {
-      setMode((current) => {
-        if (current === next) return current;
-        dispatch({ type: "reset" });
-        // Entering Highlights is what freezes a snapshot. Leaving and coming
-        // back deliberately re-ranks; staying put deliberately does not.
-        if (next === "highlights") takeNewSnapshot();
-        return next;
-      });
+      if (mode === next) return;
+      dispatch({ type: "reset" });
+      // Entering Highlights is what freezes a snapshot. Leaving and coming
+      // back deliberately re-ranks; staying put deliberately does not.
+      if (next === "highlights") takeNewSnapshot();
+      setMode(next);
     },
-    [takeNewSnapshot],
+    [mode, takeNewSnapshot],
   );
 
   /**
    * Opening a Moment earns its marker back immediately, before the screen has
    * even pushed. Nothing about that has to wait for the server.
+   *
+   * It closes over `clear` rather than the marks object, which is rebuilt on
+   * every swipe. Depending on the object made this callback — and therefore the
+   * deck's `renderItem`, and therefore every mounted card's props — change on
+   * every swipe, which is precisely what the deck's memoization exists to
+   * prevent.
    */
+  const { clear: clearUnseenMark } = unseenMarks;
   const openMoment = useCallback(
     (id: string) => {
-      unseenMarks.clear(id);
+      clearUnseenMark(id);
       onOpenMoment(id);
     },
-    [onOpenMoment, unseenMarks],
+    [clearUnseenMark, onOpenMoment],
   );
 
   /**
@@ -472,6 +513,7 @@ export function HomeScreen({
 
       <RecentDeck
         dispatch={dispatch}
+        onInteractingChange={setDeckBusy}
         onOpenMoment={openMoment}
         onOpenReactions={onOpenReactions}
         onReachNewer={showingRecent ? feed.fetchNewer : noop}

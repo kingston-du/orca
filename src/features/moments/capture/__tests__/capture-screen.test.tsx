@@ -140,14 +140,38 @@ describe("CaptureScreen", () => {
       .mockImplementation(() => undefined);
   });
 
-  test("mounts the camera only when focused, foregrounded, and permitted", async () => {
+  test("pauses the camera when it loses focus rather than tearing it down", async () => {
+    const screen = await render(<CaptureScreen />);
+    await act(() => mockAppStateListener?.("active"));
+    await act(() => screen.getByTestId("camera-preview").props.onCameraReady());
+
+    expect(screen.getByTestId("camera-preview").props.active).toBe(true);
+    expect(screen.getByRole("button", { name: "Take photo" })).toBeEnabled();
+
+    // Leaving the tab used to unmount the view, which destroyed the capture
+    // session and rebuilt it from nothing on the way back — a black frame and
+    // a dead shutter on every return. The view survives; only the session
+    // stops, so nothing is captured and nothing renders while it is away.
+    mockIsFocused = false;
+    await act(() => screen.rerender(<CaptureScreen />));
+
+    expect(screen.getByTestId("camera-preview")).toBeOnTheScreen();
+    expect(screen.getByTestId("camera-preview").props.active).toBe(false);
+    expect(screen.getByRole("button", { name: "Take photo" })).toBeDisabled();
+
+    // Coming back resumes it without a fresh readiness handshake.
+    mockIsFocused = true;
+    await act(() => screen.rerender(<CaptureScreen />));
+
+    expect(screen.getByTestId("camera-preview").props.active).toBe(true);
+    expect(screen.getByRole("button", { name: "Take photo" })).toBeEnabled();
+  });
+
+  test("does not mount the camera at all without permission", async () => {
+    mockPermission = { granted: false, canAskAgain: true };
     const screen = await render(<CaptureScreen />);
     await act(() => mockAppStateListener?.("active"));
 
-    expect(screen.getByTestId("camera-preview")).toBeOnTheScreen();
-
-    mockIsFocused = false;
-    await act(() => screen.rerender(<CaptureScreen />));
     expect(screen.queryByTestId("camera-preview")).not.toBeOnTheScreen();
   });
 

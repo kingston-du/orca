@@ -1,5 +1,5 @@
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -206,8 +206,20 @@ function ReactionControl({
   const reducedMotion = useReducedMotion();
   const scale = useSharedValue(1);
 
+  /**
+   * The pop belongs to the *act* of reacting, not to the state of having
+   * reacted.
+   *
+   * Without this the effect fired on mount whenever the control arrived already
+   * selected — so swiping back to a Moment you hearted an hour ago made the
+   * heart jump as though somebody had just tapped it. On a deck that mounts and
+   * unmounts cards as you move, that was a phantom tap every few swipes.
+   */
+  const wasSelected = useRef(selected);
   useEffect(() => {
-    if (!selected || reducedMotion) return;
+    const justSelected = selected && !wasSelected.current;
+    wasSelected.current = selected;
+    if (!justSelected || reducedMotion) return;
     scale.value = withSequence(
       withSpring(1.18, { damping: 8, stiffness: 320 }),
       withSpring(1, { damping: 12, stiffness: 260 }),

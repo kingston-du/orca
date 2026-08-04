@@ -1,11 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
+import { StyleSheet, Text, View } from "react-native";
 
 import { color } from "@/constants/design";
 import { createAvatarSignedUrl } from "@/features/profiles/avatar-api";
 
-/** Signed URLs last five minutes; refetching a minute early means a rendered
- * image never depends on a token that is about to expire. */
+/**
+ * How long a signed avatar URL is served from cache before the next mount
+ * re-signs it.
+ *
+ * A minute inside the five-minute TTL, so an avatar that is about to be drawn
+ * never depends on a token about to expire. It is deliberately not a
+ * `refetchInterval`: rotating the URL under an avatar that is already on screen
+ * changes the image loader's cache key and re-downloads a picture that has not
+ * changed, which on a friend list is fifty needless requests a minute.
+ */
 const SIGNED_URL_REFRESH_MS = 4 * 60 * 1000;
 
 type ProfileAvatarProps = {
@@ -31,7 +40,6 @@ export function ProfileAvatar({
     // deliberately never part of a cache key.
     queryKey: ["avatar-url", avatarPath],
     queryFn: () => createAvatarSignedUrl(avatarPath as string),
-    refetchInterval: SIGNED_URL_REFRESH_MS,
     staleTime: SIGNED_URL_REFRESH_MS,
   });
 
@@ -46,6 +54,16 @@ export function ProfileAvatar({
       <Image
         accessibilityIgnoresInvertColors
         accessibilityLabel={`${displayName}'s profile photo`}
+        allowDownscaling
+        // A profile photo is somebody's likeness reached through a signed URL,
+        // so it is held in memory for as long as it is on screen and written
+        // nowhere.
+        cachePolicy="memory"
+        contentFit="cover"
+        // The path, not the signed URL: the same face keeps the same decoded
+        // bitmap when its token is renewed, and a recycled row never shows the
+        // previous person for a frame.
+        recyclingKey={avatarPath ?? undefined}
         source={{ uri: signed.data }}
         style={[styles.image, shape]}
       />

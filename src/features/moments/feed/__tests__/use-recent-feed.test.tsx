@@ -94,6 +94,51 @@ describe("the session envelope", () => {
     });
   });
 
+  it("never lets a later page's own clock become the session", async () => {
+    let listed = 0;
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === "count_new_recent_moments") return { data: 0, error: null };
+      listed += 1;
+      // `list_recent_moments` returns `statement_timestamp()` in
+      // `session_started_at` rather than the boundary it was handed, so every
+      // page genuinely carries its own "now". This reproduces that.
+      return {
+        data: fullPage(0).map((row) => ({
+          ...row,
+          session_started_at:
+            listed === 1
+              ? "2026-08-01T12:00:00.000Z"
+              : `2026-08-01T12:0${listed}:00.000Z`,
+        })),
+        error: null,
+      };
+    });
+
+    const { result } = await renderHook(() => useRecentFeed("viewer"), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.moments).toHaveLength(20));
+
+    // Six pages against a five-page retention cap, so the page the envelope was
+    // read from is evicted and some *later* page becomes the head. That is the
+    // ordinary consequence of swiping deep, not an edge case.
+    for (let page = 0; page < 5; page += 1) {
+      await act(async () => result.current.fetchOlder());
+      await waitFor(() => expect(listCalls().length).toBe(page + 2));
+    }
+
+    await act(async () => result.current.fetchOlder());
+    await waitFor(() => expect(listCalls().length).toBe(7));
+
+    // The boundary the unseen/seen partition is frozen at. Let it drift forward
+    // and the server re-partitions, cards cross between the two halves, and the
+    // deck reorders under somebody who did nothing but keep swiping.
+    expect(listCalls().at(-1)?.[1]).toMatchObject({
+      p_session_started_at: "2026-08-01T12:00:00.000Z",
+      p_anchor_at: "2026-08-01T11:00:00.000Z",
+    });
+  });
+
   it("pages by the tuple the server orders by, not by an offset", async () => {
     mockRpc.mockImplementation(async (name: string) => {
       if (name === "count_new_recent_moments") return { data: 0, error: null };

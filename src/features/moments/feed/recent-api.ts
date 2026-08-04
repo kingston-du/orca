@@ -99,15 +99,34 @@ export async function listRecentMoments(input: {
   const first = moments[0];
 
   return {
-    // An empty page opens no session: there was nothing authorized to anchor
-    // to, so the next call recomputes rather than freezing an empty window.
+    /**
+     * A session is opened **once** and echoed unchanged thereafter.
+     *
+     * The envelope was previously rebuilt from every page's own row, which
+     * quietly let `sessionStartedAt` drift forward. `list_recent_moments`
+     * returns `statement_timestamp()` in that column rather than the
+     * `p_session_started_at` it was handed, so each page carries its own "now".
+     * That is invisible while page zero is the page the envelope is read from —
+     * and page zero is not stable: fetching *newer* prepends a page, and the
+     * five-page retention cap evicts the original one when the viewer swipes
+     * deep. Either way the envelope's start instant jumped forward, the server
+     * recomputed `seen_at_session_start` against the later boundary, and cards
+     * moved between the unseen and seen partitions — which is to say the deck
+     * reordered underneath somebody who had not asked for anything.
+     *
+     * Echoing the caller's session makes the drift unreachable: the only page
+     * that may *open* a session is the one that was not given one. An empty
+     * page opens nothing, because there was nothing authorized to anchor to and
+     * freezing an empty window would strand the viewer in it.
+     */
     session:
-      first && first.anchor_at
+      input.session ??
+      (first && first.anchor_at
         ? {
             sessionStartedAt: first.session_started_at,
             anchorAt: first.anchor_at,
           }
-        : (input.session ?? null),
+        : null),
     moments,
   };
 }

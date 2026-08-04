@@ -58,6 +58,8 @@ export function useHighlights(userId: string | undefined, enabled: boolean) {
     moments: highlights.data?.moments ?? NO_HIGHLIGHTS,
     isPending: highlights.isPending,
     isError: highlights.isError,
+    /** This snapshot has an answer of its own. See the note in `useRecentFeed`. */
+    isSuccess: highlights.isSuccess,
     refetch: highlights.refetch,
     takeNewSnapshot,
   };

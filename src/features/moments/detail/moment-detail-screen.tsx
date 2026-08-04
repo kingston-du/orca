@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
+import { Image } from "expo-image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -457,7 +457,12 @@ function DetailPhoto({
           accessibilityIgnoresInvertColors
           accessibilityLabel={`Moment photo by ${authorDisplayName}`}
           accessibilityRole="image"
-          resizeMode="contain"
+          // Private bytes: held in memory while the screen is open, written
+          // nowhere. The deck has usually decoded this exact photo already, so
+          // arriving here is normally instant.
+          cachePolicy="memory"
+          contentFit="contain"
+          recyclingKey={objectPath}
           source={{ uri: signed.data }}
           style={styles.photo}
           testID="detail-photo"

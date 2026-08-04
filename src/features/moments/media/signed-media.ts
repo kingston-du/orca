@@ -132,7 +132,23 @@ export function useMomentMediaUrl(
     enabled,
     queryKey: momentMediaKey(userId, objectPath),
     queryFn: () => signMomentMedia(objectPath),
-    refetchInterval: SIGNED_URL_REFRESH_MS,
+    /**
+     * Freshness without a timer.
+     *
+     * There used to be a `refetchInterval` here, on the reasoning that renewing
+     * the signature is also how the app learns that access has gone away. The
+     * cost of that was not visible in this file: a rotated URL is a *different*
+     * URL, and the image loader keys its cache on the whole string — so every
+     * four minutes each photo on screen was re-downloaded and re-decoded in
+     * full, for a token the already-decoded image had no further use for.
+     *
+     * `staleTime` keeps the guarantee that matters. A card mounting after the
+     * window has passed re-signs, and so does a return to the foreground, which
+     * is a real authorization re-check at a boundary the viewer can feel. What
+     * is gone is only the re-check against a photograph nobody asked to reload.
+     * Revocation still reaches the deck the way it always did — through
+     * `revalidate`, where the Moment is simply absent from the next page.
+     */
     staleTime: SIGNED_URL_REFRESH_MS,
     // Collected shortly after the last card holding it unmounts, which is what
     // keeps a long session's URL set bounded by what is on screen.

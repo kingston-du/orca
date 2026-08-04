@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { ProfileAvatar } from "@/components/profile-avatar";
@@ -83,19 +84,37 @@ type MomentCardProps = {
    * device: the photo comes from the local file rather than a signed URL, and
    * there is nothing to react to yet. */
   localPhotoUri?: string | null;
+  /**
+   * The instant elapsed capture times are measured against.
+   *
+   * Deliberately **not** defaulted here. A `new Date()` default would be a new
+   * object on every render, which is a prop that always differs — and this
+   * component is memoized precisely so that a swipe re-renders the one card
+   * whose unseen dot changed. `MomentCaptureTime` defaults it instead, where
+   * nothing downstream compares it.
+   */
   now?: Date;
   onOpenReactions: (momentId: string) => void;
   /** Marked as not yet looked at. See `MomentAuthor`. */
   unseen?: boolean;
 };
 
-export function MomentCard({
+/**
+ * Memoized on its props.
+ *
+ * The deck resolves `unseen` to a boolean and stabilizes every callback so that
+ * this comparison actually holds: a swipe changes one card's props, not twenty.
+ * Everything a card renders — an avatar query, two reaction hooks, two
+ * accessibility-setting listeners, two capture-time formats — is work this
+ * memo is what avoids repeating.
+ */
+export const MomentCard = memo(function MomentCard({
   moment,
   availableWidth,
   canReact,
   localPhotoUri = null,
   mediaEnabled,
-  now = new Date(),
+  now,
   onOpenReactions,
   unseen = false,
 }: MomentCardProps) {
@@ -150,7 +169,7 @@ export function MomentCard({
       </View>
     </View>
   );
-}
+});
 
 /**
  * What a Moment's author is called on the viewer's own screen.
@@ -241,11 +260,13 @@ export function MomentAuthor({
 
 export function MomentCaptureTime({
   moment,
-  now,
+  now = new Date(),
   onScrim = false,
 }: {
   moment: Pick<RecentMoment, "captured_at" | "captured_utc_offset_minutes">;
-  now: Date;
+  /** Defaults to the current instant. Owned here rather than by the card, whose
+   * props are compared. */
+  now?: Date;
   /** Drawn over the photo, so it needs the inverse text roles. */
   onScrim?: boolean;
 }) {

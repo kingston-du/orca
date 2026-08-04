@@ -1,5 +1,5 @@
 import * as Crypto from "expo-crypto";
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 
 import { classifyCapture } from "@/features/moments/capture/capture-evidence";
 import {
@@ -20,6 +20,7 @@ import {
   reviewMessage,
   type PublishState,
 } from "@/features/moments/publish/publish-machine";
+import { hapticPublished } from "@/lib/haptics";
 
 /**
  * Binds the pure publish machine to the network and to the draft it publishes.
@@ -67,6 +68,13 @@ export function usePublishController({
       dispatch({ type: "outcome_resolved", outcome });
 
       if (outcome.kind === "published") {
+        // The one confirmation the design allows itself. Section 9 deliberately
+        // has no "Shared!" banner — the Moment is on the screen underneath,
+        // which is a better receipt than a sentence claiming it is — but the
+        // author still deserves to be *told* the instant the server takes it,
+        // and a tap says so without occupying any of the screen. It has always
+        // been the documented purpose of this helper; nothing had called it.
+        hapticPublished();
         // The bytes are the server's now, so the recoverable local copy has
         // done its job and is removed rather than left to be republished.
         discardDraft();
@@ -234,5 +242,15 @@ export function usePublishController({
 
   const dismiss = useCallback(() => dispatch({ type: "reset" }), []);
 
-  return { state, publish, cancel, checkStatus, dismiss };
+  /**
+   * Memoized because the draft provider hands this straight into a context
+   * value. A fresh object literal here made that value change on *every* render
+   * of the provider — a friend list arriving, a draft manifest write coming
+   * back, an unrelated parent re-render — and every consumer of `useMomentDraft`
+   * re-rendered with it, including the route that owns Home.
+   */
+  return useMemo(
+    () => ({ state, publish, cancel, checkStatus, dismiss }),
+    [cancel, checkStatus, dismiss, publish, state],
+  );
 }

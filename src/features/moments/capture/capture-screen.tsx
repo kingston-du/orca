@@ -96,6 +96,16 @@ export function CaptureScreen() {
     null,
   );
   const [continuedDraftId, setContinuedDraftId] = useState<string | null>(null);
+  /**
+   * The frame that was just taken, held on screen while it is prepared.
+   *
+   * Between the shutter and the composer sits a full decode, a resize, a JPEG
+   * re-encode, and a file read — long enough on a large photo to read as the
+   * app having missed the tap. A camera answers a shutter by freezing the
+   * frame, so this does too: the still appears the instant `takePictureAsync`
+   * returns, and normalization happens behind it.
+   */
+  const [capturedPreview, setCapturedPreview] = useState<string | null>(null);
 
   const draft = state.draft;
   // The only thing that still takes over this screen: a draft that survived a
@@ -105,13 +115,25 @@ export function CaptureScreen() {
     state.draftOrigin === "restored" &&
     continuedDraftId !== draft.draftId;
 
-  const cameraIsMounted =
-    isFocused &&
-    appState === "active" &&
+  /**
+   * Mounting and running are now two different questions.
+   *
+   * The view used to be unmounted whenever the tab lost focus, which tore the
+   * capture session down and rebuilt it from nothing on every return — a second
+   * of black frame and a dead shutter, every single time. `active` pauses the
+   * session instead: no frames, no battery, nothing in the app-switcher card,
+   * but the view survives and resumes in a frame rather than a second.
+   *
+   * The session is still genuinely destroyed for the things that should destroy
+   * it — a revoked permission, a mount error, the restart-recovery preview.
+   */
+  const cameraAvailable =
     permission?.granted === true &&
     !showPreview &&
     !isRestoring &&
     !cameraUnavailable;
+  const cameraActive = cameraAvailable && isFocused && appState === "active";
+
   /**
    * What "ready" was granted for.
    *
@@ -119,10 +141,24 @@ export function CaptureScreen() {
    * capture session starts, and swapping the lens does not restart it — so
    * clearing readiness on a flip disabled the shutter until something else
    * remounted the view, which in practice meant leaving the tab and coming
-   * back. The session still tracks everything that genuinely does tear the
-   * camera down.
+   * back.
+   *
+   * Focus and app state are no longer part of it either, for the same reason
+   * they no longer unmount the view: pausing and resuming a session is not
+   * starting a new one. Whether the shutter may fire *right now* is asked
+   * separately, by `canTakePicture`.
    */
-  const cameraSession = `${isFocused}:${appState}:${showPreview ? "preview" : "capture"}:${cameraUnavailable}`;
+  const cameraSession = `${showPreview ? "preview" : "capture"}:${cameraUnavailable}`;
+
+  // Clears the frozen frame on the way *back* to the tab, never on the way out:
+  // it has to survive the push into the composer, or the transition would flash
+  // the live camera behind the screen that is arriving.
+  const wasFocused = useRef(isFocused);
+  useEffect(() => {
+    const regained = isFocused && !wasFocused.current;
+    wasFocused.current = isFocused;
+    if (regained) setCapturedPreview(null);
+  }, [isFocused]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -235,6 +271,12 @@ export function CaptureScreen() {
         const captured = await cameraRef.current.takePictureAsync(
           CAMERA_PICTURE_OPTIONS,
         );
+
+        // The frame goes up before anything is done to it. Everything below
+        // this line is preparation the author has no reason to wait through
+        // looking at a live viewfinder that has apparently ignored them.
+        if (isMounted.current) setCapturedPreview(captured.uri);
+
         const normalizedPhoto = await normalizePhoto({
           uri: captured.uri,
           width: captured.width,
@@ -250,6 +292,9 @@ export function CaptureScreen() {
         }
       } catch {
         if (isMounted.current) {
+          // The frame comes down with the failure: leaving a still on screen
+          // beside "try again" would be offering a photo that does not exist.
+          setCapturedPreview(null);
           setError({
             message: "Splotty couldn’t prepare that photo. Please try again.",
             showSettings: false,
@@ -285,7 +330,7 @@ export function CaptureScreen() {
   const cameraAccessIsPermanentlyDenied =
     permission?.granted === false && permission.canAskAgain === false;
   const canTakePicture =
-    cameraIsMounted &&
+    cameraActive &&
     readyCameraSession === cameraSession &&
     activeAction === null;
   const capturedLabel =
@@ -293,9 +338,9 @@ export function CaptureScreen() {
 
   return (
     <View style={styles.container}>
-      {cameraIsMounted ? (
+      {cameraAvailable ? (
         <CameraView
-          active
+          active={cameraActive}
           autofocus="on"
           facing={facing}
           flash={flash}
@@ -317,6 +362,22 @@ export function CaptureScreen() {
           responsiveOrientationWhenOrientationLocked
           style={StyleSheet.absoluteFill}
           testID="camera-preview"
+        />
+      ) : null}
+
+      {/* The shutter's answer. It covers the viewfinder and nothing else, so
+       * the control row stays where it was — disabled, as a camera's is while
+       * it writes a frame — rather than the screen changing out from under the
+       * thumb that just pressed it. */}
+      {capturedPreview ? (
+        <Image
+          accessibilityElementsHidden
+          accessibilityLabel="Photo just taken"
+          importantForAccessibility="no"
+          resizeMode="cover"
+          source={{ uri: capturedPreview }}
+          style={StyleSheet.absoluteFill}
+          testID="camera-captured-frame"
         />
       ) : null}
 
@@ -364,7 +425,7 @@ export function CaptureScreen() {
             </View>
           </View>
         </View>
-      ) : cameraIsMounted ? (
+      ) : cameraAvailable ? (
         // Every control now sits in one bottom row, thumb-height, with the
         // frame above it completely unobstructed. The row is lifted clear of
         // the home indicator by the bottom inset rather than a fixed offset.

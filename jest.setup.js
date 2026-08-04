@@ -135,3 +135,34 @@ jest.mock("react-native-safe-area-context", () => {
       ),
   };
 });
+
+/**
+ * `expo-image` is the app's image loader as of this pass — a memory cache, a
+ * decode that respects the drawn size, and recycling that a list can rely on.
+ * Its real entry point initializes a native observability integration at import
+ * time, which under Jest throws before a single test runs.
+ *
+ * The stub is React Native's own `Image`, which is what `expo-image` replaced
+ * and what every existing test already knows how to query. Only the props that
+ * do not exist on the platform component are dropped; `source`, `testID`, and
+ * every accessibility prop pass straight through, so what a test can assert
+ * about an image is unchanged. What it cannot assert — that a bitmap was
+ * downscaled, that a cache was hit — was never checkable in a test renderer and
+ * belongs to the device pass.
+ */
+jest.mock("expo-image", () => {
+  const React = require("react");
+  const { Image } = require("react-native");
+
+  return {
+    __esModule: true,
+    Image: ({
+      allowDownscaling,
+      cachePolicy,
+      contentFit,
+      recyclingKey,
+      transition,
+      ...props
+    }) => React.createElement(Image, { ...props, resizeMode: contentFit }),
+  };
+});

@@ -120,6 +120,24 @@ export function useRecentFeed(
       if (!first || !firstParam?.cursor) return undefined;
       return { direction: "newer" as const, cursor: cursorOf(first) };
     },
+    /**
+     * A session is frozen, so it is never *automatically* stale.
+     *
+     * `focusManager` is now correctly wired to the app lifecycle, which turned
+     * TanStack's default focus refetch on for the first time — and it fired
+     * against this query on every foreground, refetching up to five retained
+     * pages of a session that `HomeScreen` was about to discard and replace in
+     * the same commit. Home already decides exactly what a return to the
+     * foreground means: re-snapshot when the viewer is near the top, revalidate
+     * in place when they have paged deep, and neither while a share is in
+     * flight. Those decisions are the whole of the policy, and an automatic
+     * refetch underneath them is duplicated work and a second opinion.
+     *
+     * Every explicit path still fetches: `refetch`, `revalidate`, a new session
+     * key, and the empty-feed poll below all bypass staleness.
+     */
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
     // Only while Home is empty and on screen. A feed with cards is frozen by
     // construction and must not refetch under a finger; a feed with none has
     // nothing to disturb and everything to gain from filling itself in.
@@ -218,6 +236,15 @@ export function useRecentFeed(
     newMomentCount: anchorAt === null ? 0 : (arrivals.data ?? 0),
     isPending: pages.isPending,
     isError: pages.isError,
+    /**
+     * This session has an answer of its own — including the answer "nothing".
+     *
+     * Distinct from `!isPending`, and the distinction is load-bearing: a
+     * *failed* session is also not pending, and treating the two alike would
+     * let a dropped connection empty a deck somebody was reading. Only a page
+     * the server actually returned may take cards away.
+     */
+    isSuccess: pages.isSuccess,
     /** True once every page of this session has been read. */
     isCaughtUp: pages.isSuccess && !hasNext,
     fetchOlder,

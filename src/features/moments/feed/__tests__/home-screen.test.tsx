@@ -794,6 +794,82 @@ describe("the session", () => {
     );
   });
 
+  it("empties the deck when the last authorized Moment is gone", async () => {
+    // The author deleted it, or unfriended the viewer, or was blocked. Whatever
+    // the reason, the new session's page simply does not contain it — and an
+    // empty page is the only signal the deck ever gets that this happened.
+    jest
+      .mocked(listRecentMoments)
+      .mockResolvedValueOnce(page([moment()]))
+      .mockResolvedValue(page([]));
+
+    const view = await renderHome();
+    await screen.findByLabelText("Ada, @ada");
+
+    await view.refocus(false);
+    await view.refocus(true);
+
+    // Skipping the empty page used to leave the revoked card on screen for the
+    // life of the process, author and caption and all.
+    expect(await screen.findByText("No Moments yet")).toBeOnTheScreen();
+    expect(screen.queryByLabelText("Ada, @ada")).not.toBeOnTheScreen();
+  });
+
+  it("holds a page that arrives mid-swipe until the deck settles", async () => {
+    // Held open deliberately, so the page can be made to land at the one
+    // instant this test is about: while the finger is still down. Letting it
+    // resolve on its own would race the assertion and pass either way.
+    let deliverSecondPage: (() => void) | undefined;
+    const secondPage = new Promise<RecentPage>((resolve) => {
+      deliverSecondPage = () =>
+        resolve(page([moment(), moment({ moment_id: "moment-b" })]));
+    });
+    jest
+      .mocked(listRecentMoments)
+      .mockResolvedValueOnce(page([moment()]))
+      .mockReturnValue(secondPage);
+
+    const view = await renderHome();
+    await screen.findByLabelText("Ada, @ada");
+    expect(screen.getByTestId("recent-deck").props.data).toHaveLength(1);
+
+    // A finger goes down. From here the laid-out deck must not change shape:
+    // growing it re-flattens the three loop copies, which moves every offset
+    // past the first and changes the photograph under the thumb.
+    await act(async () => {
+      screen.getByTestId("recent-deck").props.onScrollBeginDrag();
+    });
+
+    await view.refocus(false);
+    await view.refocus(true);
+
+    await act(async () => {
+      deliverSecondPage?.();
+      await secondPage;
+    });
+    // Drains the cache's own promise chain and React's scheduler, so what is
+    // asserted next is a deck that *declined* the page rather than one that has
+    // not been offered it yet.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    // The page is in the cache and rendered. The deck has not taken it.
+    expect(screen.getByTestId("recent-deck").props.data).toHaveLength(1);
+
+    // The finger lifts and the deck comes to rest. Now it may grow — two
+    // Moments, laid out three times for the loop.
+    await act(async () => {
+      screen.getByTestId("recent-deck").props.onMomentumScrollEnd({
+        nativeEvent: { contentOffset: { x: 0 } },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("recent-deck").props.data).toHaveLength(6);
+    });
+  });
+
   it("keeps the current card when a refresh fails", async () => {
     jest
       .mocked(listRecentMoments)

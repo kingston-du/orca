@@ -1,8 +1,9 @@
+import { Image } from "expo-image";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
-  Image,
   PixelRatio,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -30,6 +31,9 @@ const MAX_PHOTO_SCREEN_FRACTION = 0.55;
  * than clipping words that someone enlarged on purpose. */
 const LARGE_TEXT_SCREEN_FRACTION = 0.38;
 const LARGE_TEXT_SCALE = 1.3;
+
+/** How long a photo takes to fade in over its backing. */
+const PHOTO_FADE_MS = 120;
 
 export function usePhotoFrameSize(
   availableWidth: number,
@@ -191,24 +195,53 @@ export function MomentPhoto({
           // photo and will not guess on the author's behalf.
           accessibilityLabel={`Moment photo by ${authorDisplayName}`}
           accessibilityRole="image"
+          /**
+           * Memory only. A Moment's bytes are private and the contract says
+           * they are not persisted — a disk cache keyed by URL would be exactly
+           * the durable copy that promise rules out. Memory is also the half
+           * that earns its keep here: it is what makes swiping back to the card
+           * you just left instant instead of a second download.
+           */
+          cachePolicy="memory"
+          // Home is a stable-height photographic deck. A reversible cover crop
+          // is preferable here to permanent side rails; detail shows the same
+          // file at its full natural aspect ratio.
+          contentFit="cover"
           onLoad={() => {
             markDeckStage("photo_shown");
             setDecoded(true);
           }}
-          // Home is a stable-height photographic deck. A reversible cover crop
-          // is preferable here to permanent side rails; detail shows the same
-          // file at its full natural aspect ratio.
-          resizeMode="cover"
+          // Ties the decoded image to the Moment rather than to the row it
+          // happens to be drawn in, so a recycled card never shows the previous
+          // Moment's photograph for a frame while the next one loads.
+          recyclingKey={objectPath || localUri || undefined}
           source={{ uri }}
           style={styles.image}
           testID="moment-photo"
+          // Long enough to read as the photo arriving, short enough that it is
+          // never something the viewer waits out.
+          transition={PHOTO_FADE_MS}
         />
       ) : null}
 
+      {/* Still one indistinguishable state for a denial and a dropped
+       * connection — which of the two it is remains none of the viewer's
+       * business. What is new is that it can be asked again: the far commoner
+       * cause is a bad minute of signal, and leaving the only recovery as
+       * "swipe away and hope" made a transient failure look permanent. A
+       * denial simply fails again, silently and identically. */}
       {failed ? (
-        <View style={styles.overlay}>
+        <Pressable
+          accessibilityHint="Tries to load this photo again"
+          accessibilityLabel="Photo unavailable. Tap to try again."
+          accessibilityRole="button"
+          onPress={() => void signed.refetch()}
+          style={styles.overlay}
+          testID="moment-photo-unavailable"
+        >
           <Text style={styles.overlayText}>Photo unavailable</Text>
-        </View>
+          <Text style={styles.overlayHint}>Tap to try again</Text>
+        </Pressable>
       ) : null}
 
       {enabled && !failed && !decoded ? (
@@ -252,8 +285,14 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFill,
     alignItems: "center",
+    gap: spacing.xs,
     justifyContent: "center",
     padding: spacing.lg,
+  },
+  overlayHint: {
+    ...typeScale.caption,
+    color: color.brand,
+    textAlign: "center",
   },
   overlayText: {
     ...typeScale.caption,

@@ -54,6 +54,11 @@ module.exports = ({ config }) => ({
     ["expo-build-properties", { ios: { deploymentTarget: "17.0" } }],
     "@sentry/react-native/expo",
     ["expo-secure-store", { configureAndroidBackup: true }],
+    // Splotty draws photographs, and this is what draws them: a memory and disk
+    // cache keyed by URL, recycling that survives a list reusing a row, and a
+    // decode that respects the size it is asked to draw at. No photo-library
+    // permission of its own — every byte it renders arrives over a signed URL.
+    "expo-image",
     [
       "expo-image-picker",
       {

@@ -141,6 +141,11 @@ export function deckReducer(state: DeckState, action: DeckAction): DeckState {
     }
 
     case "moved_to":
+      // Settling on the card already current is the ordinary result of a
+      // re-centring jump and of a swipe that did not travel far enough to
+      // change pages. Returning the same state rather than a new object with
+      // the same contents keeps it from re-rendering Home for nothing.
+      if (action.momentId === state.currentId) return state;
       return state.moments.some((m) => m.moment_id === action.momentId)
         ? { ...state, currentId: action.momentId }
         : state;

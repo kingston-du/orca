@@ -61,7 +61,28 @@ export default function HomeRoute() {
     [avatarPath, displayName, momentId, photo, settled],
   );
 
+  /**
+   * Every handler below is stabilized, and it is not housekeeping.
+   *
+   * They travel down into the deck, where `DeckCard` is memoized so that a
+   * swipe re-renders the one card whose unseen dot changed rather than all of
+   * them. A fresh arrow function per render defeated that comparison for every
+   * card at once — and this route re-renders on every upload progress step,
+   * so sharing a Moment re-rendered the entire deck dozens of times over.
+   */
   const review = useCallback(() => router.push(COMPOSE_ROUTE), []);
+  const openPeople = useCallback(() => router.push("/people"), []);
+  const openCamera = useCallback(() => router.push("/camera"), []);
+  // Routes carry an opaque Moment ID only. Detail refetches and the server
+  // reauthorizes on every entry, including cold deep links.
+  const openMoment = useCallback(
+    (id: string) => router.push(`/moments/${id}`),
+    [],
+  );
+  const openReactions = useCallback(
+    (id: string) => router.push(`/moments/${id}/reactions`),
+    [],
+  );
 
   return (
     <HomeScreen
@@ -74,14 +95,10 @@ export default function HomeRoute() {
           state={attempt}
         />
       }
-      onAddFriend={() => router.push("/people")}
-      onOpenCamera={() => router.push("/camera")}
-      // Routes carry an opaque Moment ID only. Detail refetches and the server
-      // reauthorizes on every entry, including cold deep links.
-      onOpenMoment={(momentId) => router.push(`/moments/${momentId}`)}
-      onOpenReactions={(momentId) =>
-        router.push(`/moments/${momentId}/reactions`)
-      }
+      onAddFriend={openPeople}
+      onOpenCamera={openCamera}
+      onOpenMoment={openMoment}
+      onOpenReactions={openReactions}
       onPendingMomentLanded={dismiss}
       pendingMoment={pendingMoment}
     />

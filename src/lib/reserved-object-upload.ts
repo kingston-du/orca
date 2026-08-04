@@ -19,6 +19,21 @@ import { supabaseUrl } from "@/lib/supabase";
  * cached response can never outlive the authorization that produced it. */
 const CACHE_CONTROL_SECONDS = 300;
 
+/**
+ * The smallest change in a progress bar worth telling React about.
+ *
+ * The native upload task reports every chunk, which on a fast connection is
+ * dozens of callbacks a second. Each one used to reach a reducer whose state
+ * sits in a context spanning the whole authenticated app, so a single share
+ * re-rendered Home — the screen the author is watching their Moment land on —
+ * once per chunk. A hundredth of the bar is finer than a 200-point-wide bar can
+ * draw, so nothing visible is lost by coalescing.
+ *
+ * The final byte is always reported regardless, so the bar cannot rest short of
+ * full while the app waits on finalization.
+ */
+const PROGRESS_EPSILON = 0.01;
+
 export type ReservedUploadRequest = {
   bucketId: string;
   objectPath: string;
@@ -112,6 +127,8 @@ export type ReservedUpload = {
 export function startReservedObjectUpload(
   request: ReservedUploadRequest,
 ): ReservedUpload {
+  let reported = -1;
+
   const task = new File(request.fileUri).createUploadTask(
     buildStorageObjectUrl(request.bucketId, request.objectPath),
     {
@@ -120,7 +137,10 @@ export function startReservedObjectUpload(
       mimeType: "image/jpeg",
       onProgress: ({ bytesSent, totalBytes }) => {
         if (!request.onProgress || totalBytes <= 0) return;
-        request.onProgress(Math.min(1, bytesSent / totalBytes));
+        const fraction = Math.min(1, bytesSent / totalBytes);
+        if (fraction < 1 && fraction - reported < PROGRESS_EPSILON) return;
+        reported = fraction;
+        request.onProgress(fraction);
       },
       signal: request.signal,
     },

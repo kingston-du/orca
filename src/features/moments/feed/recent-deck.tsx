@@ -28,10 +28,43 @@ import {
 } from "@/features/moments/feed/deck-state";
 import { MomentCard } from "@/features/moments/feed/moment-card";
 
-/** Mount the current card and one neighbour each side. Everything further out
- * stays unmounted so a long session never holds more than three decoded
- * photos. */
-const MEDIA_RADIUS = 1;
+/**
+ * Sign media for the current card and two neighbours each side.
+ *
+ * One neighbour was too tight to hide a round trip. A signature is requested
+ * only once the deck *settles*, so at a brisk swipe rate the viewer arrived on
+ * a card whose photo had not been asked for yet and watched an empty frame
+ * fill. Two costs nothing extra in round trips — every request raised in one
+ * tick is coalesced into a single `createSignedUrls` call — and buys a whole
+ * extra swipe of warning.
+ *
+ * The decoded working set stays bounded by the list's own window rather than by
+ * this number: `WINDOW_SIZE` keeps everything further out unmounted, and every
+ * copy of one Moment resolves to the same cached URL and the same decode.
+ */
+const MEDIA_RADIUS = 2;
+
+/**
+ * How much of the deck `FlatList` keeps mounted, in viewports either side.
+ *
+ * It has to reach at least as far as `MEDIA_RADIUS`, or raising that radius
+ * changes nothing: an unmounted card asks for no signature. A card is a little
+ * over four fifths of the screen wide, so two viewports covers the two
+ * neighbours each side that the radius is there to warm.
+ */
+const WINDOW_SIZE = 5;
+
+/**
+ * How long to wait after the finger leaves before deciding no momentum is
+ * coming.
+ *
+ * iOS begins deceleration a frame or two after the release, so a flick and a
+ * release with no velocity are indistinguishable at the instant the drag ends.
+ * Waiting one beat tells them apart; without the fallback a zero-velocity
+ * release never fires `onMomentumScrollEnd` at all, and the deck would keep
+ * reporting itself busy while never recording where it came to rest.
+ */
+const SETTLE_FALLBACK_MS = 80;
 
 /** How much of each neighbouring card stays visible past the focused one. */
 const PEEK = 36;
@@ -113,6 +146,15 @@ function cyclicDistance(laidOut: number, canonical: number, total: number) {
 type RecentDeckProps = {
   state: DeckState;
   dispatch: (action: DeckAction) => void;
+  /**
+   * Reports whether a finger is on the deck or the deck is still coasting.
+   *
+   * Home uses it to hold a freshly arrived page back until the deck is at rest.
+   * Applying one mid-swipe re-flattens the looped layout and moves every offset
+   * past the first copy, which changes the photograph under the thumb and then
+   * snaps to correct itself.
+   */
+  onInteractingChange?: (interacting: boolean) => void;
   onOpenMoment: (momentId: string) => void;
   onOpenReactions: (momentId: string) => void;
   onReachOlder: () => void;
@@ -153,6 +195,7 @@ const keyExtractor = (moment: DeckMoment, itemIndex: number) =>
 export function RecentDeck({
   state,
   dispatch,
+  onInteractingChange,
   onOpenMoment,
   onOpenReactions,
   onReachNewer,
@@ -235,9 +278,10 @@ export function RecentDeck({
     moveTo(target, !resized && from !== null && !reducedMotion);
   }, [data.length, index, looping, moveTo, reducedMotion, total]);
 
-  const onSettled = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const settled = Math.round(event.nativeEvent.contentOffset.x / pitch);
+  /** Records where the deck came to rest, from a raw horizontal offset. */
+  const settleAt = useCallback(
+    (offsetX: number) => {
+      const settled = Math.round(offsetX / pitch);
       const count = state.moments.length;
       if (count === 0) return;
 
@@ -260,6 +304,61 @@ export function RecentDeck({
       }
     },
     [dispatch, moveTo, pitch, state.moments],
+  );
+
+  /**
+   * Whether the deck is in motion, and the one place that says so.
+   *
+   * Motion begins at the touch and is only over once the coast is: a flick ends
+   * with momentum callbacks, and a release with no velocity produces none at
+   * all. `momentum` is what the fallback timer consults to tell those two
+   * endings apart.
+   */
+  const momentum = useRef(false);
+  const fallback = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelFallback = useCallback(() => {
+    if (fallback.current !== null) clearTimeout(fallback.current);
+    fallback.current = null;
+  }, []);
+
+  useEffect(() => cancelFallback, [cancelFallback]);
+
+  const onScrollBeginDrag = useCallback(() => {
+    cancelFallback();
+    onInteractingChange?.(true);
+  }, [cancelFallback, onInteractingChange]);
+
+  const onMomentumScrollBegin = useCallback(() => {
+    cancelFallback();
+    momentum.current = true;
+    onInteractingChange?.(true);
+  }, [cancelFallback, onInteractingChange]);
+
+  const onMomentumScrollEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      cancelFallback();
+      momentum.current = false;
+      settleAt(event.nativeEvent.contentOffset.x);
+      onInteractingChange?.(false);
+    },
+    [cancelFallback, onInteractingChange, settleAt],
+  );
+
+  const onScrollEndDrag = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      // Read now: by the time the timer runs this event is no longer ours to
+      // read, and with no momentum the offset at release *is* the resting one.
+      const offsetX = event.nativeEvent.contentOffset.x;
+      cancelFallback();
+      fallback.current = setTimeout(() => {
+        fallback.current = null;
+        if (momentum.current) return;
+        settleAt(offsetX);
+        onInteractingChange?.(false);
+      }, SETTLE_FALLBACK_MS);
+    },
+    [cancelFallback, onInteractingChange, settleAt],
   );
 
   const move = useCallback(
@@ -355,8 +454,11 @@ export function RecentDeck({
         initialNumToRender={1}
         keyExtractor={keyExtractor}
         maxToRenderPerBatch={2}
-        onMomentumScrollEnd={onSettled}
+        onMomentumScrollBegin={onMomentumScrollBegin}
+        onMomentumScrollEnd={onMomentumScrollEnd}
         onScroll={onScroll}
+        onScrollBeginDrag={onScrollBeginDrag}
+        onScrollEndDrag={onScrollEndDrag}
         ref={listRef}
         renderItem={renderItem}
         scrollEventThrottle={16}
@@ -364,7 +466,7 @@ export function RecentDeck({
         snapToAlignment="start"
         snapToInterval={pitch}
         testID="recent-deck"
-        windowSize={3}
+        windowSize={WINDOW_SIZE}
       />
     </View>
   );

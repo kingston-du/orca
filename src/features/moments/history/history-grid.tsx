@@ -1,9 +1,9 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { Image } from "expo-image";
+import { useCallback, useMemo } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -81,6 +81,29 @@ export function HistoryGrid({
     (width - spacing.lg * 2 - GRID_GUTTER * (HISTORY_COLUMNS - 1)) /
     HISTORY_COLUMNS;
 
+  // Stabilized so a page arriving does not re-render every mounted row, each of
+  // which holds a signed-URL query and a decoded photograph.
+  const renderRow = useCallback(
+    ({ item }: { item: HistoryRow }) =>
+      item.kind === "header" ? (
+        <Text accessibilityRole="header" style={styles.sectionTitle}>
+          {item.title}
+        </Text>
+      ) : (
+        <View style={styles.photoRow}>
+          {item.moments.map((moment) => (
+            <HistoryTile
+              key={moment.moment_id}
+              moment={moment}
+              onPress={() => onOpenMoment(moment.moment_id)}
+              size={tile}
+            />
+          ))}
+        </View>
+      ),
+    [onOpenMoment, tile],
+  );
+
   if (pages.isPending) {
     return (
       <View style={styles.centred}>
@@ -132,27 +155,8 @@ export function HistoryGrid({
         }
       }}
       onEndReachedThreshold={0.5}
-      // A tile is a full-size JPEG drawn small — V1 has no thumbnail pipeline —
-      // so retention, not resolution, is what bounds the decoded working set.
       removeClippedSubviews
-      renderItem={({ item }) =>
-        item.kind === "header" ? (
-          <Text accessibilityRole="header" style={styles.sectionTitle}>
-            {item.title}
-          </Text>
-        ) : (
-          <View style={styles.photoRow}>
-            {item.moments.map((moment) => (
-              <HistoryTile
-                key={moment.moment_id}
-                moment={moment}
-                onPress={() => onOpenMoment(moment.moment_id)}
-                size={tile}
-              />
-            ))}
-          </View>
-        )
-      }
+      renderItem={renderRow}
       windowSize={5}
     />
   );
@@ -203,7 +207,19 @@ export function HistoryTile({
       {signed.data ? (
         <Image
           accessibilityIgnoresInvertColors
-          resizeMode="cover"
+          // Same reasoning as a Moment card: private bytes, memory only.
+          cachePolicy="memory"
+          contentFit="cover"
+          /**
+           * A tile is a full-size JPEG drawn at about a third of the screen's
+           * width — V1 has no thumbnail pipeline — so what bounds the decoded
+           * working set is retention plus a decode that respects the drawn
+           * size. `allowDownscaling` is what makes the second half true: the
+           * bitmap held in memory is the tile's size rather than the
+           * photograph's.
+           */
+          allowDownscaling
+          recyclingKey={moment.moment_id}
           source={{ uri: signed.data }}
           style={styles.tileImage}
           testID="history-tile-photo"
