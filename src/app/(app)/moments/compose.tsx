@@ -33,11 +33,24 @@ export default function ComposeRoute() {
 
   const inFlight = isPublishInFlight(publish.state);
 
-  // Leaving is a side effect of sharing, so it belongs in an effect rather than
-  // in the publish button's handler: an attempt that is already running when
-  // this route mounts — a return from a deep link, say — has to leave too.
+  /**
+   * Leaving is a side effect of sharing, so it belongs in an effect rather than
+   * in the publish button's handler: an attempt that is already running when
+   * this route mounts — a return from a deep link, say — has to leave too.
+   *
+   * `dismissTo`, never `replace`. React Navigation's REPLACE builds a *new*
+   * route from the href, so replacing this screen with the tabs mounted a
+   * second copy of the entire tab navigator on top of the one already sitting
+   * underneath it. The first stayed mounted: every share left another Home
+   * behind it — its own deck, its own list, its own query observers — and put
+   * another entry in the stack for the back gesture to find. `dismissTo` pops
+   * back to the tabs that are already there, and the nested `screen` parameter
+   * in the href is what moves them from Camera to Home. It falls back to a
+   * replace on its own if there is no tab bar to return to, which is the cold
+   * deep link straight into the composer.
+   */
   useEffect(() => {
-    if (inFlight) router.replace(HOME_ROUTE);
+    if (inFlight) router.dismissTo(HOME_ROUTE);
   }, [inFlight]);
 
   if (isRestoring) {

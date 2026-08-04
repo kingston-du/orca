@@ -191,8 +191,15 @@ const keyExtractor = (moment: DeckMoment, itemIndex: number) =>
  * gesture is how VoiceOver moves between elements and must not be overloaded to
  * mean "next Moment" — without them a screen-reader user would have no way to
  * move the deck at all.
+ *
+ * Memoized, and for one specific reason: an upload reports progress up to a
+ * hundred times, each report re-renders the route that owns Home, and this deck
+ * was re-rendering with it — a `VirtualizedList` pass per report, on the JS
+ * thread the author is watching a progress bar move on. Every prop below is
+ * already stabilized by Home for the sake of the memoized cards, so the deck
+ * bails out on exactly the renders that have nothing to do with it.
  */
-export function RecentDeck({
+export const RecentDeck = memo(function RecentDeck({
   state,
   dispatch,
   onInteractingChange,
@@ -323,6 +330,19 @@ export function RecentDeck({
   }, []);
 
   useEffect(() => cancelFallback, [cancelFallback]);
+
+  /**
+   * A deck that is not here is not moving.
+   *
+   * Every "the movement is over" report comes from a scroll event, and a deck
+   * that leaves the screen mid-movement — switching to Week, or an empty page
+   * taking its cards — sends none: the pending fallback timer above is simply
+   * cancelled by its own cleanup. Home holds pages back while it believes a
+   * finger is down, so the belief outlived the deck and the *next* deck, still
+   * in the same Home, then refused every page it was ever offered. That is a
+   * Today that quietly stops updating for the life of the screen.
+   */
+  useEffect(() => () => onInteractingChange?.(false), [onInteractingChange]);
 
   const onScrollBeginDrag = useCallback(() => {
     cancelFallback();
@@ -470,7 +490,7 @@ export function RecentDeck({
       />
     </View>
   );
-}
+});
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList<DeckMoment>);
 

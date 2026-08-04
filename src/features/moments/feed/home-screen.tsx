@@ -148,10 +148,18 @@ export function HomeScreen({
 
   const showingRecent = mode === "recent";
 
-  // Only used to tell two empty states apart: someone with no friends yet needs
-  // a different next step from someone whose friends simply have not shared.
+  /**
+   * Only used to tell two empty states apart: someone with no friends yet needs
+   * a different next step from someone whose friends simply have not shared.
+   *
+   * Asked once the feed has *answered* and answered with nothing, rather than
+   * merely stopped pending — an errored feed knows nothing about anybody's
+   * friends. Until it resolves the answer is `undefined`, and the empty state
+   * says the neutral thing rather than guessing: telling somebody with friends
+   * to "start by adding one" is worse than saying nothing about friends at all.
+   */
   const friends = useQuery({
-    enabled: !feed.isPending && feed.moments.length === 0,
+    enabled: feed.isSuccess && feed.moments.length === 0,
     queryKey: ["friends", user?.id],
     queryFn: listFriends,
   });
@@ -271,15 +279,49 @@ export function HomeScreen({
    */
   const [deckBusy, setDeckBusy] = useState(false);
 
+  /**
+   * The Moment this device is sharing, which the deck owes the author a look at.
+   *
+   * `page_loaded` keeps the viewer exactly where they were whenever their card
+   * survived the page, and that is right for every page but this one. An author
+   * three cards deep when they opened the camera would otherwise come back to
+   * that third card with their new Moment sitting at the head of the deck
+   * behind them — which reads as Home having ignored the share, and is what
+   * "it lands on a different Moment" was.
+   *
+   * It is asked for once per attempt. From there the author may swipe wherever
+   * they like: the settled Moment's own session, and the server row that
+   * replaces the local card, both go through `page_loaded`, which keeps their
+   * place like any other page.
+   */
+  const shareToShow = pendingMoment?.momentId ?? null;
+  const shown = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!sourceReady || deckBusy) return;
+    if (shareToShow === null) shown.current = null;
+    // An empty deck has nothing under a finger to disturb, so a page always
+    // applies to it. Without that exception a deck that was emptied while it
+    // still believed itself to be moving — a switch away mid-coast, whose
+    // momentum callback the list never delivers because its cards went with it
+    // — stayed empty for good, and Home sat on "Nothing new yet" over a feed
+    // that was in the cache all along.
+    if (!sourceReady || (deckBusy && deck.moments.length > 0)) return;
     markDeckStage("page_rendered");
     // An empty page is dispatched like any other. It is how the deck learns
     // that the last Moment it was showing is gone — deleted, blocked, or
     // unfriended — and skipping it left a revoked card on screen for the life
     // of the process.
     dispatch({ type: "page_loaded", moments: cards });
-  }, [cards, deckBusy, sourceReady]);
+    // Dispatched from the same effect, so React applies it to the state
+    // `page_loaded` has just produced: the card is in the deck by the time this
+    // asks to move to it, and both land in one render, so the deck re-lays
+    // itself out and arrives on the new card without a scroll animation
+    // travelling across every card in between.
+    if (shareToShow !== null && shown.current !== shareToShow) {
+      shown.current = shareToShow;
+      dispatch({ type: "moved_to", momentId: shareToShow });
+    }
+  }, [cards, deck.moments.length, deckBusy, shareToShow, sourceReady]);
 
   // Seen is recorded in both modes. A Highlight the viewer dwelled on is a
   // Moment they have genuinely seen, and the server re-derives eligibility per
@@ -358,7 +400,12 @@ export function HomeScreen({
     // Only the moment Home *regains* attention. Not every render, and not the
     // first mount, whose session is the one being loaded.
     if (!watching || previously) return;
-    if (hasSession && !sharing && deckDepth.current < RECENT_PAGE_SIZE) {
+    // Nothing to re-take and nothing to revalidate before the first session has
+    // landed. Revalidating one anyway is what asked the server for an arrivals
+    // count with no ceiling to count against, and greeted a cold start with a
+    // pill offering the whole feed it had just finished loading.
+    if (!hasSession) return;
+    if (!sharing && deckDepth.current < RECENT_PAGE_SIZE) {
       startNewSession();
       return;
     }
@@ -377,13 +424,22 @@ export function HomeScreen({
   const switchTo = useCallback(
     (next: HomeMode) => {
       if (mode === next) return;
-      dispatch({ type: "reset" });
-      // Entering Highlights is what freezes a snapshot. Leaving and coming
-      // back deliberately re-ranks; staying put deliberately does not.
-      if (next === "highlights") takeNewSnapshot();
+      if (next === "highlights") {
+        // Entering Highlights is what freezes a snapshot. Leaving and coming
+        // back deliberately re-ranks; staying put deliberately does not. The
+        // old ranking is therefore not something to keep drawing, and the
+        // skeleton is what an honest re-rank looks like.
+        takeNewSnapshot();
+        dispatch({ type: "showing", moments: [] });
+      } else {
+        // Today's cards are frozen in the cache and can go back on screen in
+        // the same commit as the switch. Emptying the deck first is what
+        // painted "Nothing new yet" over a feed that had never gone anywhere.
+        dispatch({ type: "showing", moments: recentDeckCards });
+      }
       setMode(next);
     },
-    [mode, takeNewSnapshot],
+    [mode, recentDeckCards, takeNewSnapshot],
   );
 
   /**
@@ -396,6 +452,10 @@ export function HomeScreen({
    * every swipe, which is precisely what the deck's memoization exists to
    * prevent.
    */
+  // Stable, because the empty state is a memo-free subtree that would otherwise
+  // take a new function on every render of Home.
+  const showRecent = useCallback(() => switchTo("recent"), [switchTo]);
+
   const { clear: clearUnseenMark } = unseenMarks;
   const openMoment = useCallback(
     (id: string) => {
@@ -425,21 +485,29 @@ export function HomeScreen({
     </>
   );
 
-  // A skeleton is for a screen with nothing on it. Once the deck holds cards —
-  // including the one being shared right now — a new session loading
-  // underneath must not replace them with placeholders.
-  if (
-    (showingRecent ? feed.isPending : highlights.isPending) &&
-    deck.moments.length === 0
-  ) {
+  const empty = deck.moments.length === 0;
+  const failed = showingRecent ? feed.isError : highlights.isError;
+
+  /**
+   * A skeleton is for a screen with nothing on it *yet*.
+   *
+   * Two ways to be in that state, and they used to be one: the source has not
+   * answered, or it has answered with cards the deck has not been handed yet.
+   * The second is a single commit long — the effect that applies a page runs
+   * after the render that revealed it — and testing only the first meant every
+   * first load, and every return to a populated Today, painted one frame of
+   * "Nothing new yet" on the way to the cards. That is the flash.
+   *
+   * Once the deck holds cards, including the one being shared right now, a new
+   * session loading underneath must not replace them with placeholders.
+   */
+  if (empty && !failed && (!sourceReady || cards.length > 0)) {
     return <HomeSkeleton switcher={switcher} width={width} />;
   }
 
   // A recoverable error keeps whatever the viewer was already authorized to
   // see. Only a first load with nothing on screen becomes a full error state.
-  const failedOutright =
-    (showingRecent ? feed.isError : highlights.isError) &&
-    deck.moments.length === 0;
+  const failedOutright = failed && empty;
 
   if (failedOutright) {
     return (
@@ -459,7 +527,7 @@ export function HomeScreen({
     );
   }
 
-  if (deck.moments.length === 0) {
+  if (empty) {
     return (
       <SafeAreaView edges={["top"]} style={styles.container}>
         {switcher}
@@ -467,11 +535,13 @@ export function HomeScreen({
           <NewMomentsPill count={newMomentCount} onPress={startOver} />
         ) : null}
         <EmptyHome
-          hasFriends={(friends.data?.length ?? 0) > 0}
+          // Undefined until the question has been answered. An empty Home is
+          // not evidence of an empty friend list.
+          hasFriends={friends.data ? friends.data.length > 0 : undefined}
           mode={mode}
           onAddFriend={onAddFriend}
           onOpenCamera={onOpenCamera}
-          onShowRecent={() => switchTo("recent")}
+          onShowRecent={showRecent}
         />
       </SafeAreaView>
     );
@@ -568,6 +638,17 @@ function ModeSwitch({
   );
 }
 
+/**
+ * Nothing to show, and what to do about it.
+ *
+ * Three answers rather than two, because "does this person have friends" has
+ * three answers. `undefined` is the one that used to be missing: the friend
+ * list is a separate request, and while it is out — or while it has not been
+ * made at all — an empty Home says the thing that is true either way rather
+ * than telling somebody with a friend list to go and start one. Getting that
+ * wrong is worse than saying nothing about friends, because it reads as the app
+ * having lost them.
+ */
 function EmptyHome({
   hasFriends,
   mode,
@@ -575,7 +656,7 @@ function EmptyHome({
   onOpenCamera,
   onShowRecent,
 }: {
-  hasFriends: boolean;
+  hasFriends: boolean | undefined;
   mode: HomeMode;
   onAddFriend: () => void;
   onOpenCamera: () => void;
@@ -591,17 +672,31 @@ function EmptyHome({
     );
   }
 
-  return hasFriends ? (
+  if (hasFriends === false) {
+    return (
+      <HomeMessage
+        action={{ label: "Add a friend", onPress: onAddFriend }}
+        body="Splotty shows your own Moments and your friends’, so start by adding one."
+        title="No Moments yet"
+      />
+    );
+  }
+
+  // Somebody with friends is not short of a friend list, they are short of a
+  // quiet day's Moments — so the camera leads, and adding more people is the
+  // second thing offered rather than the instruction.
+  return (
     <HomeMessage
       action={{ label: "Open camera", onPress: onOpenCamera }}
-      body="When you or a friend shares a Moment, it will appear here."
+      body={
+        hasFriends
+          ? "When you or a friend shares a Moment, it will appear here. Adding more friends fills Today faster."
+          : "When you or a friend shares a Moment, it will appear here."
+      }
+      secondaryAction={
+        hasFriends ? { label: "Find friends", onPress: onAddFriend } : undefined
+      }
       title="Nothing new yet"
-    />
-  ) : (
-    <HomeMessage
-      action={{ label: "Add a friend", onPress: onAddFriend }}
-      body="Splotty shows your own Moments and your friends’, so start by adding one."
-      title="No Moments yet"
     />
   );
 }
@@ -757,24 +852,38 @@ function HomeSkeleton({
   );
 }
 
+type MessageAction = { label: string; onPress: () => void };
+
 function HomeMessage({
   action,
   body,
+  secondaryAction,
   title,
 }: {
-  action: { label: string; onPress: () => void };
+  action: MessageAction;
   body: string;
+  secondaryAction?: MessageAction;
   title: string;
 }) {
   return (
     <EmptyState
       action={
-        <AppButton
-          label={action.label}
-          onPress={action.onPress}
-          style={styles.messageAction}
-          variant="secondary"
-        />
+        <View style={styles.messageActions}>
+          <AppButton
+            label={action.label}
+            onPress={action.onPress}
+            style={styles.messageAction}
+            variant="secondary"
+          />
+          {secondaryAction ? (
+            <AppButton
+              label={secondaryAction.label}
+              onPress={secondaryAction.onPress}
+              style={styles.messageAction}
+              variant="text"
+            />
+          ) : null}
+        </View>
       }
       body={body}
       title={title}
@@ -793,6 +902,7 @@ const styles = StyleSheet.create({
   },
   inlineErrorText: { ...typeScale.caption, color: color.criticalText },
   messageAction: { marginTop: spacing.sm },
+  messageActions: { alignItems: "center" },
   pill: {
     alignItems: "center",
     backgroundColor: color.brand,

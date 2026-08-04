@@ -31,8 +31,12 @@ jest.mock("react-native-reanimated", () => {
   const React = require("react");
   const { View } = require("react-native");
 
-  const AnimatedView = React.forwardRef((props, ref) =>
-    React.createElement(View, { ...props, ref }),
+  // `layout`, `entering`, and `exiting` describe animations rather than
+  // rendering, and a plain `View` has no use for them. Dropping them here keeps
+  // an animated element's recorded props readable in assertions.
+  const AnimatedView = React.forwardRef(
+    ({ layout, entering, exiting, ...props }, ref) =>
+      React.createElement(View, { ...props, ref }),
   );
   AnimatedView.displayName = "MockAnimatedView";
 
@@ -42,6 +46,9 @@ jest.mock("react-native-reanimated", () => {
     __esModule: true,
     default: { View: AnimatedView, createAnimatedComponent: identity },
     Extrapolation: { CLAMP: "clamp", EXTEND: "extend", IDENTITY: "identity" },
+    // Layout animations are declared, never invoked, by the code under test.
+    // Only the declaration has to survive being built.
+    LinearTransition: { duration: () => ({ type: "LinearTransition" }) },
     createAnimatedComponent: identity,
     interpolate: (value, input, output) => output[0],
     useAnimatedScrollHandler: () => () => {},

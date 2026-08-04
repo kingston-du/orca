@@ -286,3 +286,48 @@ describe("failures", () => {
     expect(result.current.moments).toEqual([]);
   });
 });
+
+describe("session identity", () => {
+  it("never hands a second Home the sessions of the first", async () => {
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === "count_new_recent_moments") return { data: 3, error: null };
+      return { data: fullPage(0), error: null };
+    });
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { gcTime: Infinity, retry: false } },
+    });
+    const shared = ({ children }: PropsWithChildren) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+
+    const first = await renderHook(() => useRecentFeed("viewer"), {
+      wrapper: shared,
+    });
+    await waitFor(() => expect(first.result.current.moments).toHaveLength(20));
+    // A couple of sessions in, as a viewer who has tapped the pill would be.
+    await act(async () => first.result.current.startNewSession());
+    await waitFor(() => expect(first.result.current.session).not.toBeNull());
+    const before = listCalls().length;
+
+    /**
+     * Sharing a Moment leaves the composer with `router.replace`, and React
+     * Navigation's REPLACE builds a *new* route rather than returning to the
+     * one below it — so a second Home mounts while the first is still holding
+     * its sessions in this very cache.
+     *
+     * When the session key was a counter in state, this mount asked for
+     * session zero and was handed the first mount's: pages frozen by
+     * `staleTime: Infinity`, so nothing refetched, around a ceiling taken
+     * before the share existed.
+     */
+    const second = await renderHook(() => useRecentFeed("viewer"), {
+      wrapper: shared,
+    });
+    await waitFor(() => expect(second.result.current.moments).toHaveLength(20));
+
+    expect(listCalls().length).toBeGreaterThan(before);
+    // Its own session, opened by the server, rather than a replayed envelope.
+    expect(listCalls().at(-1)?.[1].p_anchor_at).toBeUndefined();
+  });
+});

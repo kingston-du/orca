@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, View } from "react-native";
+import Animated, { LinearTransition } from "react-native-reanimated";
 
 import { AppButton } from "@/components/app-button";
 import { Icon } from "@/components/icon";
@@ -144,27 +145,49 @@ function PublishProgress({
 }) {
   const fraction = progressFraction(state);
   const percent = Math.round(fraction * 100);
+  const cancellable = canCancelPublish(state);
 
   return (
-    <View style={styles.progressRow}>
-      <View
+    <View
+      style={[
+        styles.progressRow,
+        // Once the cross is gone the row is a bar and nothing else, so it takes
+        // the margin every other screen aligns to on both sides and the bar
+        // sits centred rather than leaving a hole where the control was.
+        cancellable ? styles.progressRowWithCancel : styles.progressRowAlone,
+      ]}
+      testID="publish-progress-row"
+    >
+      <Animated.View
         // One element, not a container VoiceOver walks into: the bar has a
         // name and a value and nothing inside it to read.
         accessible
         accessibilityLabel="Sharing"
         accessibilityRole="progressbar"
         accessibilityValue={{ max: 100, min: 0, now: percent }}
+        // The track's own width changes once, when the cross leaves. Animating
+        // it is what keeps that from being a jump: the bar grows into the space
+        // instead of appearing to have been there all along.
+        layout={GROWTH}
         style={styles.track}
         testID="publish-status-card"
       >
-        <View
+        <Animated.View
           // Percentage width rather than a measured pixel count: the row is
           // laid out by flex and a measurement would lag a rotation by a frame.
+          //
+          // The fill is *animated* to each new percentage rather than snapped
+          // to it. A native upload reports in coalesced steps and every one of
+          // them costs a React render, so the bar was stepping between
+          // whichever fractions survived a busy frame. Interpolating between
+          // them runs on the UI thread, where nothing the JavaScript thread is
+          // doing can stutter it.
+          layout={GROWTH}
           style={[styles.fill, { width: `${Math.max(percent, 2)}%` }]}
           testID="publish-progress-fill"
         />
-      </View>
-      {canCancelPublish(state) ? (
+      </Animated.View>
+      {cancellable ? (
         <Pressable
           accessibilityLabel="Cancel sharing"
           accessibilityRole="button"
@@ -175,12 +198,7 @@ function PublishProgress({
         >
           <Icon name="close" size={18} tint={color.textSecondary} />
         </Pressable>
-      ) : (
-        // The cross is not simply dropped once cancelling is refused: the bar
-        // would grow into its place and read as a jump in progress that did not
-        // happen. The row keeps its shape and loses only the control.
-        <View accessibilityElementsHidden style={styles.cancel} />
-      )}
+      ) : null}
     </View>
   );
 }
@@ -206,6 +224,18 @@ function progressFraction(state: PublishState): number {
 
 const TRACK_HEIGHT = 6;
 
+/**
+ * How long the bar takes to catch up with the fraction it has been given.
+ *
+ * Comfortably longer than the gap between two progress reports on a fast
+ * connection, so the fill is always travelling rather than stepping, and short
+ * enough that it is never describing a fraction the upload has left behind.
+ * Reduce Motion is not consulted: this is the bar reporting its own value, not
+ * decoration, and freezing it would leave the author with a still bar during
+ * the one operation they are waiting on.
+ */
+const GROWTH = LinearTransition.duration(240);
+
 const styles = StyleSheet.create({
   action: { flexGrow: 1 },
   actions: { flexDirection: "row", gap: spacing.sm },
@@ -226,6 +256,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.sm,
     paddingBottom: spacing.sm,
+  },
+  /** No control to leave room for, so the bar is simply inset like everything
+   * else on the screen and is centred by having equal sides. */
+  progressRowAlone: { paddingHorizontal: spacing.lg },
+  progressRowWithCancel: {
     paddingLeft: spacing.lg,
     // The cross's own 44-point target supplies the trailing inset, so the row
     // does not add a second one and leave the control floating short of the

@@ -118,3 +118,37 @@ describe("moving through time", () => {
     expect(state.currentId).toBe("b");
   });
 });
+
+/**
+ * Switching between Today and Week is a change of what the deck is pointed at,
+ * and it has to be one move rather than "forget everything, then be handed the
+ * other list". The gap between those two was a render with an empty deck, which
+ * is long enough to paint an empty state over a list that never went anywhere.
+ */
+describe("pointing the deck at another list", () => {
+  it("takes the new list and its newest card in one move", () => {
+    const week = [moment("x"), moment("y")];
+
+    const state = deckReducer(deckAt("c"), { type: "showing", moments: week });
+
+    expect(state.moments).toBe(week);
+    expect(state.currentId).toBe("x");
+  });
+
+  it("does not keep a card that happens to be in both lists", () => {
+    // `page_loaded` would keep it, and should: a page arriving under somebody
+    // must not move them. "Third card of Today" means nothing in a ranked week.
+    const both = [moment("x"), moment("c")];
+
+    const state = deckReducer(deckAt("c"), { type: "showing", moments: both });
+
+    expect(state.currentId).toBe("x");
+  });
+
+  it("empties cleanly when the other list has not loaded yet", () => {
+    const state = deckReducer(deckAt("a"), { type: "showing", moments: [] });
+
+    expect(state.moments).toEqual([]);
+    expect(state.currentId).toBeNull();
+  });
+});

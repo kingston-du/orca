@@ -56,6 +56,32 @@ type PageParam = { direction: RecentDirection; cursor: RecentCursor | null };
 const FIRST_PAGE: PageParam = { direction: "older", cursor: null };
 
 /**
+ * Session identity, unique for the life of the process.
+ *
+ * This used to be a counter that started at zero in every mount's state, which
+ * meant a second mount of Home re-derived query keys the first mount had
+ * already used — and TanStack answered with that mount's data.
+ *
+ * It is not hypothetical. Sharing leaves the composer with
+ * `router.replace('/(app)/(tabs)')`, and React Navigation's REPLACE builds a
+ * *new* route rather than returning to the existing one, so a second Home
+ * mounts while the first is still mounted underneath holding its sessions in
+ * the cache. The new Home asked for session zero and was handed the old one's:
+ * pages frozen by `staleTime: Infinity`, so nothing refetched, and the arrivals
+ * count that had been taken against that dead session's ceiling. Tapping the
+ * pill walked forward through session one, then two, then three of a feed that
+ * no longer existed — a different Moment each time, a count flickering between
+ * old answers — and only once the counter passed the previous mount's
+ * high-water mark did a genuinely new session load and the just-shared Moment
+ * appear.
+ *
+ * A module-scoped counter cannot collide: it never goes backwards within a
+ * process, so no session key is ever asked for twice and a session that has
+ * been left behind can only be garbage collected, never served.
+ */
+let nextSessionId = 0;
+
+/**
  * One Recent session.
  *
  * A session is a frozen window: the server's `anchor_at` is its ceiling and its
@@ -82,7 +108,7 @@ export function useRecentFeed(
   watching = false,
 ) {
   const client = useQueryClient();
-  const [sessionKey, setSessionKey] = useState(0);
+  const [sessionKey, setSessionKey] = useState(() => nextSessionId++);
 
   const queryKey = useMemo(
     () => ["recent-moments", userId, sessionKey] as const,
@@ -169,17 +195,30 @@ export function useRecentFeed(
    * appeared to make it grow rather than clear.
    *
    * Keying on `sessionKey` gives each session its own entry with no data until
-   * its own count lands, and `enabled` now requires a real anchor, so the null
-   * count is never taken at all.
+   * its own count lands.
+   *
+   * The anchor is in the key **as well**, and it is not decoration. `enabled`
+   * only governs the automatic path: `refetch()` fetches a disabled query, and
+   * `revalidate` below used to call it on a session whose first page had not
+   * landed yet — which is every cold start, because Home revalidates the moment
+   * it takes focus. That asked for the null-anchor count, cached it under the
+   * session's own key, and `staleTime` then served "everything you may see" as
+   * this session's arrivals for the next forty-five seconds. Opening the app to
+   * "11 new" against a feed that had just loaded all eleven was exactly this.
+   *
+   * With the anchor in the key, a count can only ever be read back for the
+   * ceiling it was taken against. Session and anchor together, so neither a
+   * shared null key nor a stale ceiling is reachable.
    */
   const anchorAt = session?.anchorAt ?? null;
   const arrivals = useQuery({
     enabled: Boolean(userId) && anchorAt !== null,
-    queryKey: ["recent-arrivals", userId, sessionKey],
-    // Safe to close over: the anchor is frozen for the life of a session, and
-    // the session is the key, so this can never run against another session's
-    // ceiling.
-    queryFn: () => countNewRecentMoments(anchorAt),
+    queryKey: ["recent-arrivals", userId, sessionKey, anchorAt],
+    // Zero rather than a request: a session with no ceiling has nothing to
+    // count against, and asking the server means asking it to count the whole
+    // feed. Unreachable through `enabled`, and the answer a stray `refetch`
+    // deserves.
+    queryFn: () => (anchorAt === null ? 0 : countNewRecentMoments(anchorAt)),
     // A slow tick while Home is on screen, and nothing at all when it is not.
     // The pill is non-disruptive by construction — it never inserts into or
     // reorders the deck — so learning about an arrival while somebody is
@@ -189,10 +228,9 @@ export function useRecentFeed(
     staleTime: ARRIVALS_POLL_MS,
   });
 
-  const startNewSession = useCallback(
-    () => setSessionKey((key) => key + 1),
-    [],
-  );
+  // The next identity is taken from the process, not from the current key, so
+  // two mounts that start a session in the same breath still get one each.
+  const startNewSession = useCallback(() => setSessionKey(nextSessionId++), []);
 
   // `refetch` is stable per observer in TanStack v5, so these callbacks are too
   // and can be depended on by an effect without re-firing every render.
@@ -207,8 +245,11 @@ export function useRecentFeed(
    */
   const revalidate = useCallback(() => {
     void refetchPages();
-    void refetchArrivals();
-  }, [refetchArrivals, refetchPages]);
+    // Only a session that has a ceiling has anything to count against. This is
+    // the caller `enabled` cannot protect against, since `refetch` fetches a
+    // disabled query, and it is the one that ran on every cold start.
+    if (anchorAt !== null) void refetchArrivals();
+  }, [anchorAt, refetchArrivals, refetchPages]);
 
   const refetch = useCallback(() => void refetchPages(), [refetchPages]);
 

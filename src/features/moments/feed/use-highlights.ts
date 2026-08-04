@@ -31,8 +31,19 @@ import {
  */
 const NO_HIGHLIGHTS: HighlightMoment[] = [];
 
+/**
+ * Snapshot identity, unique for the life of the process rather than per mount.
+ *
+ * The same reasoning as the Recent session's, and for the same reason it is not
+ * hypothetical: a second Home can mount while the first is still alive, and a
+ * counter that restarts at zero would hand it the first mount's ranking —
+ * frozen by `staleTime: Infinity`, so never refetched — as though it were the
+ * fresh one that entering Week is supposed to take.
+ */
+let nextSnapshotId = 0;
+
 export function useHighlights(userId: string | undefined, enabled: boolean) {
-  const [snapshotKey, setSnapshotKey] = useState(0);
+  const [snapshotKey, setSnapshotKey] = useState(() => nextSnapshotId++);
 
   const queryKey = useMemo(
     () => ["highlights", userId, snapshotKey] as const,
@@ -49,7 +60,7 @@ export function useHighlights(userId: string | undefined, enabled: boolean) {
   });
 
   const takeNewSnapshot = useCallback(
-    () => setSnapshotKey((key) => key + 1),
+    () => setSnapshotKey(nextSnapshotId++),
     [],
   );
 

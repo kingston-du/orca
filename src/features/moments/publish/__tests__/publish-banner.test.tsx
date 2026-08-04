@@ -1,3 +1,5 @@
+import { StyleSheet } from "react-native";
+
 import { render, screen, userEvent } from "@testing-library/react-native";
 
 import { PublishBanner } from "@/features/moments/publish/publish-banner";
@@ -40,6 +42,22 @@ function fillWidth() {
       width?: string;
     }[]
   ).find((rule) => rule?.width !== undefined)?.width;
+}
+
+/** What the row reserves on each side of the bar. Whether the two agree is the
+ * whole of "the bar is centred". */
+function rowInsets() {
+  const style = StyleSheet.flatten(
+    screen.getByTestId("publish-progress-row").props.style,
+  ) as {
+    paddingHorizontal?: number;
+    paddingLeft?: number;
+    paddingRight?: number;
+  };
+  return {
+    left: style.paddingLeft ?? style.paddingHorizontal ?? 0,
+    right: style.paddingRight ?? style.paddingHorizontal ?? 0,
+  };
 }
 
 describe("sharing in flight", () => {
@@ -93,13 +111,26 @@ describe("sharing in flight", () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps the row's shape once cancelling is refused", async () => {
-    // Finalizing cannot be cancelled. Dropping the control would let the bar
-    // grow into its place and read as progress that did not happen.
+  it("centres the bar once cancelling is refused", async () => {
+    // Finalizing cannot be cancelled. With the cross gone the row is a bar and
+    // nothing else, so it is inset equally on both sides rather than keeping a
+    // 44-point hole where the control used to be.
     await renderBanner(state({ progress: 1, status: "finalizing" }));
 
     expect(screen.queryByTestId("publish-cancel")).toBeNull();
     expect(screen.getByTestId("publish-progress-fill")).toBeTruthy();
+
+    const alone = rowInsets();
+    expect(alone.left).toBe(alone.right);
+  });
+
+  it("leaves room for the cross while it is there", async () => {
+    await renderBanner(state({ progress: 0.4, status: "uploading" }));
+
+    // The control supplies its own trailing inset, so the row must not add a
+    // second one — which is exactly what makes these two sides differ.
+    const withCross = rowInsets();
+    expect(withCross.left).toBeGreaterThan(withCross.right);
   });
 });
 

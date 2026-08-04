@@ -57,6 +57,20 @@ export type DeckAction =
    * page, and the position moves to the nearest row that survived.
    */
   | { type: "page_loaded"; moments: DeckMoment[] }
+  /**
+   * The deck is being pointed at a different list, from the top.
+   *
+   * Switching between Today and Week used to be a `reset` followed by whatever
+   * the next commit's `page_loaded` brought, which meant one render with an
+   * empty deck in between — long enough to paint "Nothing new yet" over a feed
+   * that was about to come straight back, and long enough for the deck to be
+   * left empty for good if anything held that `page_loaded` up. One action
+   * instead: the new list and the top of it, in the same commit.
+   *
+   * Distinct from `page_loaded`, which deliberately keeps the viewer's place.
+   * "Third card of Today" means nothing in a ranked week.
+   */
+  | { type: "showing"; moments: DeckMoment[] }
   /** The viewer settled on a card, by gesture or by control. */
   | { type: "moved_to"; momentId: string }
   | { type: "older" }
@@ -139,6 +153,12 @@ export function deckReducer(state: DeckState, action: DeckAction): DeckState {
 
       return { moments: action.moments, currentId: nearest?.moment_id ?? null };
     }
+
+    case "showing":
+      return {
+        moments: action.moments,
+        currentId: action.moments[0]?.moment_id ?? null,
+      };
 
     case "moved_to":
       // Settling on the card already current is the ordinary result of a

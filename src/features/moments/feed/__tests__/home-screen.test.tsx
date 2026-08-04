@@ -15,6 +15,7 @@ import {
   PHOTO_SCRIM_GRADIENT_STOPS,
 } from "@/constants/design";
 import { listFriends } from "@/features/friends/friends-api";
+import { listHighlightMoments } from "@/features/moments/feed/highlights-api";
 import { HomeScreen } from "@/features/moments/feed/home-screen";
 import {
   countNewRecentMoments,
@@ -83,10 +84,7 @@ jest.mock("expo-symbols", () => {
 
 // Highlights has its own suite; Home only needs it to answer.
 jest.mock("@/features/moments/feed/highlights-api", () => ({
-  listHighlightMoments: jest.fn(async () => ({
-    isWarmingUp: false,
-    moments: [],
-  })),
+  listHighlightMoments: jest.fn(),
 }));
 
 jest.mock("@/features/friends/friends-api", () => ({
@@ -167,6 +165,7 @@ async function renderHome(
     usesRemaining: 3,
     resetsAt: null,
   });
+  let current = props;
   // A fresh element every time: React bails out of a root render given the
   // identical element object, and focus lives outside React here.
   const tree = () => (
@@ -176,7 +175,7 @@ async function renderHome(
         onOpenCamera={jest.fn()}
         onOpenMoment={onOpenMoment}
         onOpenReactions={onOpenReactions}
-        {...props}
+        {...current}
       />
     </QueryClientProvider>
   );
@@ -186,6 +185,14 @@ async function renderHome(
      * that depend on screen focus. */
     refocus: async (focused: boolean) => {
       mockScreenIsFocused = focused;
+      await act(async () => {
+        await view.rerender(tree());
+      });
+    },
+    /** The route handing Home something new — a share starting, settling, or
+     * being retired — without remounting the screen underneath it. */
+    update: async (next: Partial<React.ComponentProps<typeof HomeScreen>>) => {
+      current = { ...current, ...next };
       await act(async () => {
         await view.rerender(tree());
       });
@@ -202,6 +209,9 @@ beforeEach(() => {
   jest.mocked(listFriends).mockResolvedValue([]);
   jest.mocked(countNewRecentMoments).mockResolvedValue(0);
   jest.mocked(markMomentsSeen).mockResolvedValue(1);
+  jest
+    .mocked(listHighlightMoments)
+    .mockResolvedValue({ isWarmingUp: false, moments: [] });
 });
 
 describe("empty states", () => {
@@ -230,6 +240,23 @@ describe("empty states", () => {
     await renderHome();
 
     expect(await screen.findByText("Nothing new yet")).toBeOnTheScreen();
+    // Their friend list is not the thing that is missing, so they are not told
+    // to go and start one.
+    expect(screen.queryByText(/start by adding one/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Find friends" })).toBeTruthy();
+  });
+
+  it("never claims somebody has no friends before it has asked", async () => {
+    jest.mocked(listRecentMoments).mockResolvedValue(page([]));
+    // Out and still unanswered, which is every empty Home for its first frames.
+    jest.mocked(listFriends).mockReturnValue(new Promise(() => {}) as never);
+
+    await renderHome();
+
+    // Telling somebody with a friend list to start one reads as the app having
+    // lost them. The neutral copy is true either way.
+    expect(await screen.findByText("Nothing new yet")).toBeOnTheScreen();
+    expect(screen.queryByText("No Moments yet")).toBeNull();
   });
 
   it("offers a retry and nothing else when the first page fails", async () => {
@@ -528,6 +555,26 @@ describe("the deck's loop", () => {
 });
 
 describe("the session", () => {
+  it("greets a cold start with the feed rather than a pill offering it", async () => {
+    jest.mocked(listRecentMoments).mockResolvedValue(page([moment()]));
+    // Asked with no anchor, the server counts everything the viewer may see —
+    // which on a first load is the feed that is already on the screen. Home
+    // takes focus for the first time on mount and used to revalidate against
+    // the session it was still loading, so opening the app offered a pill for
+    // every Moment in it.
+    jest
+      .mocked(countNewRecentMoments)
+      .mockImplementation(async (anchorAt) => (anchorAt === null ? 11 : 0));
+
+    await renderHome();
+    await screen.findByLabelText("Ada, @ada");
+
+    expect(jest.mocked(countNewRecentMoments)).not.toHaveBeenCalledWith(null);
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /new Moment/ })).toBeNull();
+    });
+  });
+
   it("announces arrivals as a count and nothing else", async () => {
     jest.mocked(listRecentMoments).mockResolvedValue(page([moment()]));
     jest.mocked(countNewRecentMoments).mockResolvedValue(3);
@@ -642,6 +689,57 @@ describe("the session", () => {
     await screen.findByTestId("recent-deck");
     // Offering to "show" the photograph already on screen is the bug.
     expect(screen.queryByRole("button", { name: "1 new Moment" })).toBeNull();
+  });
+
+  it("lands the author on the Moment they are sharing, not where they were", async () => {
+    jest.mocked(listRecentMoments).mockResolvedValue(
+      page([
+        moment(),
+        moment({
+          moment_id: "moment-b",
+          published_at: "2026-08-01T10:00:00.000Z",
+        }),
+      ]),
+    );
+
+    const view = await renderHome();
+    const deck = (await screen.findByTestId("recent-deck")).parent;
+
+    async function currentMomentId() {
+      onOpenMoment.mockClear();
+      await act(async () => {
+        deck?.props.onAccessibilityAction({
+          nativeEvent: { actionName: "open" },
+        });
+      });
+      return onOpenMoment.mock.calls.at(-1)?.[0] as string | undefined;
+    }
+
+    // The author was reading an older card when they opened the camera. A page
+    // arriving keeps somebody's place, and their own share must not: they
+    // pressed send one second ago and this is the photograph they are waiting
+    // to see land.
+    await act(async () => {
+      deck?.props.onAccessibilityAction({
+        nativeEvent: { actionName: "older" },
+      });
+    });
+    expect(await currentMomentId()).toBe("moment-b");
+
+    await view.update({
+      pendingMoment: {
+        authorAvatarPath: null,
+        authorDisplayName: "You",
+        caption: "",
+        capturedAt: null,
+        capturedUtcOffsetMinutes: null,
+        momentId: "moment-pending",
+        photoUri: "file:///pending.jpg",
+        settled: false,
+      },
+    });
+
+    expect(await currentMomentId()).toBe("moment-pending");
   });
 
   /**
@@ -887,6 +985,112 @@ describe("the session", () => {
     ).toBeOnTheScreen();
     // A failed refresh never takes away what the viewer was already reading.
     expect(screen.getByLabelText("Ada, @ada")).toBeOnTheScreen();
+  });
+});
+
+/**
+ * Today and Week are one screen with two sources, so switching is a change of
+ * what the deck is pointed at — not a reload, and never a trip through an empty
+ * screen. Both of those were visible: the way back from Week painted "Nothing
+ * new yet" over a feed that was frozen in the cache the whole time.
+ */
+describe("switching between Today and Week", () => {
+  beforeEach(() => {
+    jest.mocked(listRecentMoments).mockResolvedValue(page([moment()]));
+  });
+
+  async function press(testID: string) {
+    await act(async () => {
+      screen.getByTestId(testID).props.onClick?.();
+      screen.getByTestId(testID).props.onPress?.();
+    });
+  }
+
+  it("puts Today straight back without an empty state in between", async () => {
+    await renderHome();
+    await screen.findByLabelText("Ada, @ada");
+
+    await press("home-mode-highlights");
+    expect(await screen.findByText("Nothing to highlight yet")).toBeTruthy();
+
+    await press("home-mode-recent");
+
+    // Today's session is frozen and its cards never left the cache, so they go
+    // back on screen with the switch itself rather than a commit later.
+    expect(screen.getByTestId("recent-deck")).toBeTruthy();
+    expect(screen.queryByText("Nothing new yet")).toBeNull();
+    expect(screen.queryByText("No Moments yet")).toBeNull();
+  });
+
+  it("comes back from a switch made while the deck was still moving", async () => {
+    await renderHome();
+    await screen.findByLabelText("Ada, @ada");
+
+    // A finger goes down, and the cards are taken away before the list can
+    // report that the movement is over. Home holds pages back while the deck
+    // is in motion, so a deck stuck in motion is a deck that never fills.
+    await act(async () => {
+      screen.getByTestId("recent-deck").props.onScrollBeginDrag();
+    });
+
+    await press("home-mode-highlights");
+    await screen.findByText("Nothing to highlight yet");
+    await press("home-mode-recent");
+
+    expect(screen.getByTestId("recent-deck")).toBeTruthy();
+    expect(screen.queryByText("Nothing new yet")).toBeNull();
+  });
+
+  it("keeps taking pages after a switch away and back mid-swipe", async () => {
+    jest
+      .mocked(listRecentMoments)
+      .mockResolvedValueOnce(page([moment()]))
+      .mockResolvedValue(page([moment(), moment({ moment_id: "moment-b" })]));
+
+    const view = await renderHome();
+    await screen.findByLabelText("Ada, @ada");
+
+    // A finger goes down, and the deck leaves the screen before the list can
+    // report the movement over — its pending settle is cancelled with it.
+    await act(async () => {
+      screen.getByTestId("recent-deck").props.onScrollBeginDrag();
+    });
+    await press("home-mode-highlights");
+    await screen.findByText("Nothing to highlight yet");
+    await press("home-mode-recent");
+
+    // Home held pages back while it believed a finger was down, and nothing
+    // was ever going to tell it otherwise. Today stopped updating for good.
+    await view.refocus(false);
+    await view.refocus(true);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("recent-deck").props.data).toHaveLength(6);
+    });
+  });
+
+  it("shows the skeleton while Week re-ranks, not an empty week", async () => {
+    let deliver:
+      ((page: { isWarmingUp: boolean; moments: [] }) => void) | null = null;
+    jest.mocked(listHighlightMoments).mockReturnValue(
+      new Promise((resolve) => {
+        deliver = resolve;
+      }) as never,
+    );
+
+    await renderHome();
+    await screen.findByLabelText("Ada, @ada");
+    await press("home-mode-highlights");
+
+    // Entering Week is a genuine re-rank. Saying "nothing to highlight" before
+    // the ranking has arrived is a claim the screen cannot support yet.
+    expect(screen.queryByText("Nothing to highlight yet")).toBeNull();
+    expect(screen.getByLabelText("Loading Moments")).toBeTruthy();
+
+    await act(async () => {
+      deliver?.({ isWarmingUp: false, moments: [] });
+    });
+    expect(await screen.findByText("Nothing to highlight yet")).toBeTruthy();
   });
 });
 
