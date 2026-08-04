@@ -4,7 +4,7 @@ These lessons explain verified Splotty implementation checkpoints through their 
 
 ## Redesign status
 
-Splotty's friend-first foundation, Phases 1–8, and Checkpoints 9A–9C are implemented on `codex/friend-first-rebaseline`; hosted development has seventeen migrations and local has the additional unpromoted Splotty legal-version migration. Checkpoint 9D's client rename and internal-preview foundation are implemented locally. The first internal candidate deliberately reuses hosted development; EAS development/preview client values are configured, while signing, legal promotion, push credentials, permanent operator identity/TOTP, source-map verification, external legal text, and physical-device acceptance remain gates.
+Splotty's friend-first foundation, Phases 1–8, and Checkpoints 9A–9C are implemented on `codex/friend-first-rebaseline`; hosted and local development share all eighteen migrations through the Splotty legal version. Checkpoint 9D's client rename and internal-preview foundation are implemented, and its legal/Auth rename is promoted. The first internal candidate deliberately reuses hosted development; EAS development/preview client values are configured, while signing, push credentials, permanent operator identity/TOTP, source-map verification, external legal text, and physical-device acceptance remain gates.
 
 Only the retained foundations below are current course material. Obsolete and superseded work is separated in the [historical archive](./archive/README.md).
 

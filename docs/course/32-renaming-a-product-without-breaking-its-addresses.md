@@ -121,10 +121,13 @@ The rollout still has an order:
 5. run two-device push/deep-link and remaining physical acceptance;
 6. request TestFlight upload approval only after those gates pass.
 
-Releasing the client before the migration would fail closed at onboarding with
-“requirements changed.” That is preferable to accepting the wrong text, but it
-is still an operational outage, which is why the dependency is recorded in
-Section 31 of `PROJECT.md`.
+The founder approved step 2 on 2026-08-03. Hosted development now has all
+eighteen migrations; direct remote inspection proves the four historical rows
+remain byte-for-byte and inactive, while the four exact Splotty hashes are the
+only active set. The Auth config push changed only the confirmation/recovery
+subjects and templates, and a second comparison reports remote Auth fully up to
+date. Releasing the client before that promotion would have failed closed at
+onboarding with “requirements changed”; that dependency is now closed.
 
 ## 6. Verification and review
 

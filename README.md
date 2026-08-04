@@ -4,7 +4,7 @@
 
 Splotty is a private, friend-first iOS photo app. Capture or choose one photo, share the Moment with friends, swipe through their Moments, react, and quietly build personal and shared history.
 
-The repository is under founder-only development. The complete private V1 product loop, safety/deletion backend, push outbox, and release-polished client are implemented; the first internal build deliberately uses hosted development. The Splotty legal migration, physical-device matrices, push/source-map credentials, universal links, permanent moderator identity, external legal/store text, and TestFlight upload remain gated.
+The repository is under founder-only development. The complete private V1 product loop, safety/deletion backend, push outbox, and release-polished client are implemented; the first internal build deliberately uses hosted development. The Splotty legal migration and Auth templates are promoted. Physical-device matrices, push/source-map credentials, universal links, permanent moderator identity, external legal/store text, and TestFlight upload remain gated.
 
 ## Product boundaries
 
