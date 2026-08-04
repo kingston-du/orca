@@ -40,7 +40,15 @@ const PUSH_ENVIRONMENT = IS_DEV ? "development" : "production";
 module.exports = ({ config }) => ({
   ...config,
   name: IS_DEV ? "Splotty (Dev)" : "Splotty",
-  scheme: IS_DEV ? "orca-dev" : "orca",
+  // A bare custom scheme is a first-come-first-served namespace on the device:
+  // iOS does not enforce uniqueness, so a collision is resolved arbitrarily in
+  // favour of whichever app it likes. `orca` collided with a shipped App Store
+  // app ("Orca: Gratitude Journal") and invite links opened that app instead of
+  // this one. This is the documented exception to the AGENTS.md naming
+  // boundary, which preserves internal `orca` identifiers only because they do
+  // not reach a person; this one did. The durable fix is the planned universal
+  // link, whose HTTPS namespace is owned rather than claimed.
+  scheme: IS_DEV ? "splotty-dev" : "splotty",
   plugins: [
     ...(config.plugins ?? []),
     ["expo-build-properties", { ios: { deploymentTarget: "17.0" } }],

@@ -74,8 +74,8 @@ describe("invite tokens", () => {
 
   test("the token rides in the fragment, never the path or query", () => {
     const token = createInviteToken();
-    const link = inviteLinkFor(token, "orca://invite");
-    expect(link).toBe(`orca://invite#${`t=${token}`}`);
+    const link = inviteLinkFor(token, "splotty://invite");
+    expect(link).toBe(`splotty://invite#${`t=${token}`}`);
     // Everything before the fragment is what a server, referrer header, or CDN
     // access log would ever observe.
     expect(link.split("#")[0]).not.toContain(token);
@@ -83,19 +83,19 @@ describe("invite tokens", () => {
 
   test("a token round-trips out of an inbound URL", () => {
     const token = createInviteToken();
-    expect(inviteTokenFromUrl(inviteLinkFor(token, "orca://invite"))).toBe(
+    expect(inviteTokenFromUrl(inviteLinkFor(token, "splotty://invite"))).toBe(
       token,
     );
   });
 
   test("URLs without a well-formed token yield nothing", () => {
-    expect(inviteTokenFromUrl("orca://invite")).toBeNull();
-    expect(inviteTokenFromUrl("orca://invite#t=short")).toBeNull();
-    expect(inviteTokenFromUrl("orca://invite#other=value")).toBeNull();
+    expect(inviteTokenFromUrl("splotty://invite")).toBeNull();
+    expect(inviteTokenFromUrl("splotty://invite#t=short")).toBeNull();
+    expect(inviteTokenFromUrl("splotty://invite#other=value")).toBeNull();
     // A token placed in the query rather than the fragment is not accepted,
     // because that placement would leak it to servers and logs.
     expect(
-      inviteTokenFromUrl(`orca://invite?t=${createInviteToken()}`),
+      inviteTokenFromUrl(`splotty://invite?t=${createInviteToken()}`),
     ).toBeNull();
   });
 });

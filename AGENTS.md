@@ -12,11 +12,22 @@ The product loop is: capture or choose a recent photo → share one **Moment** w
 
 **Naming boundary:** the client-facing product name is **Splotty** as of
 2026-08-03. Preserve established internal identifiers that do not reach a
-person — `orca` package/slug, bundle identifiers, URL schemes, environment
+person — `orca` package/slug, bundle identifiers, environment
 variables, database roles, object headers, cache keys, migrations, and
 historical filenames — unless a separately approved migration needs to change
 one. This keeps the emergency product rename from breaking installed clients,
 deep links, Supabase, EAS, or stored data.
+
+The test is _reach_, not _visibility_: an identifier that is never rendered can
+still reach a person by deciding which app the OS opens. The **custom URL
+scheme is the settled exception** and is now `splotty`/`splotty-dev`, changed
+2026-08-03 because a bare scheme is a first-come-first-served device namespace
+with no uniqueness enforcement, `orca` collided with a shipped App Store app,
+and invite links opened that app instead of Splotty. Do not restore it. Before
+adding any new identifier, ask whether its namespace is **private** to this
+project (EAS account, Supabase project, bundle-ID prefix, app-private storage)
+or **globally contested** (custom schemes, App Store display name); contested
+namespaces must carry the product name and be checked against shipped apps.
 
 Implement coherent checkpoints autonomously. In chat, explain the outcome, important product/architecture/security choices, meaningful diff, verification evidence, and remaining gates. Do not quiz the developer, interrupt routine work for syntax decisions, or turn the live chat into a tutorial. The repository course is the comprehensive teaching surface.
 
