@@ -59,7 +59,9 @@
   "scripts": {
     "start": "APP_VARIANT=development EXPO_PUBLIC_ORCA_ENVIRONMENT=development expo start --dev-client",
     "android": "expo run:android",
-    "ios": "expo run:ios",
+    "ios": "LC_CTYPE=UTF-8 expo run:ios",
+    "prebuild": "LC_CTYPE=UTF-8 expo prebuild --platform ios",
+    "pods": "cd ios && LC_CTYPE=UTF-8 pod install",
     "lint": "expo lint --max-warnings=0",
     "legal:check": "shasum -a 256 --check legal/development-2026-07-27/SHA256SUMS && shasum -a 256 --check legal/development-2026-08-03-splotty/SHA256SUMS",
     "test": "jest --runInBand",

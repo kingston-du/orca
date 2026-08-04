@@ -8,6 +8,17 @@ Governance lives in [AGENTS.md](AGENTS.md) (how to work) and [PROJECT.md](PROJEC
   ```bash
   export PATH="$HOME/.nvm/versions/node/v24.14.1/bin:$PATH"
   ```
+- **CocoaPods needs a UTF-8 `LC_CTYPE` in non-interactive shells.** The login
+  shell sets `LANG=C.UTF-8`, so `pod install` is fine when run by hand, but an
+  agent/CI shell inherits an empty locale. Ruby 4.0.5 then returns `Dir.pwd` as
+  `ASCII-8BIT`, and CocoaPods 1.16.2 dies in `Pod::Config#installation_root`
+  with `Unicode Normalization not appropriate for ASCII-8BIT`. Use
+  `npm run prebuild` / `npm run ios` / `npm run pods`, which pin it; a bare
+  `expo prebuild` or `pod install` needs `LC_CTYPE=UTF-8` prefixed by hand.
+  `LC_CTYPE` is deliberate — `LC_ALL` would also override language and
+  collation.
+- Also note `expo prebuild --clean` fails with `ENOTEMPTY` if Finder has left a
+  `.DS_Store` in `ios/`; delete it first.
 - Local Supabase must be running (`npm run db:start`) for db/API gates.
 - The Supabase management token lives in the macOS keychain, not a file:
   ```bash
