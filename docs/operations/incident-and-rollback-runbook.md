@@ -61,7 +61,7 @@ authorized merely because this document exists.
    rollback is an external deployment and needs approval.
 3. **App rollback:** stop rollout or promote the last compatible build. Ensure
    server authorization remains correct for both versions.
-4. **Database forward repair:** prefer a new migration. Orca has no down
+4. **Database forward repair:** prefer a new migration. Splotty has no down
    migrations and never rewrites applied history.
 5. **Isolated database/media restore:** follow the backup runbook and prove the
    entire authorization/lifecycle story before cutover.

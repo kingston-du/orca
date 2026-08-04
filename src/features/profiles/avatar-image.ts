@@ -29,7 +29,7 @@ const AVATAR_PICKER_OPTIONS = {
   allowsMultipleSelection: false,
   allowsEditing: false,
   base64: false,
-  // Orca never keeps imported metadata, so it never asks for it either.
+  // Splotty never keeps imported metadata, so it never asks for it either.
   exif: false,
   quality: 1,
 } satisfies ImagePicker.ImagePickerOptions;

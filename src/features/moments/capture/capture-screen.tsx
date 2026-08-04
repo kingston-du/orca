@@ -66,7 +66,7 @@ type CaptureError = {
 const CAMERA_PICTURE_OPTIONS = {
   quality: 1,
   base64: false,
-  // Orca records its own capture instant at the shutter and re-encodes the
+  // Splotty records its own capture instant at the shutter and re-encodes the
   // result, so there is nothing to gain from the camera's own EXIF block.
   exif: false,
   skipProcessing: false,
@@ -146,7 +146,7 @@ export function CaptureScreen() {
       if (outcome.kind === "error") {
         setError({
           message:
-            "Orca couldn’t prepare that photo. Please choose another one.",
+            "Splotty couldn’t prepare that photo. Please choose another one.",
           showSettings: false,
         });
       }
@@ -198,7 +198,7 @@ export function CaptureScreen() {
           setError({
             message: result.canAskAgain
               ? "Camera access is needed to take a photo. Try again when you’re ready."
-              : "Camera access is off. Open Settings to allow Orca to use the camera.",
+              : "Camera access is off. Open Settings to allow Splotty to use the camera.",
             showSettings: !result.canAskAgain,
           });
         }
@@ -251,7 +251,7 @@ export function CaptureScreen() {
       } catch {
         if (isMounted.current) {
           setError({
-            message: "Orca couldn’t prepare that photo. Please try again.",
+            message: "Splotty couldn’t prepare that photo. Please try again.",
             showSettings: false,
           });
         }
@@ -264,7 +264,7 @@ export function CaptureScreen() {
     } catch {
       setError({
         message:
-          "Settings couldn’t be opened. Open the Settings app and allow camera access for Orca.",
+          "Settings couldn’t be opened. Open the Settings app and allow camera access for Splotty.",
         showSettings: false,
       });
     }

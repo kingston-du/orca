@@ -18,7 +18,7 @@ export default function ProfileRoute() {
   return (
     <DiaryScreen
       avatarPath={state.data.avatar_path}
-      displayName={state.data.display_name ?? "Orca member"}
+      displayName={state.data.display_name ?? "Splotty member"}
       onBack={() => router.back()}
       onEditProfile={() => router.push("/settings/profile")}
       onOpenFriends={() => router.push("/profile/friends")}

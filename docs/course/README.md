@@ -1,10 +1,10 @@
-# Orca engineering course
+# Splotty engineering course
 
-These lessons explain verified Orca implementation checkpoints through their mental models, runtime flows, important code, security boundaries, tests, and evidence. [`PROJECT.md`](../../PROJECT.md) is the current product and architecture source of truth.
+These lessons explain verified Splotty implementation checkpoints through their mental models, runtime flows, important code, security boundaries, tests, and evidence. [`PROJECT.md`](../../PROJECT.md) is the current product and architecture source of truth. Lessons written before the 2026-08-03 product rename may use Orca as historical terminology; compatibility-sensitive internal `orca` identifiers remain intentional.
 
 ## Redesign status
 
-Orca's friend-first foundation, Phases 1–8, and Checkpoints 9A–9B are implemented on `codex/friend-first-rebaseline`; local and hosted development share all sixteen migrations. The approved 2026-08-03 promotion deployed the notification/deletion-aware worker and fail-closed backup export boundary. The founder declined a separate archive provider and RPO/RTO program for V1, so hosted has no backup secrets/snapshots and explicitly disables archive maintenance/alerts; the local recovery drills remain evidence for optional contingency tooling, not a production recovery claim. Phase 7's real hosted TOTP/AAL2 moderation drill remains green. Founder-owned release operations still need the real support mailbox, permanent operator identity/TOTP device, Sentry project/source-map verification, legal text, push credential/native acceptance, and the documented physical-iPhone gates.
+Splotty's friend-first foundation, Phases 1–8, and Checkpoints 9A–9C are implemented on `codex/friend-first-rebaseline`; hosted development has seventeen migrations and local has the additional unpromoted Splotty legal-version migration. Checkpoint 9D's client rename and internal-preview foundation are implemented locally. The first internal candidate deliberately reuses hosted development; EAS development/preview client values are configured, while signing, legal promotion, push credentials, permanent operator identity/TOTP, source-map verification, external legal text, and physical-device acceptance remain gates.
 
 Only the retained foundations below are current course material. Obsolete and superseded work is separated in the [historical archive](./archive/README.md).
 
@@ -30,6 +30,7 @@ Only the retained foundations below are current course material. Obsolete and su
 - Lesson 29 — [Auth last: deleting a person across database, Storage, and identity](./29-auth-last-account-deletion.md)
 - Lesson 30 — [Restoring multi-system privacy](./30-restoring-multi-system-privacy.md)
 - Lesson 31 — [A design system and its contradictions](./31-a-design-system-and-its-contradictions.md) (Part 7 follows founder review through scrim, photo geometry, timestamp, and keyboard-ownership refinements)
+- Lesson 32 — [Renaming a product without breaking its addresses](./32-renaming-a-product-without-breaking-its-addresses.md)
 
 Lesson 23's claim that the viewer's own Moments fail the Recent read rule described Checkpoint 5A only. Checkpoint 5B made own Recent Moments visible on Home by founder direction; Lesson 24 Part 3 explains what changed and why the old behaviour was an accident of the join rather than a decision. Lessons 23 and 24 also state that no reaction control, count, or people list exists anywhere; that described Phases 5A and 5B only. Phase 6 adds all three, and Lesson 25 covers them.
 
@@ -39,7 +40,7 @@ Lessons 20 and 22 describe the media worker as the only outbox and say that publ
 
 ## Next lesson
 
-Lesson 31 is created only after Checkpoint 9C's visual and accessibility polish is implemented and verified. Course notes never describe speculative code as though it exists.
+The next lesson is created only after the next coherent Checkpoint 9D release boundary is implemented and verified. Course notes never describe speculative code as though it exists.
 
 ## Course progression and checkpoint contract
 
@@ -51,7 +52,7 @@ Each lesson must be understandable without reverse-engineering the entire diff. 
 
 - where the checkpoint fits and the problem it solves;
 - the mental model and complete runtime/data flow;
-- focused excerpts and links to important real Orca code;
+- focused excerpts and links to important real Splotty code;
 - plain-language explanations of unfamiliar TypeScript, React Native, Expo, TanStack Query, Supabase, Postgres, SQL, RLS, Storage, and testing APIs used;
 - which layer owns state, validation, authorization, failure recovery, and cleanup;
 - security, privacy, and database/code-design reasoning;
@@ -59,7 +60,7 @@ Each lesson must be understandable without reverse-engineering the entire diff. 
 - exact verification evidence and practical debugging/review guidance; and
 - one small exercise or plain-English understanding question.
 
-Use focused excerpts, never entire-file dumps. Explain both how the mechanism works and why Orca uses it. If later architecture supersedes a lesson, preserve it in `archive/`, add its classification and Git provenance, and remove it from the active list.
+Use focused excerpts, never entire-file dumps. Explain both how the mechanism works and why Splotty uses it. If later architecture supersedes a lesson, preserve it in `archive/`, add its classification and Git provenance, and remove it from the active list.
 
 ## How to use a lesson
 

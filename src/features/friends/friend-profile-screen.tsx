@@ -186,7 +186,7 @@ export function FriendProfileScreen({
              * reporter who blocks first must still be able to report, and the
              * report screen carries its own optional block. */}
             <AppButton
-              accessibilityHint="Sends this person to Orca’s safety operator for review"
+              accessibilityHint="Sends this person to Splotty’s safety operator for review"
               label="Report"
               onPress={() => onReport(profile.id, profile.display_name)}
               style={styles.action}

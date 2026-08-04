@@ -2,10 +2,10 @@ import { authStorage } from "@/lib/auth-storage";
 import { supabaseUrl } from "@/lib/supabase";
 
 /**
- * When Orca is allowed to ask.
+ * When Splotty is allowed to ask.
  *
  * iOS shows the notification prompt once per install. Spending it on launch, on
- * a screen where the person has no idea what Orca would send them, wastes the
+ * a screen where the person has no idea what Splotty would send them, wastes the
  * only chance the app gets — after a refusal `canAskAgain` is false for ever
  * and the only route back is iOS Settings.
  *

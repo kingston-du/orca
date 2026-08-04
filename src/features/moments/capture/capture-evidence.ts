@@ -6,18 +6,18 @@ import {
 import { formatExactCaptureTime } from "@/features/moments/capture-time";
 
 /**
- * Capture evidence: the only thing Orca keeps from a photo's metadata.
+ * Capture evidence: the only thing Splotty keeps from a photo's metadata.
  *
  * A picker asset arrives with a full EXIF/TIFF/GPS dictionary. This module is
  * the single place that touches it, reads exactly two allowlisted keys, and
  * returns a small immutable value. The dictionary itself is never stored,
  * returned, spread, serialized, or logged — the re-encode in `photo-normalizer`
- * then strips every byte of it from the file Orca actually keeps.
+ * then strips every byte of it from the file Splotty actually keeps.
  *
- * Orca is deliberately honest about what this proves: nothing. A device clock
+ * Splotty is deliberately honest about what this proves: nothing. A device clock
  * and a picker's `DateTimeOriginal` are both client claims. The server enforces
  * the admission window at finalization but never presents a claim as
- * cryptographically trustworthy, and Orca adds no attestation infrastructure.
+ * cryptographically trustworthy, and Splotty adds no attestation infrastructure.
  */
 
 /** Mirrors the Moment table's evidence enum. */
@@ -78,7 +78,7 @@ export function getCameraCaptureEvidence(date = new Date()): CaptureEvidence {
   return {
     evidence: "camera_clock",
     capturedAt,
-    // JavaScript reports minutes *west* of UTC; Orca stores the conventional
+    // JavaScript reports minutes *west* of UTC; Splotty stores the conventional
     // signed offset, so Los Angeles is −420 during daylight time.
     capturedUtcOffsetMinutes,
   };

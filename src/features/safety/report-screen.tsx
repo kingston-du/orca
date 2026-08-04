@@ -39,7 +39,7 @@ import {
  * subject has been reported before, or what any operator did. A submission that
  * succeeds looks identical whatever happens next.
  *
- * The receipt is honest about evidence. When a Moment is reported Orca copies
+ * The receipt is honest about evidence. When a Moment is reported Splotty copies
  * the photo so a review can happen after the author deletes it — but that copy
  * is a background job that can fail, and the screen says "we are keeping a
  * copy" only when the server actually said so.
@@ -127,8 +127,8 @@ export function ReportScreen({
         </Text>
         <Text style={styles.body}>
           {subjectLabel
-            ? `Reports about ${subjectLabel} are reviewed by Orca's safety operator. `
-            : "Reports are reviewed by Orca's safety operator. "}
+            ? `Reports about ${subjectLabel} are reviewed by Splotty's safety operator. `
+            : "Reports are reviewed by Splotty's safety operator. "}
           They are not shown to the person you are reporting.
         </Text>
 
@@ -246,14 +246,14 @@ function ReportReceiptView({
           Report sent
         </Text>
         <Text style={styles.body}>
-          Thank you. Orca&apos;s safety operator reviews urgent reports within
-          24 hours and everything else within 72 hours. You will not be told
-          what happens to the other account.
+          Thank you. Splotty&apos;s safety operator reviews urgent reports
+          within 24 hours and everything else within 72 hours. You will not be
+          told what happens to the other account.
         </Text>
         {evidenceStatus === "pending" ? (
           <Text style={styles.body}>
-            Orca is keeping a copy of the photo for the review, so it can still
-            be checked if it is deleted.
+            Splotty is keeping a copy of the photo for the review, so it can
+            still be checked if it is deleted.
           </Text>
         ) : null}
         {evidenceStatus === "unavailable" ? (

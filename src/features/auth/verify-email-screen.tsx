@@ -139,7 +139,7 @@ export function VerifyEmailScreen({
         style={styles.keyboardView}
       >
         <View style={styles.centeredContent}>
-          <Text style={styles.brand}>orca</Text>
+          <Text style={styles.brand}>splotty</Text>
           <Text style={styles.title}>Check your email</Text>
           <Text style={styles.subtitle}>
             Enter the six-digit code sent to {verifiedEmail}.

@@ -1,7 +1,7 @@
 /**
  * Content scrubbing for crash reports.
  *
- * Orca sends diagnostics to a third party, so the question is not "what is
+ * Splotty sends diagnostics to a third party, so the question is not "what is
  * useful to send?" but "what is it never acceptable to send?". Section 25
  * answers that: no email, username, caption, EXIF, photo or object URL, invite
  * or deletion token, signed URL, device token, recipient or tag list, report
@@ -24,7 +24,7 @@ const REDACTIONS: { pattern: RegExp; replacement: string }[] = [
     pattern: /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\b/g,
     replacement: "[token]",
   },
-  // A local file, which for Orca means the photo being published.
+  // A local file, which for Splotty means the photo being published.
   { pattern: /\bfile:\/\/\S+|\/var\/mobile\/\S+/g, replacement: "[file]" },
   // Any URL. A signed media URL carries a capability; even an unsigned one
   // carries an object path, which names a person and a Moment.
@@ -66,7 +66,7 @@ type ScrubbableEvent = {
  * Rewrites an event in place-ish and returns it.
  *
  * Fields that cannot be made safe are dropped rather than redacted: request
- * bodies, headers, cookies, and any notion of who the user is. Orca's own
+ * bodies, headers, cookies, and any notion of who the user is. Splotty's own
  * correlation identifiers travel as tags, which are set deliberately and never
  * from user input.
  */

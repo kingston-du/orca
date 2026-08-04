@@ -11,7 +11,7 @@ import { color, PHOTOS_TILE_SIZE, radius } from "@/constants/design";
  * different product. So before the author chooses anything, this is a
  * thumbnail-*shaped* Photos glyph: it looks like the affordance people expect
  * and reveals nothing. After an explicit selection it may show the current
- * draft, because that image is one the author just handed to Orca.
+ * draft, because that image is one the author just handed to Splotty.
  *
  * The glyph carries the meaning on its own. It used to be three hand-drawn
  * frames with the word "Photos" stacked under them, which at 44 points was a

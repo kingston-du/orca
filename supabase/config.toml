@@ -249,11 +249,11 @@ otp_expiry = 3600
 # content_path = "./supabase/templates/invite.html"
 
 [auth.email.template.confirmation]
-subject = "Your Orca confirmation code"
+subject = "Your Splotty confirmation code"
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.recovery]
-subject = "Your Orca password reset code"
+subject = "Your Splotty password reset code"
 content_path = "./supabase/templates/recovery.html"
 
 # Uncomment to customize notification email template

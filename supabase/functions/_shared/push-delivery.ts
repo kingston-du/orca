@@ -13,7 +13,7 @@
  *      `complete_notification_job` and `fail_notification_job` apply the rules.
  *
  * Expo publishes no SLA for this service, so a failure here is an ordinary
- * outcome. Orca is correct without notifications.
+ * outcome. Splotty is correct without notifications.
  */
 
 const SEND_URL = "https://exp.host/--/api/v2/push/send";
@@ -75,7 +75,7 @@ type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 type TicketResult = { status: "ok" | "device_not_registered" | "error" };
 
 /**
- * The whole user-facing vocabulary of Orca notifications, in one place.
+ * The whole user-facing vocabulary of Splotty notifications, in one place.
  *
  * Every string is true of every instance of its type without naming anybody.
  * "Someone" is deliberate: a Superheart from a person the recipient has since
@@ -314,7 +314,7 @@ async function post(
         accept: "application/json",
         // Expo's push security setting. When enhanced security is enabled the
         // service refuses an unauthenticated send, which is what stops anyone
-        // holding a leaked token from pushing to Orca's users.
+        // holding a leaked token from pushing to Splotty's users.
         ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
       },
       body: JSON.stringify(body),

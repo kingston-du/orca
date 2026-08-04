@@ -29,7 +29,7 @@ import { supabase } from "@/lib/supabase";
  * Foreground revalidation, with no cover over the app.
  *
  * This used to draw an opaque brand screen over everything from the moment
- * Orca left the foreground until the session had been re-checked. The founder
+ * Splotty left the foreground until the session had been re-checked. The founder
  * removed it: it cost the app its sense of continuity every time someone
  * switched back to it, and it was covering an app-switcher card that iOS has
  * already redacted for other reasons.
@@ -104,8 +104,8 @@ export function PrivacyShield({ children }: PropsWithChildren) {
           style={styles.shield}
           testID="privacy-shield"
         >
-          <Text style={styles.brand}>orca</Text>
-          <Text style={styles.message}>Orca couldn’t safely unlock.</Text>
+          <Text style={styles.brand}>splotty</Text>
+          <Text style={styles.message}>Splotty couldn’t safely unlock.</Text>
           <Pressable
             accessibilityRole="button"
             onPress={() => void validateForeground()}
@@ -127,7 +127,7 @@ export function PrivacyShield({ children }: PropsWithChildren) {
 }
 
 const styles = StyleSheet.create({
-  // Matches the "orca" wordmark style used elsewhere (see
+  // Matches the "splotty" wordmark style used elsewhere (see
   // verify-email-screen's `brand`), inverted for this screen's brand-colour
   // background.
   brand: { ...typeScale.title, color: color.textInverse, letterSpacing: -1 },

@@ -35,7 +35,7 @@ import { MomentPhotoFrame } from "@/features/moments/feed/moment-photo";
  * It draws the **real** components — the same photo frame and the same metadata
  * elements the feed ships — against extreme aspect ratios. It deliberately
  * cannot show a real photo: media needs an authorized row and a signed URL, and
- * a harness that faked one would be checking something Orca never renders.
+ * a harness that faked one would be checking something Splotty never renders.
  */
 export default function DeckHarnessRoute() {
   const { width } = useWindowDimensions();

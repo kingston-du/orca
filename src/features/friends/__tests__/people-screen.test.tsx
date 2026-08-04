@@ -98,7 +98,9 @@ describe("PeopleScreen", () => {
     await user.type(screen.getByLabelText("Friend’s username"), "??", {
       submitEditing: true,
     });
-    expect(screen.getByText("Enter an exact Orca username.")).toBeOnTheScreen();
+    expect(
+      screen.getByText("Enter an exact Splotty username."),
+    ).toBeOnTheScreen();
     expect(lookupProfileExact).not.toHaveBeenCalled();
   });
 

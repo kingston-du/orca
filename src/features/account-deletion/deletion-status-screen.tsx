@@ -9,17 +9,17 @@ import type { AccountDeletionStatus } from "./account-deletion-api";
 function copyFor(status: string) {
   switch (status) {
     case "requested":
-      return "Your request is recorded. Ordinary Orca access is already hidden.";
+      return "Your request is recorded. Ordinary Splotty access is already hidden.";
     case "cleaning":
-      return "Orca is removing relationships and proving your private media is gone.";
+      return "Splotty is removing relationships and proving your private media is gone.";
     case "auth_pending":
-      return "Your content cleanup is proven. Orca is removing the sign-in identity last.";
+      return "Your content cleanup is proven. Splotty is removing the sign-in identity last.";
     case "complete":
-      return "Your Orca account deletion is complete.";
+      return "Your Splotty account deletion is complete.";
     case "dead":
       return "Automatic cleanup needs manual help. Contact Support and include the receipt reference below.";
     default:
-      return "Orca is checking this deletion request.";
+      return "Splotty is checking this deletion request.";
   }
 }
 

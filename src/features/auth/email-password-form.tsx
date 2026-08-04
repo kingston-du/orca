@@ -39,7 +39,7 @@ const COPY = {
     title: "Welcome back",
     subtitle: "Sign in to keep up with your friends and memories.",
     submit: "Sign in",
-    alternatePrompt: "New to Orca?",
+    alternatePrompt: "New to Splotty?",
     alternateLabel: "Create an account",
     alternateHref: "./sign-up" as const,
   },
@@ -117,7 +117,7 @@ export function EmailPasswordForm({
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.brandBlock}>
-            <Text style={styles.brand}>orca</Text>
+            <Text style={styles.brand}>splotty</Text>
             <Text style={styles.title}>{copy.title}</Text>
             <Text style={styles.subtitle}>{copy.subtitle}</Text>
           </View>

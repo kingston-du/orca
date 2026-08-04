@@ -156,7 +156,7 @@ export function PasswordRecoveryScreen({
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.brandBlock}>
-            <Text style={styles.brand}>orca</Text>
+            <Text style={styles.brand}>splotty</Text>
             <Text style={styles.title}>
               {step === "request"
                 ? "Reset your password"

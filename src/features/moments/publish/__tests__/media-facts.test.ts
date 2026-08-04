@@ -31,7 +31,7 @@ jest.mock("expo-crypto", () => ({
  * signature advertises the wider `BufferSource`. Passing the bare
  * `ArrayBuffer` therefore compiles, passes every mocked test, and then fails
  * on a real device with `ERR_ARGUMENT_CAST` — which reached an author as
- * "Orca could not share this Moment".
+ * "Splotty could not share this Moment".
  *
  * A mock cannot reproduce the native cast, so this pins the argument's *type*
  * instead: that is the thing the device actually cared about.

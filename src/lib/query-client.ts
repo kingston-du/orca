@@ -5,7 +5,7 @@ import { reportUnexpectedError } from "@/lib/observability";
 /**
  * The cache reports failures, and nothing else does.
  *
- * Every remote read and write in Orca goes through TanStack Query, so these two
+ * Every remote read and write in Splotty goes through TanStack Query, so these two
  * handlers are a complete diagnostic boundary without a `try`/`catch` in a
  * single screen. Only the head of the key travels — `recent-moments`,
  * `moment-detail` — never its arguments, which hold Moment and profile IDs.

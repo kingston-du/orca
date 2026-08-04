@@ -1,10 +1,10 @@
-# Orca
+# Splotty
 
 > Live your life, and remember it too.
 
-Orca is a private, friend-first iOS photo app. Capture or choose one photo, share the Moment with friends, swipe through their Moments, react, and quietly build personal and shared history.
+Splotty is a private, friend-first iOS photo app. Capture or choose one photo, share the Moment with friends, swipe through their Moments, react, and quietly build personal and shared history.
 
-The repository is under founder-only development. Phase 1 contains the friend-first account, username, friendship, block, navigation, privacy-shield, and People foundation, running on both the local stack and the hosted-development project. Moment publication, hosted six-digit OTP email delivery, physical-device acceptance, production legal text, and external beta remain gated.
+The repository is under founder-only development. The complete private V1 product loop, safety/deletion backend, push outbox, and release-polished client are implemented; the first internal build deliberately uses hosted development. The Splotty legal migration, physical-device matrices, push/source-map credentials, universal links, permanent moderator identity, external legal/store text, and TestFlight upload remain gated.
 
 ## Product boundaries
 
@@ -36,6 +36,10 @@ npm run typecheck
 ```
 
 Copy `.env.example` to `.env` and supply only the local or approved environment's publishable Supabase values. Never place a secret or service-role key in the app.
+
+Run `npm start` for the development client. Native dependency/config changes
+require `npm run ios -- --device`; Expo Go is not an acceptance environment for
+camera, push, encrypted restore, uploads, haptics, or app lifecycle.
 
 ## Safety and moderation
 

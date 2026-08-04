@@ -166,7 +166,7 @@ describe("ComposerScreen", () => {
       publishController({
         status: "retryable_unknown",
         momentId: "draft-1",
-        message: "Orca could not confirm whether this Moment shared.",
+        message: "Splotty could not confirm whether this Moment shared.",
       }),
     );
 

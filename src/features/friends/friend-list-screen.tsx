@@ -121,7 +121,7 @@ export function FriendListScreen({
 }
 
 /** Your own friends need no context; a friend's friends get mutual context,
- * which is the only graph fact Orca exposes about someone you have not met. */
+ * which is the only graph fact Splotty exposes about someone you have not met. */
 function mutualLabel(person: FriendListPerson) {
   const mutual = person.mutual_friend_count;
   if (mutual === null || mutual <= 0) return `@${person.username}`;

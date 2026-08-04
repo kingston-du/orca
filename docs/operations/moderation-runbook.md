@@ -1,9 +1,9 @@
-# Orca moderation runbook
+# Splotty moderation runbook
 
 The operational half of [the safety policy decisions](2026-08-02-safety-policy-decisions.md).
 It says who is on call, how to provision and revoke an operator, how to work a
 case, and what to do when something goes wrong. Follow it literally; where it
-says a thing is recorded, that is not a formality, it is the evidence that Orca
+says a thing is recorded, that is not a formality, it is the evidence that Splotty
 moderated fairly.
 
 **Never paste case content, an evidence image, a password, a TOTP code, or an
@@ -33,7 +33,7 @@ moderator.
 
 1. Create the Auth account in the Supabase dashboard (Authentication → Users →
    Add user) with a long unique password from a password manager and email
-   confirmation on. **Do not complete Orca onboarding with it** — an operator
+   confirmation on. **Do not complete Splotty onboarding with it** — an operator
    account holds no profile and is invisible to the social graph.
 2. Insert the membership row as the database owner, in the SQL editor:
 

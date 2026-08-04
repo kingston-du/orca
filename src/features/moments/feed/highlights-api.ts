@@ -10,7 +10,7 @@ type GeneratedHighlight =
  *
  * Deliberately absent: any score, rank, or ordinal. The server ranks and
  * returns rows in order; nothing tells the client *why* a Moment came first,
- * because a visible score is a leaderboard and Orca is not building one.
+ * because a visible score is a leaderboard and Splotty is not building one.
  *
  * `is_warming_up` is constant across the whole page rather than per row — it
  * describes the page, and repeating it per row is what a `returns table`

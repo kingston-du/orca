@@ -46,7 +46,7 @@ type AddFriendSheetProps = {
  * permanent sections of the People screen, which meant the tab's first screenful
  * was administration rather than the friends it is named after.
  *
- * The search field resolves **one exact username**. Orca has no fuzzy directory
+ * The search field resolves **one exact username**. Splotty has no fuzzy directory
  * by design: a prefix search over a private social graph is an enumeration
  * tool, so the field says plainly that it wants a whole username rather than
  * pretending to be a discovery surface. A blocked account and an account that
@@ -78,7 +78,7 @@ export function AddFriendSheet({
 
     if (!USERNAME_PATTERN.test(username.trim().toLowerCase())) {
       setLookup(null);
-      setMessage("Enter an exact Orca username.");
+      setMessage("Enter an exact Splotty username.");
       return;
     }
 
@@ -177,7 +177,7 @@ export function AddFriendSheet({
            * exactly where the keyboard covers. `searching` still gates the
            * field so a second submit cannot race the first. */}
           <Text style={styles.hint}>
-            Orca finds people by their exact username, so ask a friend for
+            Splotty finds people by their exact username, so ask a friend for
             theirs — or send them your invite link.
           </Text>
           {message ? (

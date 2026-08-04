@@ -11,7 +11,7 @@ import { stdin, stdout } from "node:process";
 import { createClient } from "@supabase/supabase-js";
 
 /**
- * Orca's beta moderation console.
+ * Splotty's beta moderation console.
  *
  * This is the only operator surface. It is deliberately not the Supabase
  * dashboard and it never holds a service-role key: it signs one explicitly
@@ -58,7 +58,7 @@ main().catch((error) => {
 });
 
 async function main() {
-  console.log(`Orca moderation console — ${target.label}`);
+  console.log(`Splotty moderation console — ${target.label}`);
   console.log(
     "Actions are audited against your operator identity. Do not copy case " +
       "content out of this session.\n",

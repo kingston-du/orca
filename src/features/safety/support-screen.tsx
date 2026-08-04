@@ -19,7 +19,7 @@ import {
 } from "@/constants/design";
 
 /**
- * Support, appeals, and what Orca does with a report.
+ * Support, appeals, and what Splotty does with a report.
  *
  * Apple requires a published contact channel for user-generated content, and an
  * appeal path is the other half of a moderation system that can suspend an
@@ -55,10 +55,10 @@ export function SupportScreen({
           <View style={styles.callout}>
             <Text style={styles.calloutTitle}>Your account is restricted</Text>
             <Text style={styles.body}>
-              Ordinary Orca access is paused while a safety review stands. Your
-              Moments and friendships are preserved, not deleted. If you think
-              this is wrong, appeal using the contact below — say that you are
-              appealing and when the restriction started.
+              Ordinary Splotty access is paused while a safety review stands.
+              Your Moments and friendships are preserved, not deleted. If you
+              think this is wrong, appeal using the contact below — say that you
+              are appealing and when the restriction started.
             </Text>
           </View>
         ) : null}
@@ -67,7 +67,7 @@ export function SupportScreen({
           {SUPPORT_EMAIL ? (
             <>
               <Text style={styles.body}>
-                Email Orca&apos;s safety and support contact. Include what
+                Email Splotty&apos;s safety and support contact. Include what
                 happened and roughly when.
               </Text>
               <Pressable
@@ -92,10 +92,10 @@ export function SupportScreen({
         <Section title="Reporting something">
           <Text style={styles.body}>
             You can report a Moment from the Moment itself, and a person from
-            their profile. Reports go to Orca&apos;s safety operator, never to
-            the person you reported. Urgent reports — child safety, threats, and
-            risk of self-harm — are reviewed within 24 hours; everything else
-            within 72 hours.
+            their profile. Reports go to Splotty&apos;s safety operator, never
+            to the person you reported. Urgent reports — child safety, threats,
+            and risk of self-harm — are reviewed within 24 hours; everything
+            else within 72 hours.
           </Text>
         </Section>
 
@@ -112,26 +112,26 @@ export function SupportScreen({
           <Text style={styles.body}>
             If a Moment was removed or your account was restricted, you can
             appeal within 30 days using the contact above. Appeals are reviewed
-            against Orca&apos;s community guidelines by the safety operator, who
-            aims to reply within five working days. If a restriction is lifted
-            you will need to sign in again.
+            against Splotty&apos;s community guidelines by the safety operator,
+            who aims to reply within five working days. If a restriction is
+            lifted you will need to sign in again.
           </Text>
         </Section>
 
-        <Section title="What Orca keeps">
+        <Section title="What Splotty keeps">
           <Text style={styles.body}>
-            When a Moment is reported, Orca copies that photo into an operator-
-            only store so the report can still be reviewed if the photo is
-            deleted. That copy and the words you wrote are destroyed 90 days
-            after the case is closed, unless the law requires Orca to keep them
-            longer. A record that a case existed — with no photo and no text —
-            is kept for twelve months.
+            When a Moment is reported, Splotty copies that photo into a store
+            only the safety operator can access, so the report can still be
+            reviewed if the photo is deleted. That copy and the words you wrote
+            are destroyed 90 days after the case is closed, unless the law
+            requires Splotty to keep them longer. A record that a case existed —
+            with no photo and no text — is kept for twelve months.
           </Text>
         </Section>
 
         <Section title="If someone is in danger">
           <Text style={styles.body}>
-            Orca is a small private app and cannot respond to emergencies.
+            Splotty is a small private app and cannot respond to emergencies.
             Contact your local emergency services if someone is at immediate
             risk.
           </Text>

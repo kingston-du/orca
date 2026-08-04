@@ -167,7 +167,7 @@ export function MomentPhoto({
       {signed.data ? (
         <Image
           accessibilityIgnoresInvertColors
-          // No invented image description: Orca does not know what is in the
+          // No invented image description: Splotty does not know what is in the
           // photo and will not guess on the author's behalf.
           accessibilityLabel={`Moment photo by ${authorDisplayName}`}
           accessibilityRole="image"

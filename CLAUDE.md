@@ -1,4 +1,4 @@
-# CLAUDE.md — operating notes for Orca
+# CLAUDE.md — operating notes for Splotty
 
 Governance lives in [AGENTS.md](AGENTS.md) (how to work) and [PROJECT.md](PROJECT.md) (what to build, ordered plan, current status). **Read both before meaningful work.** This file holds only the operational facts that are expensive to rediscover.
 

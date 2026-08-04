@@ -26,7 +26,7 @@ const secureStoreOptions = {
 } satisfies SecureStore.SecureStoreOptions;
 
 /**
- * SecureStore accepts `[A-Za-z0-9._-]` and nothing else, but several of Orca's
+ * SecureStore accepts `[A-Za-z0-9._-]` and nothing else, but several of Splotty's
  * records are keyed by the Supabase environment URL so a build pointed at a
  * different backend cannot reuse them — and a URL carries `:` and `/`. Handing
  * one to the keychain throws, which is how a per-account push-prompt flag could

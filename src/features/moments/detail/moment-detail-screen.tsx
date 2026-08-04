@@ -208,7 +208,7 @@ export function MomentDetailScreen({
             />
           ) : (
             <IconAction
-              hint="Sends this Moment to Orca’s safety operator for review"
+              hint="Sends this Moment to Splotty’s safety operator for review"
               label="Report this Moment"
               name="flag"
               onPress={() =>

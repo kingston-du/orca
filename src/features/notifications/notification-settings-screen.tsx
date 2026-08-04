@@ -79,7 +79,7 @@ export function NotificationSettingsScreen({
   const update = useCallback(
     (patch: Partial<NotificationPreferences>) => {
       // The guard is here as well as on each control, because a disabled
-      // switch is a presentation detail and this is the rule: Orca does not
+      // switch is a presentation detail and this is the rule: Splotty does not
       // record a preference the operating system will not honour.
       if (!draft || !allowed) return;
       const next = { ...draft, ...patch };
@@ -125,8 +125,8 @@ export function NotificationSettingsScreen({
       <ScreenHeader onBack={onBack} title="Notifications" />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.subtitle}>
-          Orca sends a small number of notifications, and never says who or what
-          they are about on your lock screen.
+          Splotty sends a small number of notifications, and never says who or
+          what they are about on your lock screen.
         </Text>
 
         {permission === "not_requested" ? (
@@ -173,7 +173,7 @@ export function NotificationSettingsScreen({
 
         <View style={styles.card}>
           <PreferenceRow
-            description="Turns every Orca notification on or off on all your devices."
+            description="Turns every Splotty notification on or off on all your devices."
             disabled={controlsDisabled}
             label="All notifications"
             onValueChange={(value) => update({ masterEnabled: value })}
@@ -198,7 +198,7 @@ export function NotificationSettingsScreen({
         <Text style={styles.footnote}>
           Friend requests, friend request acceptances, being added to a Moment,
           and Superhearts always arrive while notifications are on. Delivery is
-          best effort — Orca works exactly the same if a notification never
+          best effort — Splotty works exactly the same if a notification never
           arrives.
         </Text>
       </ScrollView>

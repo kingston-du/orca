@@ -186,7 +186,7 @@ export function HistoryTile({
   return (
     <Pressable
       // The label carries the whole meaning, because the image itself has no
-      // description Orca is entitled to invent.
+      // description Splotty is entitled to invent.
       accessibilityHint="Opens this Moment"
       accessibilityLabel={
         `Moment by ${moment.author_display_name}, ` +

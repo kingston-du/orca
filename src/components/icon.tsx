@@ -58,7 +58,7 @@ type IconProps = {
 /**
  * An icon is decoration by default.
  *
- * Every icon in Orca sits inside a control that already carries the
+ * Every icon in Splotty sits inside a control that already carries the
  * accessibility label, or beside text that already says the same thing. An
  * icon that announced itself would make VoiceOver read the meaning twice, so
  * this component hides itself from the tree and leaves naming to its parent.

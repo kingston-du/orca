@@ -71,7 +71,7 @@ export function AccountScreen({
       <ScreenHeader onBack={onBack} title="Settings" />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.subtitle}>
-          Your private Orca account on this device.
+          Your private Splotty account on this device.
         </Text>
 
         <View accessibilityLabel="Account details" style={styles.detailsCard}>
@@ -127,8 +127,8 @@ export function AccountScreen({
         <View style={styles.signOutSection}>
           <Text style={styles.sectionTitle}>Sign out</Text>
           <Text style={styles.body}>
-            This signs out only this device. Your Orca account stays available
-            on other devices.
+            This signs out only this device. Your Splotty account stays
+            available on other devices.
           </Text>
           {signOutError ? (
             <Text accessibilityRole="alert" style={styles.error}>
@@ -147,7 +147,7 @@ export function AccountScreen({
         <View style={styles.signOutSection}>
           <Text style={styles.sectionTitle}>Account deletion</Text>
           <Text style={styles.body}>
-            Permanently remove your Orca account and private media.
+            Permanently remove your Splotty account and private media.
           </Text>
           <Pressable
             accessibilityHint="Review permanent account deletion before confirming"

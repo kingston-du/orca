@@ -11,7 +11,7 @@ import {
  * The scoped system picker.
  *
  * On iOS this is `PHPickerViewController`: the user picks exactly one image and
- * the app receives only that item. Orca never calls
+ * the app receives only that item. Splotty never calls
  * `requestMediaLibraryPermissionsAsync`, and the config plugin omits
  * `NSPhotoLibraryUsageDescription` entirely, so there is no broad library
  * permission to grant — verified by `scripts/check-native-config.mjs`.
@@ -20,13 +20,13 @@ import {
 const PHOTO_PICKER_OPTIONS = {
   mediaTypes: ["images"],
   allowsMultipleSelection: false,
-  // Editing would re-encode through UIImage before Orca sees the asset, which
+  // Editing would re-encode through UIImage before Splotty sees the asset, which
   // discards the original-capture metadata this checkpoint exists to read.
   allowsEditing: false,
   base64: false,
   // The metadata dictionary is requested so `capture-evidence` can read its two
   // allowlisted keys. It is never stored, forwarded, or logged, and the
-  // normalizer's re-encode strips it (GPS included) from the file Orca keeps.
+  // normalizer's re-encode strips it (GPS included) from the file Splotty keeps.
   exif: true,
   quality: 1,
 } satisfies ImagePicker.ImagePickerOptions;

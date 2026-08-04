@@ -45,7 +45,7 @@ import { notificationSettingsQueryKey } from "./use-notification-settings";
  * It must not insert into or reorder the Home deck — Section 18 is explicit —
  * so the banner is the entire foreground behaviour and the cache invalidation
  * below is deliberately limited to the arrivals probe and scoped counts. The
- * badge is left alone because Orca has no unread model to keep it honest.
+ * badge is left alone because Splotty has no unread model to keep it honest.
  */
 Notifications.setNotificationHandler({
   handleNotification: async () => ({

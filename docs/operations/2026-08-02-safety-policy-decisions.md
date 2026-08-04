@@ -1,4 +1,4 @@
-# Orca safety policy decisions — 2026-08-02
+# Splotty safety policy decisions — 2026-08-02
 
 Phase 7 could not be built without four decisions that are not engineering
 choices: **who the operator is, how long evidence is kept, how someone appeals,
@@ -18,12 +18,12 @@ release proof, and the legal text at Checkpoint 9D.
 ## 1. Operator identity
 
 **One named safety operator for the private beta: the founder, acting through a
-dedicated Auth account that is not their Orca account.**
+dedicated Auth account that is not their Splotty account.**
 
 | Property      | Decision                                                                                                                                                                                                                 |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Account       | A separate Supabase Auth user with an email address used for nothing else.                                                                                                                                               |
-| Onboarding    | **Never completes Orca onboarding.** The operator account holds no profile, so it cannot be searched, friended, tagged, or sent a Moment, and it has no social surface to lose control of.                               |
+| Onboarding    | **Never completes Splotty onboarding.** The operator account holds no profile, so it cannot be searched, friended, tagged, or sent a Moment, and it has no social surface to lose control of.                            |
 | Second factor | TOTP enrolled and verified. Every moderation request requires an `aal2` session; a password-only session is refused by `moderate-report`.                                                                                |
 | Password      | At least 20 characters, generated and stored by a password manager, never reused.                                                                                                                                        |
 | Membership    | One row in `private.moderator_accounts` created by the database owner in SQL. The service-role key deliberately **cannot** create one, so a leaked server credential cannot appoint an operator.                         |
@@ -53,7 +53,7 @@ six actions, and every one of them is recorded.
 
 Ninety days is the provisional figure Section 19 already disclosed. It is long
 enough to survive an appeal (30 days) plus a re-review, and short enough that
-Orca is not sitting on a private photo indefinitely.
+Splotty is not sitting on a private photo indefinitely.
 
 ## 3. Appeal route
 
@@ -80,7 +80,7 @@ Orca is not sitting on a private photo indefinitely.
 
 ## 4. Support contact
 
-- **One dedicated mailbox**, used only for Orca safety and support, published in
+- **One dedicated mailbox**, used only for Splotty safety and support, published in
   the app (Settings → Support & Safety), in the App Store listing, and in the
   privacy notice.
 - **Monitored at least once a day** during the beta, and more often while an
@@ -130,7 +130,7 @@ owns.
 
 | Setting                                                        | Expected value                                                    | Why                                                                                                                                                                                                                        |
 | -------------------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| MFA → **Phone factor** enroll/verify                           | Disabled                                                          | SMS is a weaker second factor and Orca sends no SMS.                                                                                                                                                                       |
+| MFA → **Phone factor** enroll/verify                           | Disabled                                                          | SMS is a weaker second factor and Splotty sends no SMS.                                                                                                                                                                    |
 | MFA → Maximum enrolled factors                                 | 10 (default)                                                      | No reason to differ.                                                                                                                                                                                                       |
 | Sessions → **Refresh token rotation**                          | Enabled                                                           | Matches `config.toml`; a stolen refresh token is single-use.                                                                                                                                                               |
 | Sessions → **Reuse interval**                                  | 10 seconds                                                        | Matches `config.toml`.                                                                                                                                                                                                     |
@@ -148,7 +148,7 @@ owns.
   manager, never reused, which the leak-check would not have improved on for a
   password that was never in any breach corpus to begin with. Revisit if the
   project moves to Pro for another reason.
-- **CAPTCHA / bot protection** — it needs a client integration Orca does not
+- **CAPTCHA / bot protection** — it needs a client integration Splotty does not
   have and would break the sign-up flow if switched on alone. Revisit before an
   open beta.
 - **Any dashboard-level "admin" role for moderation** — the whole point of the

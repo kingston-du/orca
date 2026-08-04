@@ -4,7 +4,7 @@ import { authStorage } from "@/lib/auth-storage";
  * The keychain's own rule, restated.
  *
  * `expo-secure-store` accepts `[A-Za-z0-9._-]` and throws on anything else, and
- * that throw is the whole point of this suite: several of Orca's records are
+ * that throw is the whole point of this suite: several of Splotty's records are
  * keyed by the Supabase environment URL so a build pointed at another backend
  * cannot reuse them, and a URL carries `:` and `/`. Publishing a Moment writes
  * one of those records — the per-account push-prompt flag — so an unescaped key

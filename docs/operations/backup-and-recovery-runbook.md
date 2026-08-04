@@ -10,7 +10,7 @@ release gate.
 
 ## What is actually protected
 
-Supabase database backups do **not** contain Storage objects. Orca therefore
+Supabase database backups do **not** contain Storage objects. Splotty therefore
 coordinates two recovery points:
 
 1. the provider's database recovery timestamp; and

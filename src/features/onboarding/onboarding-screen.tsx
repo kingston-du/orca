@@ -152,7 +152,7 @@ export function OnboardingScreen({
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.brand}>orca</Text>
+          <Text style={styles.brand}>splotty</Text>
           <Text style={styles.title}>Set up your profile</Text>
           <Text style={styles.subtitle}>
             Choose the name your friends will see, then review the requirements

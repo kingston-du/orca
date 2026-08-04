@@ -19,7 +19,7 @@ const FILE_BY_KIND = {
 
 describe("development legal documents", () => {
   test("app copy and hashes exactly match the committed source files", () => {
-    expect(LEGAL_DOCUMENT_VERSION).toBe("development-2026-07-27");
+    expect(LEGAL_DOCUMENT_VERSION).toBe("development-2026-08-03-splotty");
 
     for (const [, document] of LEGAL_DOCUMENT_ENTRIES) {
       const source = readFileSync(

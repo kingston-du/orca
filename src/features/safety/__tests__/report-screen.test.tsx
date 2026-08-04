@@ -147,7 +147,7 @@ describe("ReportScreen", () => {
     );
     expect(
       screen.getByText(
-        "Orca is keeping a copy of the photo for the review, so it can still be checked if it is deleted.",
+        "Splotty is keeping a copy of the photo for the review, so it can still be checked if it is deleted.",
       ),
     ).toBeOnTheScreen();
   });

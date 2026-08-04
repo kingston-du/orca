@@ -5,7 +5,7 @@ import {
 } from "@/lib/observability-scrub";
 
 /**
- * The one place Orca talks to a crash reporter.
+ * The one place Splotty talks to a crash reporter.
  *
  * Expo and React Native do not symbolicate or aggregate production crashes on
  * their own, which is the whole justification for a native dependency here.
@@ -13,7 +13,7 @@ import {
  *
  * - Session Replay is off, in both configuration and integration list. A replay
  *   of this app is a replay of private photos.
- * - Tracing is off. Orca has no performance question a sampled trace answers
+ * - Tracing is off. Splotty has no performance question a sampled trace answers
  *   yet, and spans carry URLs.
  * - `sendDefaultPii` is false and the user object is deleted on the way out, so
  *   a crash is never attributed to a person.
@@ -46,9 +46,25 @@ function getSentryModule(): SentryModule {
   return sentryModule;
 }
 
-/** Distinguishes the development backend from anything later; it never carries
- * a project reference or a key. */
-const environment = __DEV__ ? "development" : "release";
+type ObservabilityEnvironment = "development" | "preview" | "production";
+
+/**
+ * Distinguishes local, internal-TestFlight, and eventual production events.
+ * It never carries a project reference or key. A release build without an
+ * explicit label fails toward `preview`, so an ad-hoc archive cannot silently
+ * present itself as production telemetry.
+ */
+function getObservabilityEnvironment(): ObservabilityEnvironment {
+  const configured = process.env.EXPO_PUBLIC_ORCA_ENVIRONMENT;
+  if (
+    configured === "development" ||
+    configured === "preview" ||
+    configured === "production"
+  ) {
+    return configured;
+  }
+  return __DEV__ ? "development" : "preview";
+}
 
 export function initializeObservability(): boolean {
   if (!dsn) return false;
@@ -62,7 +78,7 @@ export function initializeObservability(): boolean {
     // Off explicitly as well as by omission: a future default flip must not
     // silently start recording screens.
     enableAutoPerformanceTracing: false,
-    environment,
+    environment: getObservabilityEnvironment(),
     // The integration list is filtered rather than trusted, so a version that
     // adds Replay to the defaults cannot enable it here.
     integrations: (defaults) =>
@@ -82,7 +98,7 @@ export function initializeObservability(): boolean {
 }
 
 /**
- * Reports a failure Orca could not handle, with no content attached.
+ * Reports a failure Splotty could not handle, with no content attached.
  *
  * `domain` is a fixed, developer-written string such as `query:recent-moments`.
  * It is never built from user input, which is what keeps this call site safe

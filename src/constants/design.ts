@@ -2,8 +2,8 @@
  * Semantic design and accessibility tokens — Checkpoint 9C final system.
  *
  * Screens name a *role* — `color.canvas`, `spacing.lg` — never a hex value or a
- * magic number. Values here were taken from the approved "Orca Screens" design
- * with three deliberate corrections, each recorded at its role below: the
+ * magic number. Values here were taken from the approved pre-rename "Orca
+ * Screens" design with three deliberate corrections, each recorded at its role below: the
  * design states secondary/tertiary text and the photo scrim as alphas that do
  * not clear the contrast contract in PROJECT.md Section 8, and Superheart's
  * accent is an icon colour rather than a text colour.

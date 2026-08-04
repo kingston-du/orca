@@ -24,7 +24,7 @@ export default function SettingsRoute() {
   }
   return (
     <AccountScreen
-      displayName={state.data.display_name ?? "Orca member"}
+      displayName={state.data.display_name ?? "Splotty member"}
       email={user.email ?? "Email unavailable"}
       onBack={() => router.back()}
       onEditProfile={() => router.push("/settings/profile")}

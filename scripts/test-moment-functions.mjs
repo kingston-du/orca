@@ -49,7 +49,7 @@ const MOMENT_MEDIA_BUCKET = "moment-media";
 const admin = createClient(apiUrl, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
-const password = `Orca-${randomUUID()}-9a!`;
+const password = `Splotty-${randomUUID()}-9a!`;
 const suffix = randomUUID();
 const users = [];
 let cleanupFailures = [];
@@ -58,16 +58,16 @@ const legalArgs = {
   p_adult_eligible: true,
   p_adult_sha256:
     "0df777ca323f0882d8af688b90a73d344adf0f63f63a82bfe9b2bf03462b27a6",
-  p_adult_version: "development-2026-07-27",
+  p_adult_version: "development-2026-08-03-splotty",
   p_guidelines_sha256:
-    "a6e285fb40f2fef3fa6670b8b71046985e4fe0b7588cce6d906316fb368c791a",
-  p_guidelines_version: "development-2026-07-27",
+    "2efc0713487fab63efbf728b266d2e3a56261828ec2f22e2a80e460a39067c8b",
+  p_guidelines_version: "development-2026-08-03-splotty",
   p_privacy_sha256:
-    "61696572b856335992aff679cface3ec436eb1a4cc2947e1a247cb8b3fcc6f78",
-  p_privacy_version: "development-2026-07-27",
+    "0a4e968e422ba2b674761f3f60f2dbd8be96dd36aa9974ee22fd9ed4b67a88de",
+  p_privacy_version: "development-2026-08-03-splotty",
   p_terms_sha256:
-    "fa01cb816b768da76394699d2d5717de0091fe99570ce22064a8dfddf0985311",
-  p_terms_version: "development-2026-07-27",
+    "752f5022c91834910b30be03811bddd2fa7c92b712346700de02bec2ae20e850",
+  p_terms_version: "development-2026-08-03-splotty",
 };
 
 async function createMember(name) {

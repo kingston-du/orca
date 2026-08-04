@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": "21.2.0",
-    "appVersionSource": "local"
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -18,6 +18,36 @@
       "android": {
         "image": "sdk-57"
       }
+    },
+    "testflight": {
+      "distribution": "store",
+      "environment": "preview",
+      "node": "24.14.1",
+      "autoIncrement": true,
+      "env": {
+        "APP_VARIANT": "production",
+        "EXPO_PUBLIC_ORCA_ENVIRONMENT": "preview"
+      },
+      "ios": {
+        "image": "sdk-57"
+      }
+    },
+    "production": {
+      "distribution": "store",
+      "environment": "production",
+      "node": "24.14.1",
+      "autoIncrement": true,
+      "env": {
+        "APP_VARIANT": "production",
+        "EXPO_PUBLIC_ORCA_ENVIRONMENT": "production"
+      },
+      "ios": {
+        "image": "sdk-57"
+      }
     }
+  },
+  "submit": {
+    "testflight": {},
+    "production": {}
   }
 }

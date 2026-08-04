@@ -350,7 +350,7 @@ function EmptyHome({
   ) : (
     <HomeMessage
       action={{ label: "Add a friend", onPress: onAddFriend }}
-      body="Orca shows your own Moments and your friends’, so start by adding one."
+      body="Splotty shows your own Moments and your friends’, so start by adding one."
       title="No Moments yet"
     />
   );

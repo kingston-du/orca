@@ -181,7 +181,7 @@ function applyOutcome(
         ...settled,
         status: "retryable_unknown",
         message:
-          "Orca could not confirm whether this Moment shared. Check again before trying once more.",
+          "Splotty could not confirm whether this Moment shared. Check again before trying once more.",
       };
   }
 }

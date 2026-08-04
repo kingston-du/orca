@@ -158,7 +158,7 @@ export function usePublishController({
             recoverable: !captionRefused,
             message: captionRefused
               ? "That caption can’t be used here. Edit it and share again — nothing was shared."
-              : "Orca could not share this Moment. Check your connection and try again.",
+              : "Splotty could not share this Moment. Check your connection and try again.",
           });
         }
       }

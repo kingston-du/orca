@@ -13,7 +13,7 @@ type NotificationPrePromptProps = {
  *
  * It exists because iOS asks once. Someone who taps "Don't Allow" on a system
  * dialog they did not expect has permanently closed the door, so this screen
- * says what Orca would send and what it would never say, and offers a refusal
+ * says what Splotty would send and what it would never say, and offers a refusal
  * that costs nothing — declining here leaves the system prompt unspent, and the
  * Settings screen can still ask for it later.
  */
@@ -29,9 +29,9 @@ export function NotificationPrePrompt({
             Hear when it happens?
           </Text>
           <Text style={styles.body}>
-            Orca can let you know when a friend shares a Moment with you, adds
-            you to one, accepts your friend request, or Superhearts something
-            you shared.
+            Splotty can let you know when a friend shares a Moment with you,
+            adds you to one, accepts your friend request, or Superhearts
+            something you shared.
           </Text>
           <Text style={styles.body}>
             Notifications never show a name, a caption, or a photo on your lock

@@ -42,7 +42,7 @@ export const SIGNED_URL_REFRESH_MS =
  *    purges that path immediately, so the app stops rendering bytes it is no
  *    longer entitled to fetch. That is a local purge, not a recall: a URL
  *    already handed to the OS image loader, cached, screenshotted, or copied is
- *    outside Orca's reach for the remainder of its five minutes, and the product
+ *    outside Splotty's reach for the remainder of its five minutes, and the product
  *    copy must keep saying so.
  */
 

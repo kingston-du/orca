@@ -26,8 +26,8 @@ export function RestrictedAccountScreen({
         </Text>
         <Text style={styles.body}>
           {deleting
-            ? "This account is not available for ordinary Orca access."
-            : "Ordinary Orca access is paused. Contact support for next steps."}
+            ? "This account is not available for ordinary Splotty access."
+            : "Ordinary Splotty access is paused. Contact support for next steps."}
         </Text>
         <AppButton label="Support" onPress={onOpenSupport} />
         <AppButton

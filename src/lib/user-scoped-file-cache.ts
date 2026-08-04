@@ -1,7 +1,7 @@
 import { Directory, Paths } from "expo-file-system";
 
 /**
- * The one place Orca puts private files on disk.
+ * The one place Splotty puts private files on disk.
  *
  * Everything lives under a single root inside the **cache** directory, not
  * documents: iOS excludes the cache directory from iCloud/iTunes backup, and

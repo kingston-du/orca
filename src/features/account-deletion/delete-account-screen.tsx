@@ -51,8 +51,8 @@ export function DeleteAccountScreen({
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>What happens</Text>
           <Text style={styles.body}>
-            Orca removes your friendships, participation, Moments, avatar, and
-            account identity. Storage is proven empty before your sign-in is
+            Splotty removes your friendships, participation, Moments, avatar,
+            and account identity. Storage is proven empty before your sign-in is
             deleted.
           </Text>
           <Text style={styles.body}>

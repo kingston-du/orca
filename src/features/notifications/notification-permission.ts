@@ -14,7 +14,7 @@ import { registerPushDevice } from "./notifications-api";
  *
  * Section 18: prompt only after the user has experienced value, using a
  * pre-prompt that explains the categories. The OS prompt can be shown once per
- * install and never again, so asking on launch spends the only chance Orca gets
+ * install and never again, so asking on launch spends the only chance Splotty gets
  * on a screen where the answer means nothing to the person answering.
  */
 
@@ -22,7 +22,7 @@ export type PermissionState =
   | "not_requested"
   | "granted"
   | "denied"
-  /** iOS provisional authorization: quiet notifications without a prompt. Orca
+  /** iOS provisional authorization: quiet notifications without a prompt. Splotty
    * never requests it, but a user can end up here through Settings. */
   | "provisional";
 

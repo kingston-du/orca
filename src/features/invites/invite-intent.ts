@@ -4,7 +4,7 @@ import { authStorage } from "@/lib/auth-storage";
 
 /**
  * An inbound invite URL is the one place a bearer capability crosses the OS
- * boundary into Orca. It is exchanged immediately for an opaque intent ID so
+ * boundary into Splotty. It is exchanged immediately for an opaque intent ID so
  * the raw token never appears in a route parameter, navigation state, or any
  * screen the router might restore or log.
  *

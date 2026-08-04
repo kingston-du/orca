@@ -10,7 +10,7 @@ import type { MomentDraft } from "@/features/moments/composer/moment-draft";
 /**
  * A minimal in-memory filesystem standing in for the native module.
  *
- * The point is not to reimplement Expo FileSystem; it is to prove Orca's own
+ * The point is not to reimplement Expo FileSystem; it is to prove Splotty's own
  * rules — scoping, write order, and what happens when the media file is gone —
  * without a device.
  */

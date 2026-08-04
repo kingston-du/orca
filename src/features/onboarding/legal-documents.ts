@@ -1,4 +1,4 @@
-export const LEGAL_DOCUMENT_VERSION = "development-2026-07-27";
+export const LEGAL_DOCUMENT_VERSION = "development-2026-08-03-splotty";
 
 export const LEGAL_DOCUMENTS = {
   adultEligibility: {
@@ -12,22 +12,22 @@ export const LEGAL_DOCUMENTS = {
     kind: "terms",
     title: "Terms",
     content:
-      "# Orca Terms — Development Version\n\nOrca is private pre-release software for testing with disposable development data. Do not use it for unlawful, abusive, or unauthorized content. Access may be suspended and development data may be reset while the service is being built.\n\nThis development version is not approved for external testers and must be replaced with operator- and jurisdiction-reviewed Terms before external testing.\n",
-    sha256: "fa01cb816b768da76394699d2d5717de0091fe99570ce22064a8dfddf0985311",
+      "# Splotty Terms — Development Version\n\nSplotty is private pre-release software for testing with disposable development data. Do not use it for unlawful, abusive, or unauthorized content. Access may be suspended and development data may be reset while the service is being built.\n\nThis development version is not approved for external testers and must be replaced with operator- and jurisdiction-reviewed Terms before external testing.\n",
+    sha256: "752f5022c91834910b30be03811bddd2fa7c92b712346700de02bec2ae20e850",
   },
   privacy: {
     kind: "privacy",
     title: "Privacy notice",
     content:
-      "# Orca Privacy Notice — Development Version\n\nDuring founder testing, Orca may process account identifiers, profile information, private photos, interactions, and technical diagnostics using configured development service providers. Development data may be reset and should not be treated as permanent.\n\nThis development version is not approved for external testers and must be replaced with an accurate operator- and jurisdiction-reviewed Privacy Notice before external testing.\n",
-    sha256: "61696572b856335992aff679cface3ec436eb1a4cc2947e1a247cb8b3fcc6f78",
+      "# Splotty Privacy Notice — Development Version\n\nDuring founder testing, Splotty may process account identifiers, profile information, private photos, interactions, and technical diagnostics using configured development service providers. Development data may be reset and should not be treated as permanent.\n\nThis development version is not approved for external testers and must be replaced with an accurate operator- and jurisdiction-reviewed Privacy Notice before external testing.\n",
+    sha256: "0a4e968e422ba2b674761f3f60f2dbd8be96dd36aa9974ee22fd9ed4b67a88de",
   },
   communityGuidelines: {
     kind: "community_guidelines",
     title: "Community guidelines",
     content:
-      "# Orca Community Guidelines — Development Version\n\nUse Orca only with people who have agreed to participate. Do not post harassment, threats, exploitation, illegal material, intimate content without consent, or content that violates another person's privacy or rights.\n\nThis development version is only for founder testing and must be reviewed before external testing.\n",
-    sha256: "a6e285fb40f2fef3fa6670b8b71046985e4fe0b7588cce6d906316fb368c791a",
+      "# Splotty Community Guidelines — Development Version\n\nUse Splotty only with people who have agreed to participate. Do not post harassment, threats, exploitation, illegal material, intimate content without consent, or content that violates another person's privacy or rights.\n\nThis development version is only for founder testing and must be reviewed before external testing.\n",
+    sha256: "2efc0713487fab63efbf728b266d2e3a56261828ec2f22e2a80e460a39067c8b",
   },
 } as const;
 

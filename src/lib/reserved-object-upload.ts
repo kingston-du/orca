@@ -3,7 +3,7 @@ import { File } from "expo-file-system";
 import { supabaseUrl } from "@/lib/supabase";
 
 /**
- * The one place Orca uploads bytes to Storage.
+ * The one place Splotty uploads bytes to Storage.
  *
  * It wraps the installed Expo FileSystem native upload task so progress,
  * cancellation, and iOS background semantics are real rather than simulated in

@@ -13,7 +13,7 @@ describe("SupportScreen", () => {
     ).toBeOnTheScreen();
   });
 
-  test("states the appeal window and the retention Orca actually applies", async () => {
+  test("states the appeal window and the retention Splotty actually applies", async () => {
     const screen = await render(
       <SupportScreen onBack={jest.fn()} accountState="active" />,
     );

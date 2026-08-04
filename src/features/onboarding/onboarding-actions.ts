@@ -47,7 +47,7 @@ export function createOnboardingActions(client: OnboardingRpcClient) {
         return {
           kind: "error",
           message:
-            "The onboarding requirements changed. Reload Orca and try again.",
+            "The onboarding requirements changed. Reload Splotty and try again.",
         };
       }
 

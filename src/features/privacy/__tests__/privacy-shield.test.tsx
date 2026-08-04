@@ -79,7 +79,9 @@ describe("PrivacyShield", () => {
     await waitFor(() =>
       expect(screen.getByTestId("privacy-shield")).toBeOnTheScreen(),
     );
-    expect(screen.getByText("Orca couldn’t safely unlock.")).toBeOnTheScreen();
+    expect(
+      screen.getByText("Splotty couldn’t safely unlock."),
+    ).toBeOnTheScreen();
   });
 
   test("leaving the foreground clears a stale failure", async () => {

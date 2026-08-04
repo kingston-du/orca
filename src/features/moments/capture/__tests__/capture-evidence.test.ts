@@ -131,7 +131,7 @@ describe("getCameraCaptureEvidence", () => {
     expect(getCameraCaptureEvidence(date)).toEqual({
       evidence: "camera_clock",
       capturedAt: "2026-07-31T12:00:00.000Z",
-      // JavaScript reports minutes west of UTC; Orca stores the signed offset.
+      // JavaScript reports minutes west of UTC; Splotty stores the signed offset.
       capturedUtcOffsetMinutes: -420,
     });
   });

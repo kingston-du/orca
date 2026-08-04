@@ -218,7 +218,7 @@ export function MomentCaptureTime({
   const offset = moment.captured_utc_offset_minutes;
   const style = [styles.captureTime, onScrim && styles.captureTimeOnScrim];
 
-  // Publication time is never presented as capture time. When Orca does not
+  // Publication time is never presented as capture time. When Splotty does not
   // credibly know when the photo was taken, it says so.
   if (capturedAt === null || offset === null) {
     return <Text style={style}>Capture date unavailable</Text>;

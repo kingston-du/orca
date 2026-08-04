@@ -8,7 +8,7 @@ import {
 } from "@/features/moments/capture/capture-evidence";
 
 /**
- * Every photo entering Orca — shutter or picker — leaves this module as the
+ * Every photo entering Splotty — shutter or picker — leaves this module as the
  * same thing: a stripped JPEG within the bounds the Storage verifier enforces.
  *
  * Re-encoding is what actually removes metadata. The manipulator decodes pixels
