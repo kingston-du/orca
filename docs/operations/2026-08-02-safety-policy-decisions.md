@@ -8,10 +8,11 @@ agent all need to read the same answer.
 
 Status: **approved by the founder, 2026-08-03.** Sections 1–5 are the approved
 policy; the code behaves as written below. Phase 7 is promoted, hosted TOTP is
-enabled, and the disposable AAL2 acceptance drill passed. Still outstanding:
-the support mailbox and `EXPO_PUBLIC_SUPPORT_EMAIL`, the permanent
-founder-controlled operator account/TOTP device, the Sentry project/native
-release proof, and the legal text at Checkpoint 9D.
+enabled, the disposable AAL2 acceptance drill passed, and the permanent
+founder-controlled operator account and its TOTP device are provisioned and
+proven (section 7, item 4). Still outstanding: the support mailbox and
+`EXPO_PUBLIC_SUPPORT_EMAIL`, the Sentry project/native release proof, and the
+legal text at Checkpoint 9D.
 
 ---
 
