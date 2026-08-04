@@ -38,6 +38,19 @@ const MAX_RETAINED_PAGES = 5;
  */
 const ARRIVALS_POLL_MS = 45_000;
 
+/**
+ * How often an *empty* Home retries the feed itself while somebody is looking
+ * at it.
+ *
+ * An empty feed has no session, so there is no ceiling for arrivals to be
+ * counted against and nothing a pill could honestly offer. The right behaviour
+ * is simply to load the Moments, so the feed query is what ticks here and the
+ * arrivals probe stays switched off. That is also what removes the null-anchor
+ * count, which meant "everything you are authorized to see" and leaked back
+ * out of the cache during session changes as a wildly wrong pill.
+ */
+const EMPTY_FEED_POLL_MS = 45_000;
+
 type PageParam = { direction: RecentDirection; cursor: RecentCursor | null };
 
 const FIRST_PAGE: PageParam = { direction: "older", cursor: null };
@@ -107,6 +120,13 @@ export function useRecentFeed(
       if (!first || !firstParam?.cursor) return undefined;
       return { direction: "newer" as const, cursor: cursorOf(first) };
     },
+    // Only while Home is empty and on screen. A feed with cards is frozen by
+    // construction and must not refetch under a finger; a feed with none has
+    // nothing to disturb and everything to gain from filling itself in.
+    refetchInterval: (query) =>
+      watching && (query.state.data?.pages[0]?.session ?? null) === null
+        ? EMPTY_FEED_POLL_MS
+        : false,
   });
 
   const session = pages.data?.pages[0]?.session ?? null;
@@ -116,26 +136,39 @@ export function useRecentFeed(
     [pages.data],
   );
 
+  /**
+   * How many Moments have arrived since this session's ceiling.
+   *
+   * **The key is the session, never the anchor.** That distinction is the whole
+   * bug this file used to have. `session` is read out of the page cache, so it
+   * is `null` for the first render of every new session — and an anchor-keyed
+   * query therefore collapsed to a shared `null` key on *every* session change:
+   * publishing, tapping the pill, a cold start. That key's cached value is a
+   * count taken against a null anchor, which `count_new_recent_moments` reads
+   * as "everything this viewer may see". With `staleTime: Infinity` it was
+   * served straight back out of the cache, so the pill flashed a large, wholly
+   * unrelated number every time a session turned over, and tapping the pill
+   * appeared to make it grow rather than clear.
+   *
+   * Keying on `sessionKey` gives each session its own entry with no data until
+   * its own count lands, and `enabled` now requires a real anchor, so the null
+   * count is never taken at all.
+   */
+  const anchorAt = session?.anchorAt ?? null;
   const arrivals = useQuery({
-    // A null anchor makes `count_new_recent_moments` count *everything*
-    // authorized, which is exactly right for a viewer whose feed was empty when
-    // they opened it and exactly wrong for one whose deck has cards. The
-    // session only stays null when the first page came back empty, so pairing
-    // the two conditions is what stops the pill from offering to show the
-    // viewer Moments they are already looking at.
-    enabled:
-      Boolean(userId) &&
-      pages.isSuccess &&
-      (session !== null || moments.length === 0),
-    queryKey: ["recent-arrivals", userId, session?.anchorAt ?? null],
-    queryFn: () => countNewRecentMoments(session?.anchorAt ?? null),
+    enabled: Boolean(userId) && anchorAt !== null,
+    queryKey: ["recent-arrivals", userId, sessionKey],
+    // Safe to close over: the anchor is frozen for the life of a session, and
+    // the session is the key, so this can never run against another session's
+    // ceiling.
+    queryFn: () => countNewRecentMoments(anchorAt),
     // A slow tick while Home is on screen, and nothing at all when it is not.
     // The pill is non-disruptive by construction — it never inserts into or
     // reorders the deck — so learning about an arrival while somebody is
     // swiping costs them nothing, whereas not learning about it until they
     // leave the tab and come back is the whole complaint.
     refetchInterval: watching ? ARRIVALS_POLL_MS : false,
-    staleTime: Infinity,
+    staleTime: ARRIVALS_POLL_MS,
   });
 
   const startNewSession = useCallback(
@@ -178,7 +211,11 @@ export function useRecentFeed(
   return {
     moments,
     session,
-    newMomentCount: arrivals.data ?? 0,
+    // Zero until *this* session has an answer of its own. A session with no
+    // ceiling has nothing to count against, and saying "0 new" while that is
+    // true is honest — the alternative is showing a number that belongs to a
+    // window the viewer has already left.
+    newMomentCount: anchorAt === null ? 0 : (arrivals.data ?? 0),
     isPending: pages.isPending,
     isError: pages.isError,
     /** True once every page of this session has been read. */

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -37,6 +37,7 @@ import {
   removeMomentTag,
   type MomentDetail,
 } from "@/features/moments/detail/detail-api";
+import { markMomentsSeen } from "@/features/moments/feed/recent-api";
 import { normalizeCaption } from "@/features/moments/composer/caption";
 import {
   useMomentMediaPurge,
@@ -103,6 +104,30 @@ export function MomentDetailScreen({
     queryKey: ["moment-participants", user?.id, momentId],
     queryFn: () => listMomentParticipants(momentId),
   });
+
+  /**
+   * Opening a Moment is seeing it.
+   *
+   * Home earns the unseen marker back from a *swipe*, on the reasoning that
+   * arriving on a card is not reading it. Detail needs no such test: the viewer
+   * asked for this Moment by name and it is filling their screen, so there is
+   * no dwell to wait out and no ambiguity to resolve. This is also the only
+   * path that covers a Moment reached from a notification, which Home may never
+   * have drawn at all.
+   *
+   * `mark_moments_seen` re-derives eligibility per ID and silently skips
+   * anything that was not in the viewer's feed, so an Archive Moment, a history
+   * grant, or a Moment already marked costs one idempotent call and changes
+   * nothing. A failure is dropped for the same reason the deck's reporter drops
+   * one: a seen record is a fact about a session, and replaying it later would
+   * move a partition the viewer has long since left.
+   */
+  const reportedSeen = useRef<string | null>(null);
+  useEffect(() => {
+    if (!detail.data || reportedSeen.current === momentId) return;
+    reportedSeen.current = momentId;
+    void Promise.resolve(markMomentsSeen([momentId])).catch(() => {});
+  }, [detail.data, momentId]);
 
   /**
    * Every surface that could still be showing this Moment. Caption edits,

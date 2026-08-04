@@ -154,7 +154,9 @@ function page(moments: RecentMoment[]): RecentPage {
 const onOpenMoment = jest.fn();
 const onOpenReactions = jest.fn();
 
-async function renderHome() {
+async function renderHome(
+  props: Partial<React.ComponentProps<typeof HomeScreen>> = {},
+) {
   const client = new QueryClient({
     defaultOptions: {
       mutations: { gcTime: Infinity, retry: false },
@@ -174,6 +176,7 @@ async function renderHome() {
         onOpenCamera={jest.fn()}
         onOpenMoment={onOpenMoment}
         onOpenReactions={onOpenReactions}
+        {...props}
       />
     </QueryClientProvider>
   );
@@ -556,25 +559,167 @@ describe("the session", () => {
     });
   });
 
-  it("revalidates on returning focus and reuses the frozen envelope", async () => {
+  it("takes a new session on returning focus, not the frozen envelope", async () => {
     jest.mocked(listRecentMoments).mockResolvedValue(page([moment()]));
 
     const view = await renderHome();
     await screen.findByLabelText("Ada, @ada");
 
-    // Leaving and returning to the tab is the access/head check. It must reuse
-    // the instants the server froze, or the window would silently move and a
-    // Moment published since could appear between two already-swiped cards.
+    // The freeze protects a viewer mid-swipe. Leaving Home ends that, so
+    // returning widens the ceiling and takes delivery of everything published
+    // since — which is what stops a Moment already read from a notification
+    // from coming back as a pill offering to show it.
     await view.refocus(false);
     await view.refocus(true);
 
     await waitFor(() => {
       const calls = jest.mocked(listRecentMoments).mock.calls;
       expect(calls.length).toBeGreaterThan(1);
-      expect(calls.at(-1)?.[0].session).toEqual({
-        sessionStartedAt: "2026-08-01T12:00:00.000Z",
-        anchorAt: "2026-08-01T11:00:00.000Z",
+      expect(calls.at(-1)?.[0].session).toBeNull();
+    });
+  });
+
+  it("keeps the current card across a focus refresh", async () => {
+    jest
+      .mocked(listRecentMoments)
+      .mockResolvedValue(page([moment(), moment({ moment_id: "moment-b" })]));
+
+    // Asked through the "open" action for the same reason as everywhere else:
+    // a loop mounts several copies of one card, and only the canonical ID says
+    // where the deck actually is.
+    async function askCurrentMoment() {
+      const deck = (await screen.findByTestId("recent-deck")).parent;
+      onOpenMoment.mockClear();
+      await act(async () => {
+        deck?.props.onAccessibilityAction({
+          nativeEvent: { actionName: "open" },
+        });
       });
+      return onOpenMoment.mock.calls.at(-1)?.[0] as string | undefined;
+    }
+
+    const view = await renderHome();
+    const deck = (await screen.findByTestId("recent-deck")).parent;
+    await act(async () => {
+      deck?.props.onAccessibilityAction({
+        nativeEvent: { actionName: "older" },
+      });
+    });
+    expect(await askCurrentMoment()).toBe("moment-b");
+
+    await view.refocus(false);
+    await view.refocus(true);
+
+    // A new envelope, but the same photograph. This is what separates the
+    // focus refresh from the pill: both re-snapshot, only the pill starts over.
+    await waitFor(() => {
+      expect(
+        jest.mocked(listRecentMoments).mock.calls.at(-1)?.[0].session,
+      ).toBeNull();
+    });
+    expect(await askCurrentMoment()).toBe("moment-b");
+  });
+
+  it("does not offer a pill for the Moment this device is sharing", async () => {
+    jest.mocked(listRecentMoments).mockResolvedValue(page([moment()]));
+    // The server counts an in-flight share as an arrival: it is newer than the
+    // ceiling that was frozen before it existed.
+    jest.mocked(countNewRecentMoments).mockResolvedValue(1);
+
+    await renderHome({
+      pendingMoment: {
+        authorAvatarPath: null,
+        authorDisplayName: "You",
+        caption: "",
+        capturedAt: null,
+        capturedUtcOffsetMinutes: null,
+        momentId: "moment-pending",
+        photoUri: "file:///pending.jpg",
+        settled: false,
+      },
+    });
+
+    await screen.findByTestId("recent-deck");
+    // Offering to "show" the photograph already on screen is the bug.
+    expect(screen.queryByRole("button", { name: "1 new Moment" })).toBeNull();
+  });
+
+  /**
+   * The dot is the client's own answer, not an echo of the server's.
+   *
+   * The server freezes *what was unseen when the session began* and cannot
+   * revise it mid-session — that is the whole point of the partition. So the
+   * only thing that can take the dot off a card the viewer has just looked at
+   * is the client, immediately, on the evidence it already has.
+   */
+  describe("the unseen marker", () => {
+    function unseen(overrides: Partial<RecentMoment> = {}) {
+      return moment({ seen_at_session_start: false, ...overrides });
+    }
+
+    it("marks what the viewer had not seen when the session began", async () => {
+      jest.mocked(listRecentMoments).mockResolvedValue(page([unseen()]));
+
+      await renderHome();
+      expect(
+        await screen.findAllByLabelText("Ada, @ada, not seen yet"),
+      ).not.toHaveLength(0);
+    });
+
+    it("clears the marker on the swipe off, before any server round trip", async () => {
+      jest
+        .mocked(listRecentMoments)
+        .mockResolvedValue(
+          page([
+            unseen(),
+            unseen({ author_display_name: "Bo", moment_id: "moment-b" }),
+          ]),
+        );
+
+      await renderHome();
+      const deck = (await screen.findByTestId("recent-deck")).parent;
+      await screen.findAllByLabelText("Ada, @ada, not seen yet");
+
+      await act(async () => {
+        deck?.props.onAccessibilityAction({
+          nativeEvent: { actionName: "older" },
+        });
+      });
+
+      // Gone immediately. The dwell write is a slower, separate fact — it
+      // decides what the *next* session considers seen — and waiting for it was
+      // what made the dot linger on a card the viewer had already left.
+      expect(screen.queryAllByLabelText("Ada, @ada, not seen yet")).toEqual([]);
+      expect(markMomentsSeen).not.toHaveBeenCalled();
+
+      // And it stays earned back. Swiping between three cards must not make the
+      // dot reappear on one the viewer has already read.
+      await act(async () => {
+        deck?.props.onAccessibilityAction({
+          nativeEvent: { actionName: "newer" },
+        });
+      });
+      expect(screen.queryAllByLabelText("Ada, @ada, not seen yet")).toEqual([]);
+      expect(await screen.findAllByLabelText("Ada, @ada")).not.toHaveLength(0);
+    });
+
+    it("clears the marker when the Moment is opened", async () => {
+      jest.mocked(listRecentMoments).mockResolvedValue(page([unseen()]));
+
+      await renderHome();
+      const deck = (await screen.findByTestId("recent-deck")).parent;
+      await screen.findAllByLabelText("Ada, @ada, not seen yet");
+
+      await act(async () => {
+        deck?.props.onAccessibilityAction({
+          nativeEvent: { actionName: "open" },
+        });
+      });
+
+      // Standing in front of it full screen is seeing it by any definition, so
+      // returning to a deck that still says "not seen yet" is simply wrong.
+      expect(onOpenMoment).toHaveBeenCalledWith("moment-a");
+      expect(screen.queryAllByLabelText("Ada, @ada, not seen yet")).toEqual([]);
     });
   });
 

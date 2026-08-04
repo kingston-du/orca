@@ -175,6 +175,56 @@ describe("arrivals", () => {
       p_anchor_at: "2026-08-01T11:00:00.000Z",
     });
   });
+
+  it("never counts against a null anchor", async () => {
+    // A null anchor makes `count_new_recent_moments` count *everything* the
+    // viewer may see. Asking for that at all is the bug: the answer used to be
+    // cached under a shared null key, and every session change served it back
+    // as an arrival count — which is why publishing, or tapping the pill,
+    // produced a pill claiming a number of Moments that had never arrived.
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === "count_new_recent_moments") return { data: 9, error: null };
+      return { data: [], error: null };
+    });
+
+    const { result } = await renderHook(() => useRecentFeed("viewer", true), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+
+    const counts = mockRpc.mock.calls.filter(
+      (call) => call[0] === "count_new_recent_moments",
+    );
+    expect(counts).toHaveLength(0);
+    expect(result.current.newMomentCount).toBe(0);
+  });
+
+  it("drops the previous session's count instead of carrying it over", async () => {
+    let anchor = "2026-08-01T11:00:00.000Z";
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === "count_new_recent_moments") return { data: 3, error: null };
+      return { data: [row(0, { anchor_at: anchor })], error: null };
+    });
+
+    const { result } = await renderHook(() => useRecentFeed("viewer"), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.newMomentCount).toBe(3));
+
+    // Tapping the pill is a promise that the count is now zero. The count is
+    // keyed by session, so the new one starts with no answer rather than
+    // inheriting the old window's — the "press it three times" complaint.
+    anchor = "2026-08-01T13:00:00.000Z";
+    await act(async () => result.current.startNewSession());
+    expect(result.current.newMomentCount).toBe(0);
+
+    await waitFor(() => {
+      const counts = mockRpc.mock.calls.filter(
+        (call) => call[0] === "count_new_recent_moments",
+      );
+      expect(counts.at(-1)?.[1]).toEqual({ p_anchor_at: anchor });
+    });
+  });
 });
 
 describe("failures", () => {

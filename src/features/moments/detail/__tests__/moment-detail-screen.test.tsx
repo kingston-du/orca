@@ -14,6 +14,7 @@ import {
   type MomentDetail,
 } from "@/features/moments/detail/detail-api";
 import { MomentDetailScreen } from "@/features/moments/detail/moment-detail-screen";
+import { markMomentsSeen } from "@/features/moments/feed/recent-api";
 import {
   deleteMoment,
   editMomentCaption,
@@ -24,6 +25,10 @@ jest.mock("@/features/moments/detail/detail-api", () => ({
   getMomentDetail: jest.fn(),
   listMomentParticipants: jest.fn(),
   removeMomentTag: jest.fn(),
+}));
+
+jest.mock("@/features/moments/feed/recent-api", () => ({
+  markMomentsSeen: jest.fn().mockResolvedValue(1),
 }));
 
 jest.mock("@/features/moments/publish/publish-api", () => ({
@@ -394,6 +399,44 @@ describe("tag self-removal", () => {
     expect(
       screen.queryByRole("button", { name: "Remove me from this Moment" }),
     ).toBeNull();
+  });
+});
+
+describe("seen", () => {
+  it("records the Moment as seen once it is on the screen", async () => {
+    jest.mocked(getMomentDetail).mockResolvedValue(detail());
+
+    await renderDetail();
+    await screen.findByText("Jan 15, 2026");
+
+    // Home earns the marker back from a swipe, on the reasoning that arriving
+    // on a card is not reading it. Detail needs no such test — the viewer asked
+    // for this Moment by name and it is filling their screen. This is also the
+    // only path a Moment opened from a notification ever takes.
+    await waitFor(() => expect(markMomentsSeen).toHaveBeenCalledWith(["m1"]));
+  });
+
+  it("records it once, not once per render", async () => {
+    jest.mocked(getMomentDetail).mockResolvedValue(detail());
+
+    await renderDetail();
+    await waitFor(() => expect(markMomentsSeen).toHaveBeenCalled());
+    // The participants query and the signed URL both land after the detail and
+    // re-render the screen. A view is one event, not one per commit.
+    await screen.findByText("Jan 15, 2026");
+
+    expect(jest.mocked(markMomentsSeen).mock.calls).toHaveLength(1);
+  });
+
+  it("says nothing about a Moment that could not be read", async () => {
+    jest.mocked(getMomentDetail).mockResolvedValue(null);
+
+    await renderDetail();
+    await screen.findByText("Moment no longer available");
+
+    // Deleted, blocked, or never theirs — all one answer, and none of them is
+    // something to record a view of.
+    expect(markMomentsSeen).not.toHaveBeenCalled();
   });
 });
 

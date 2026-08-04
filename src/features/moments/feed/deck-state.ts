@@ -32,11 +32,15 @@ export type DeckMoment = CardMoment & {
    */
   localPhotoUri?: string | null;
   /**
-   * Drawn with an unseen marker. Resolved above the deck because it is a fact
-   * about this *session* — a Moment the viewer had not seen when it began, and
-   * has not yet swiped away from — rather than a column on the row.
+   * The viewer had not seen this Moment when the session began.
+   *
+   * Deliberately *only* the frozen server half of the marker. Whether the dot
+   * is still drawn also depends on what the viewer has looked at since, which
+   * changes on every swipe — folding that in here would mean a new row object,
+   * a new array, and a new `page_loaded` per swipe, re-rendering the whole laid
+   * out deck to move one dot. The deck combines the two at render time.
    */
-  unseen?: boolean;
+  unseenAtSessionStart?: boolean;
 };
 
 export type DeckState = {

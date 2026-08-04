@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import {
   FlatList,
   Pressable,
@@ -117,8 +117,24 @@ type RecentDeckProps = {
   onOpenReactions: (momentId: string) => void;
   onReachOlder: () => void;
   onReachNewer: () => void;
+  /**
+   * Moments the viewer has earned the unseen marker back on during this
+   * session, by swiping off them or by opening them.
+   *
+   * A set rather than a flag on each row, because it changes on every swipe and
+   * the rows must not: a new row object would mean a new `data` array and a
+   * full re-render of the laid-out deck. Only the one card whose resolved
+   * marker actually changed re-renders, because `DeckCard` is memoized on the
+   * boolean rather than on the set.
+   */
+  seenIds: ReadonlySet<string>;
   width: number;
 };
+
+/** The same Moment appears once per copy, so the key has to carry which copy it
+ * is or the list would see three items claiming one identity. */
+const keyExtractor = (moment: DeckMoment, itemIndex: number) =>
+  `${moment.moment_id}:${itemIndex}`;
 
 /**
  * The Recent deck: one horizontally paged card at a time.
@@ -141,12 +157,17 @@ export function RecentDeck({
   onOpenReactions,
   onReachNewer,
   onReachOlder,
+  seenIds,
   width,
 }: RecentDeckProps) {
   const listRef = useRef<FlatList<DeckMoment>>(null);
   const reducedMotion = useReducedMotion();
   const index = currentIndex(state);
   const { card, pitch, sidePadding } = deckGeometry(width);
+  const contentContainerStyle = useMemo(
+    () => ({ paddingHorizontal: sidePadding }),
+    [sidePadding],
+  );
 
   const total = state.moments.length;
   // A single card has nothing to loop between, and laying it out three times
@@ -260,6 +281,57 @@ export function RecentDeck({
     [move, onOpenMoment, state.currentId],
   );
 
+  // Every list prop below is stabilized deliberately. An inline `renderItem`,
+  // `getItemLayout`, or per-item arrow handler gives `FlatList` a new function
+  // on every render of this component, which defeats its own bail-outs and
+  // re-renders every mounted row — the "large list that is slow to update"
+  // warning, on a list whose data had not changed at all.
+  const getItemLayout = useCallback(
+    (_: unknown, itemIndex: number) => ({
+      index: itemIndex,
+      length: pitch,
+      offset: pitch * itemIndex,
+    }),
+    [pitch],
+  );
+
+  const renderItem = useCallback(
+    ({ item, index: itemIndex }: { item: DeckMoment; index: number }) => (
+      <DeckCard
+        cardWidth={card}
+        gutter={GUTTER}
+        index={itemIndex}
+        // Measured cyclically against the canonical position, because in a
+        // loop the card two swipes away and the card two swipes back can be
+        // the same one. Every copy of an eligible Moment says yes, which
+        // costs nothing: the list's own window keeps the far copies
+        // unmounted, and the near ones resolve to a single signed URL and a
+        // single decode. The bound stays what it always was — three photos.
+        mediaEnabled={cyclicDistance(itemIndex, index, total) <= MEDIA_RADIUS}
+        moment={item}
+        onOpen={onOpenMoment}
+        onOpenReactions={onOpenReactions}
+        pitch={pitch}
+        scrollX={scrollX}
+        // Resolved here, to a boolean, so the memoized card never sees the set
+        // itself and a swipe re-renders one card rather than the whole deck.
+        unseen={
+          item.unseenAtSessionStart === true && !seenIds.has(item.moment_id)
+        }
+      />
+    ),
+    [
+      card,
+      index,
+      onOpenMoment,
+      onOpenReactions,
+      pitch,
+      scrollX,
+      seenIds,
+      total,
+    ],
+  );
+
   return (
     <View
       accessibilityActions={[
@@ -271,48 +343,22 @@ export function RecentDeck({
       style={styles.deck}
     >
       <AnimatedFlatList
-        contentContainerStyle={{ paddingHorizontal: sidePadding }}
+        contentContainerStyle={contentContainerStyle}
         data={data}
         // Snapping by the card pitch rather than by the screen is what lets the
         // neighbours stay on screen; `pagingEnabled` can only page a full
         // viewport and would hide them.
         decelerationRate="fast"
         disableIntervalMomentum
-        getItemLayout={(_, itemIndex) => ({
-          index: itemIndex,
-          length: pitch,
-          offset: pitch * itemIndex,
-        })}
+        getItemLayout={getItemLayout}
         horizontal
         initialNumToRender={1}
-        // The same Moment appears once per copy, so the key has to carry which
-        // copy it is or the list would see three items claiming one identity.
-        keyExtractor={(moment, itemIndex) => `${moment.moment_id}:${itemIndex}`}
+        keyExtractor={keyExtractor}
         maxToRenderPerBatch={2}
         onMomentumScrollEnd={onSettled}
         onScroll={onScroll}
         ref={listRef}
-        renderItem={({ item, index: itemIndex }) => (
-          <DeckCard
-            cardWidth={card}
-            gutter={GUTTER}
-            index={itemIndex}
-            // Measured cyclically against the canonical position, because in a
-            // loop the card two swipes away and the card two swipes back can be
-            // the same one. Every copy of an eligible Moment says yes, which
-            // costs nothing: the list's own window keeps the far copies
-            // unmounted, and the near ones resolve to a single signed URL and a
-            // single decode. The bound stays what it always was — three photos.
-            mediaEnabled={
-              cyclicDistance(itemIndex, index, total) <= MEDIA_RADIUS
-            }
-            moment={item}
-            onOpen={() => onOpenMoment(item.moment_id)}
-            onOpenReactions={onOpenReactions}
-            pitch={pitch}
-            scrollX={scrollX}
-          />
-        )}
+        renderItem={renderItem}
         scrollEventThrottle={16}
         showsHorizontalScrollIndicator={false}
         snapToAlignment="start"
@@ -339,7 +385,7 @@ const AnimatedFlatList = Animated.createAnimatedComponent(FlatList<DeckMoment>);
  * suppressed under Reduce Motion — what that setting governs here is the
  * animated jump a control triggers, which `scrollToIndex` already honours.
  */
-function DeckCard({
+const DeckCard = memo(function DeckCard({
   cardWidth,
   gutter,
   index,
@@ -349,17 +395,22 @@ function DeckCard({
   onOpenReactions,
   pitch,
   scrollX,
+  unseen,
 }: {
   cardWidth: number;
   gutter: number;
   index: number;
   mediaEnabled: boolean;
   moment: DeckMoment;
-  onOpen: () => void;
+  onOpen: (momentId: string) => void;
   onOpenReactions: (momentId: string) => void;
   pitch: number;
   scrollX: { value: number };
+  unseen: boolean;
 }) {
+  const momentId = moment.moment_id;
+  const open = useCallback(() => onOpen(momentId), [momentId, onOpen]);
+
   const animated = useAnimatedStyle(() => {
     // Distance from focus, in pages: 0 is centred, 1 is the next card over.
     const distance = Math.abs(scrollX.value / pitch - index);
@@ -403,7 +454,7 @@ function DeckCard({
          * and destroy the author → capture time → photo → caption reading order
          * the contract fixes. VoiceOver reaches detail through the deck's
          * "Open Moment" action instead, which is equivalent and named. */}
-        <Pressable accessible={false} onPress={onOpen}>
+        <Pressable accessible={false} onPress={open}>
           <MomentCard
             availableWidth={cardWidth}
             canReact={moment.canReact}
@@ -411,13 +462,13 @@ function DeckCard({
             mediaEnabled={mediaEnabled}
             moment={moment}
             onOpenReactions={onOpenReactions}
-            unseen={moment.unseen}
+            unseen={unseen}
           />
         </Pressable>
       </ScrollView>
     </Animated.View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   cardScroll: {

@@ -32,6 +32,7 @@ import {
 import { listFriends } from "@/features/friends/friends-api";
 import { markDeckStage } from "@/features/moments/feed/deck-instrumentation";
 import {
+  currentIndex,
   deckReducer,
   emptyDeck,
   type DeckMoment,
@@ -39,7 +40,10 @@ import {
 import { CARD_INSET } from "@/features/moments/feed/moment-card";
 import { MomentPhotoFrame } from "@/features/moments/feed/moment-photo";
 import { RecentDeck, deckGeometry } from "@/features/moments/feed/recent-deck";
-import { markMomentsSeen } from "@/features/moments/feed/recent-api";
+import {
+  RECENT_PAGE_SIZE,
+  markMomentsSeen,
+} from "@/features/moments/feed/recent-api";
 import {
   createSeenReporter,
   type SeenReporter,
@@ -159,6 +163,12 @@ export function HomeScreen({
    * contain the viewer's own Moments — Home so the day's sharing is honest
    * about what you did, Highlights so you can see where yours landed among your
    * friends' — and the server will not accept a reaction on either.
+   *
+   * These rows carry only *server* facts, which is why the cleared-marker set
+   * is not folded in here. Doing that made every swipe produce a fresh array,
+   * which dispatched `page_loaded`, replaced `deck.moments`, replaced the
+   * list's `data`, and re-rendered up to three hundred laid-out rows to move
+   * one dot. The marker is a separate prop the deck resolves per card instead.
    */
   const unseenMarks = useUnseenMarks(deck.currentId);
 
@@ -167,13 +177,11 @@ export function HomeScreen({
       feed.moments.map((moment) => ({
         ...moment,
         canReact: !moment.viewer_is_author,
-        // The server froze the unseen partition at the session boundary; this
-        // only decides whether the marker has been earned back yet.
-        unseen:
-          !moment.seen_at_session_start &&
-          !unseenMarks.cleared(moment.moment_id),
+        // The server froze this partition at the session boundary. Whether the
+        // viewer has since earned the marker back is decided in the deck.
+        unseenAtSessionStart: !moment.seen_at_session_start,
       })),
-    [feed.moments, unseenMarks],
+    [feed.moments],
   );
 
   const highlightCards = useMemo<DeckMoment[]>(
@@ -230,19 +238,20 @@ export function HomeScreen({
   // identity, so that is a render loop rather than a wasted allocation.
   const cards = showingRecent ? recentDeckCards : highlightCards;
 
+  /**
+   * True once the showing source holds a page for the session it is currently
+   * on. A brand-new session has none, and publishing a Moment starts one — so
+   * without this the deck would briefly be handed an array holding nothing but
+   * the card being shared, collapse to that single card, and refill a moment
+   * later. That flicker was visible on every successful share.
+   */
+  const sourceReady = showingRecent ? !feed.isPending : !highlights.isPending;
+
   useEffect(() => {
-    if (cards.length === 0) return;
+    if (!sourceReady || cards.length === 0) return;
     markDeckStage("page_rendered");
     dispatch({ type: "page_loaded", moments: cards });
-  }, [cards]);
-
-  // The access/head check, run whenever Home comes back into view. The callback
-  // is stable, so this fires on a genuine focus or foreground change and not on
-  // every render.
-  const { revalidate } = feed;
-  useEffect(() => {
-    if (isFocused && appIsActive) revalidate();
-  }, [appIsActive, isFocused, revalidate]);
+  }, [cards, sourceReady]);
 
   // Seen is recorded in both modes. A Highlight the viewer dwelled on is a
   // Moment they have genuinely seen, and the server re-derives eligibility per
@@ -285,6 +294,49 @@ export function HomeScreen({
     if (landed) onPendingMomentLanded?.();
   }, [landed, onPendingMomentLanded]);
 
+  /**
+   * Coming back to Home re-takes the session snapshot rather than refetching
+   * the frozen one.
+   *
+   * The freeze exists to protect a viewer who is *mid-swipe*: it is what stops
+   * a Moment published by somebody else from appearing between two cards they
+   * have already passed. Leaving Home ends that protection — there is no finger
+   * on the deck — so returning is the natural moment to widen the ceiling and
+   * take delivery of everything published since.
+   *
+   * This is what makes a notification honest. Tapping "Alex shared a Moment"
+   * opened detail, and coming back to Home used to show a pill offering the
+   * very Moment that had just been read, because a frozen session can never
+   * contain a row published after its anchor. Now Home simply has it.
+   *
+   * Two guards. The position is preserved by ID, not reset, so the viewer lands
+   * on the same photograph they left — but a viewer who had paged *deep* is
+   * left frozen instead, because a new session starts from the top page and
+   * their card would not be in it. And an in-flight share owns the session
+   * changes below; refreshing underneath it would race its own.
+   */
+  const { revalidate } = feed;
+  const deckDepth = useRef(0);
+  useEffect(() => {
+    deckDepth.current = currentIndex(deck);
+  }, [deck]);
+
+  const hasSession = feed.session !== null;
+  const sharing = pendingMoment !== null;
+  const wasWatching = useRef(false);
+  useEffect(() => {
+    const previously = wasWatching.current;
+    wasWatching.current = watching;
+    // Only the moment Home *regains* attention. Not every render, and not the
+    // first mount, whose session is the one being loaded.
+    if (!watching || previously) return;
+    if (hasSession && !sharing && deckDepth.current < RECENT_PAGE_SIZE) {
+      startNewSession();
+      return;
+    }
+    revalidate();
+  }, [hasSession, revalidate, sharing, startNewSession, watching]);
+
   const { takeNewSnapshot } = highlights;
   const switchTo = useCallback(
     (next: HomeMode) => {
@@ -299,6 +351,27 @@ export function HomeScreen({
     },
     [takeNewSnapshot],
   );
+
+  /**
+   * Opening a Moment earns its marker back immediately, before the screen has
+   * even pushed. Nothing about that has to wait for the server.
+   */
+  const openMoment = useCallback(
+    (id: string) => {
+      unseenMarks.clear(id);
+      onOpenMoment(id);
+    },
+    [onOpenMoment, unseenMarks],
+  );
+
+  /**
+   * A Moment this device is still sharing is newer than the session ceiling, so
+   * the server counts it as an arrival — and the author would be offered a pill
+   * for the photograph already in front of them. It is suppressed for the life
+   * of the attempt; the new session that lands it widens the anchor past it,
+   * and the count is honest again from there.
+   */
+  const newMomentCount = sharing ? 0 : feed.newMomentCount;
 
   const switcher = (
     <>
@@ -350,7 +423,7 @@ export function HomeScreen({
       <SafeAreaView edges={["top"]} style={styles.container}>
         {switcher}
         {showingRecent ? (
-          <NewMomentsPill count={feed.newMomentCount} onPress={startOver} />
+          <NewMomentsPill count={newMomentCount} onPress={startOver} />
         ) : null}
         <EmptyHome
           hasFriends={(friends.data?.length ?? 0) > 0}
@@ -381,7 +454,7 @@ export function HomeScreen({
       ) : null}
 
       {showingRecent ? (
-        <NewMomentsPill count={feed.newMomentCount} onPress={startOver} />
+        <NewMomentsPill count={newMomentCount} onPress={startOver} />
       ) : null}
 
       {/* The warm-up state. Ranking has nothing to work with yet, so these are
@@ -399,10 +472,11 @@ export function HomeScreen({
 
       <RecentDeck
         dispatch={dispatch}
-        onOpenMoment={onOpenMoment}
+        onOpenMoment={openMoment}
         onOpenReactions={onOpenReactions}
         onReachNewer={showingRecent ? feed.fetchNewer : noop}
         onReachOlder={showingRecent ? feed.fetchOlder : noop}
+        seenIds={unseenMarks.cleared}
         state={deck}
         width={width}
       />
@@ -497,10 +571,17 @@ const NO_MARKS: ReadonlySet<string> = new Set();
  *
  * The server decides what was unseen when the session began and freezes it, so
  * the partition cannot reorder under a finger. The *marker*, though, is about
- * this viewer in this minute: it belongs on a card until they have looked at
- * it, and "looked at it" is the swipe that takes them off it — not the dwell
- * timer, which is a slower, server-recorded fact, and not arrival on the card,
- * which would clear the dot before it had been read.
+ * this viewer in this minute, and it is cleared **locally the instant it is
+ * earned** rather than when the server's dwell write comes back. There is no
+ * signal to wait for: the client already knows the viewer swiped off the card,
+ * and holding the dot until a round trip lands is the inconsistency rather than
+ * the safeguard. The dwell write in `useSeenReporting` still goes out and still
+ * decides what the *next* session considers seen.
+ *
+ * Two things earn it back. Swiping off a card is the ordinary one — not
+ * arriving on it, which would clear the dot before it had been read. Opening
+ * the Moment is the other, and it is unconditional: a Moment somebody has stood
+ * in front of full screen has been seen by any definition.
  *
  * Cleared IDs are held for the life of the session and dropped when a new one
  * starts, which is also when the server's own answer is recomputed.
@@ -509,27 +590,25 @@ function useUnseenMarks(currentId: string | null) {
   const [cleared, setCleared] = useState<ReadonlySet<string>>(NO_MARKS);
   const previousId = useRef<string | null>(null);
 
+  const clear = useCallback((momentId: string) => {
+    setCleared((marks) => {
+      if (marks.has(momentId)) return marks;
+      const next = new Set(marks);
+      next.add(momentId);
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     const left = previousId.current;
     previousId.current = currentId;
     if (left === null || left === currentId) return;
-    setCleared((marks) => {
-      if (marks.has(left)) return marks;
-      const next = new Set(marks);
-      next.add(left);
-      return next;
-    });
-  }, [currentId]);
+    clear(left);
+  }, [clear, currentId]);
 
   const reset = useCallback(() => setCleared(NO_MARKS), []);
 
-  // Memoized on the set itself: the cards memo above depends on this value's
-  // identity, and a fresh object per render would hand the deck a fresh array
-  // per render, which is a render loop rather than a wasted allocation.
-  return useMemo(
-    () => ({ cleared: (momentId: string) => cleared.has(momentId), reset }),
-    [cleared, reset],
-  );
+  return useMemo(() => ({ cleared, clear, reset }), [clear, cleared, reset]);
 }
 
 /**
@@ -569,6 +648,11 @@ function useSeenReporting({
  * It says how many, never who or what — a pill that named an author would leak
  * the graph to anyone watching over a shoulder, and one that showed a thumbnail
  * would fetch media for a Moment the viewer has not chosen to look at.
+ *
+ * "2 new" rather than "2 new Moments": on a screen whose every object is a
+ * Moment, the noun is the one word carrying no information, and dropping it
+ * leaves a pill the eye reads without stopping. VoiceOver still hears the full
+ * sentence, where the context the eye has is not available.
  */
 function NewMomentsPill({
   count,
@@ -578,17 +662,18 @@ function NewMomentsPill({
   onPress: () => void;
 }) {
   if (count <= 0) return null;
-  const label = count === 1 ? "1 new Moment" : `${count} new Moments`;
   return (
     <View style={styles.pillRow}>
       <Pressable
         accessibilityHint="Starts a new session from the newest Moment"
-        accessibilityLabel={label}
+        accessibilityLabel={
+          count === 1 ? "1 new Moment" : `${count} new Moments`
+        }
         accessibilityRole="button"
         onPress={onPress}
         style={({ pressed }) => [styles.pill, pressed && styles.pillPressed]}
       >
-        <Text style={styles.pillLabel}>{label}</Text>
+        <Text style={styles.pillLabel}>{count} new</Text>
       </Pressable>
     </View>
   );
