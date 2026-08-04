@@ -161,10 +161,13 @@ owns.
 3. ~~Hosted TOTP enrol/verify, Phase 7 migration promotion, deployment of
    `moderate-report` and the updated `reconcile-operations`, and a disposable
    hosted acceptance operator/case.~~ **Completed and verified 2026-08-02.**
-4. Provision the permanent separate founder-controlled operator account, enrol
+4. ~~Provision the permanent separate founder-controlled operator account, enrol
    TOTP on its trusted device, and create its database-owner-only row (see the
    [moderation runbook](moderation-runbook.md)). The disposable acceptance
-   identity was revoked and removed.
+   identity was revoked and removed.~~ **Completed and verified 2026-08-03**:
+   operator `safety-1` holds no Splotty profile, has a verified TOTP factor on
+   the operator's own device, and signed in through `npm run moderate` reaching
+   real `aal2`.
 5. Legal text at Checkpoint 9D: the privacy notice, terms, and community
    guidelines must state the retention, the appeal route, and the support
    contact recorded here. The development legal set deliberately says it is not
