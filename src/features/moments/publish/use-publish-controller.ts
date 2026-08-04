@@ -15,6 +15,7 @@ import {
 } from "@/features/moments/publish/publish-api";
 import {
   initialPublishState,
+  isPublishInFlight,
   publishReducer,
   reviewMessage,
   type PublishState,
@@ -101,6 +102,7 @@ export function usePublishController({
   const publish = useCallback(() => {
     const draft = composer.draft;
     if (draft === null || !validateComposer(composer).ok) return;
+    if (isPublishInFlight(state)) return;
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -163,7 +165,7 @@ export function usePublishController({
         }
       }
     })();
-  }, [composer, settle]);
+  }, [composer, settle, state]);
 
   const cancel = useCallback(() => {
     dispatch({ type: "cancel_requested" });

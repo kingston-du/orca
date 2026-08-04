@@ -151,9 +151,17 @@ export function NotificationsProvider({ children }: PropsWithChildren) {
   // to be told about every future reason to ask for a permission.
   useEffect(() => {
     if (publish.state.status !== "published" || !userId) return;
-    void markNotificationPromptEarned(userId).then(() =>
-      readNotificationPromptState(userId).then(setPromptState),
-    );
+    let cancelled = false;
+
+    void (async () => {
+      await markNotificationPromptEarned(userId);
+      const state = await readNotificationPromptState(userId);
+      if (!cancelled) setPromptState(state);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [publish.state.status, userId]);
 
   useEffect(() => {
