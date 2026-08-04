@@ -46,7 +46,6 @@ export type ComposerNotice =
   | { kind: "tag_limit_reached" }
   /** A locked recipient cannot be deselected while its tag exists. */
   | { kind: "recipient_locked_by_tag"; friendId: string }
-  | { kind: "only_me_cleared_audience" }
   | { kind: "selected_started_empty_above_limit" }
   | { kind: "aged_out_to_archive" }
   /** The server refused to publish and shared nothing. The message comes from
@@ -54,13 +53,13 @@ export type ComposerNotice =
   | { kind: "publication_needs_review"; message: string };
 
 /**
- * Two transitions are destructive enough to require a deliberate confirmation
- * rather than an undo: dropping to Only Me clears recipients and tags, and
- * moving a large friend list to Selected cannot preselect everyone.
+ * Moving a large friend list to Selected requires a deliberate confirmation
+ * because the complete audience cannot be preselected within the cap.
  */
-export type PendingTransition =
-  | { kind: "confirm_only_me" }
-  | { kind: "confirm_selected_above_limit"; friendCount: number };
+export type PendingTransition = {
+  kind: "confirm_selected_above_limit";
+  friendCount: number;
+};
 
 export type ComposerStatus = "preparing" | "ready" | "needs_review";
 
@@ -199,6 +198,14 @@ export function validateComposer(state: ComposerState): ComposerValidation {
     return { ok: false, reason: "too_many_tags" };
   }
 
+  if (
+    state.kind === "recent" &&
+    state.draft.audience === "all_friends" &&
+    (state.friends === null || state.friends.length === 0)
+  ) {
+    return { ok: false, reason: "no_recipients" };
+  }
+
   if (state.kind === "recent" && state.draft.audience === "selected_friends") {
     if (state.draft.recipientIds.length < MIN_SELECTED_RECIPIENTS) {
       return { ok: false, reason: "no_recipients" };
@@ -226,8 +233,8 @@ function defaultAudience(
 }
 
 function applyOnlyMe(state: ComposerState): ComposerState {
-  // Only Me cannot tag, so confirming it clears both the explicit recipients
-  // and the tags rather than leaving invisible intent behind.
+  // Only Me cannot tag, so choosing it clears both the explicit recipients and
+  // tags immediately rather than leaving invisible intent behind.
   return withDraft(
     state,
     {
@@ -238,7 +245,7 @@ function applyOnlyMe(state: ComposerState): ComposerState {
     },
     {
       pendingTransition: null,
-      notice: { kind: "only_me_cleared_audience" },
+      notice: null,
     },
   );
 }
@@ -342,11 +349,7 @@ export function composerReducer(
       }
 
       if (action.audience === "only_me") {
-        return {
-          ...state,
-          notice: null,
-          pendingTransition: { kind: "confirm_only_me" },
-        };
+        return applyOnlyMe(state);
       }
 
       if (action.audience === "all_friends") {
@@ -372,10 +375,6 @@ export function composerReducer(
     case "transition_confirmed": {
       if (state.pendingTransition === null || state.draft === null)
         return state;
-
-      if (state.pendingTransition.kind === "confirm_only_me") {
-        return applyOnlyMe(state);
-      }
 
       // Above the cap Selected starts from the locked tags alone and requires
       // deliberate selection; nobody is silently carried over or dropped.

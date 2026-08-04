@@ -92,14 +92,14 @@ A subtlety worth noticing: this made **Retake** meaningful. Retake now returns t
 
 Audience is the highest-consequence decision in Orca. It decides who sees a private photo. And nearly every rule in it is a boundary condition:
 
-- Recent defaults to All Friends — unless you have no friends, in which case Only Me.
+- Recent defaults to All Friends — unless you have no friends, in which case Only Me. An unresolved or empty friend list disables Publish if the draft still says All Friends.
 - Selected takes 1–50 recipients.
 - Tagging someone in Selected **auto-selects and locks** them as a recipient, because a tag implies they can see it.
 - Removing the tag unlocks them but leaves them selected, because an untag must not silently narrow the audience.
 - If a tag would exceed 50 recipients, the app **refuses and explains** — it never drops someone to make room.
 - All Friends → Selected preselects everyone only at 50 or below. Above that, a transition sheet says so, keeps the locked tags, starts otherwise empty, and cancelling preserves All Friends.
 - Selected → All Friends discards the subset and keeps the tags.
-- Only Me confirms first, then clears recipients _and_ tags. Only Me cannot tag.
+- Choosing Only Me immediately clears recipients _and_ tags. Only Me cannot tag.
 - Archive hides the choice entirely: "only you and tagged friends", and zero tags is private.
 - Tag maximum is 20.
 
@@ -223,14 +223,14 @@ Note what is _not_ in there: no Superheart accent, no dark-mode variant. Neither
 
 ## What the tests prove
 
-| Test                                                                                                 | What it proves                                                                                                                               |
-| ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`capture-evidence.test.ts`](../../src/features/moments/capture/__tests__/capture-evidence.test.ts)  | The allowlist, offset parsing, zeroed and impossible dates, window boundaries to the millisecond, and that no GPS or device identity escapes |
-| [`composer-reducer.test.ts`](../../src/features/moments/composer/__tests__/composer-reducer.test.ts) | The full audience/tag matrix including the 50th recipient, the 21st tag, and the tag that is refused rather than granted by eviction         |
-| [`caption.test.ts`](../../src/features/moments/composer/__tests__/caption.test.ts)                   | NFC, CRLF, control-character rejection, and that emoji count as one code point like Postgres `char_length`                                   |
-| [`draft-storage.test.ts`](../../src/features/moments/composer/__tests__/draft-storage.test.ts)       | Account and environment scoping, atomic write order, corrupt-manifest discard, missing-media safe discard                                    |
-| [`capture-screen.test.tsx`](../../src/features/moments/capture/__tests__/capture-screen.test.tsx)    | Camera lifecycle, the glyph-not-library-image tile, restart Continue/Discard, and the absence of any Publish control                         |
-| [`composer-screen.test.tsx`](../../src/features/moments/composer/__tests__/composer-screen.test.tsx) | Archive hides the audience control but keeps tagging, Only Me hides tagging, inline lock explanations, and the review banner                 |
+| Test                                                                                                 | What it proves                                                                                                                                                                                                        |
+| ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`capture-evidence.test.ts`](../../src/features/moments/capture/__tests__/capture-evidence.test.ts)  | The allowlist, offset parsing, zeroed and impossible dates, window boundaries to the millisecond, and that no GPS or device identity escapes                                                                          |
+| [`composer-reducer.test.ts`](../../src/features/moments/composer/__tests__/composer-reducer.test.ts) | The full audience/tag matrix including the 50th recipient, the 21st tag, and the tag that is refused rather than granted by eviction                                                                                  |
+| [`caption.test.ts`](../../src/features/moments/composer/__tests__/caption.test.ts)                   | NFC, CRLF, control-character rejection, and that emoji count as one code point like Postgres `char_length`                                                                                                            |
+| [`draft-storage.test.ts`](../../src/features/moments/composer/__tests__/draft-storage.test.ts)       | Account and environment scoping, atomic write order, corrupt-manifest discard, missing-media safe discard                                                                                                             |
+| [`capture-screen.test.tsx`](../../src/features/moments/capture/__tests__/capture-screen.test.tsx)    | Camera lifecycle, the glyph-not-library-image tile, restart Continue/Discard, and the absence of any Publish control                                                                                                  |
+| [`composer-screen.test.tsx`](../../src/features/moments/composer/__tests__/composer-screen.test.tsx) | Archive hides the audience control but keeps tagging, Only Me hides tagging, empty All Friends disables Publish, initial layout positions the controls at the bottom, inline lock explanations, and the review banner |
 
 The `caption` test had to build its inputs from code points rather than literals:
 

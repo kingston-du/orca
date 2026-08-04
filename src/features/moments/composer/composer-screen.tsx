@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Image,
   Pressable,
@@ -80,6 +80,32 @@ const AUDIENCE_OPTIONS: { value: ComposerAudience; label: string }[] = [
   { value: "only_me", label: "Only Me" },
 ];
 
+/** Coordinates two native layout callbacks whose order is not guaranteed.
+ * Once both have fired, it returns one signal to resolve the real bottom;
+ * later caption growth, keyboard insets, or alerts return false. */
+export function createInitialScrollPositioner() {
+  let contentReady = false;
+  let viewportReady = false;
+  let positioned = false;
+
+  const positionIfReady = () => {
+    if (positioned || !contentReady || !viewportReady) return false;
+    positioned = true;
+    return true;
+  };
+
+  return {
+    contentReady() {
+      contentReady = true;
+      return positionIfReady();
+    },
+    viewportReady() {
+      viewportReady = true;
+      return positionIfReady();
+    },
+  };
+}
+
 function noticeMessage(
   notice: ComposerNotice,
   friendName: (friendId: string) => string,
@@ -95,8 +121,6 @@ function noticeMessage(
       return `A Selected audience is limited to ${MAX_SELECTED_RECIPIENTS} friends.`;
     case "tag_limit_reached":
       return `You can tag up to ${MAX_MOMENT_TAGS} friends in one Moment.`;
-    case "only_me_cleared_audience":
-      return "Only Me keeps this Moment private. Its audience and tags were cleared.";
     case "selected_started_empty_above_limit":
       return `Selected is limited to ${MAX_SELECTED_RECIPIENTS} friends, so nobody is chosen yet. Pick who should see this Moment.`;
     case "aged_out_to_archive":
@@ -135,7 +159,9 @@ export function ComposerScreen({
   publish,
 }: ComposerScreenProps) {
   const [picker, setPicker] = useState<PickerMode | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
   const draft = state.draft;
+  const [initialScrollPositioner] = useState(createInitialScrollPositioner);
   const friends = useMemo(() => state.friends ?? [], [state.friends]);
   const locked = useMemo(() => new Set(lockedRecipientIds(state)), [state]);
 
@@ -199,6 +225,18 @@ export function ComposerScreen({
         contentContainerStyle={styles.content}
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
+        onContentSizeChange={() => {
+          if (initialScrollPositioner.contentReady()) {
+            scrollRef.current?.scrollToEnd({ animated: false });
+          }
+        }}
+        onLayout={() => {
+          if (initialScrollPositioner.viewportReady()) {
+            scrollRef.current?.scrollToEnd({ animated: false });
+          }
+        }}
+        ref={scrollRef}
+        testID="composer-scroll"
       >
         <View
           style={[
@@ -383,11 +421,7 @@ export function ComposerScreen({
                 />
               </View>
             }
-            message={
-              state.pendingTransition.kind === "confirm_only_me"
-                ? "Only Me keeps this Moment private and clears the friends and tags you chose. Continue?"
-                : `You have ${state.pendingTransition.friendCount} friends and Selected is limited to 50. Start choosing from an empty list?`
-            }
+            message={`You have ${state.pendingTransition.friendCount} friends and Selected is limited to 50. Start choosing from an empty list?`}
             testID="composer-transition"
           />
         ) : null}

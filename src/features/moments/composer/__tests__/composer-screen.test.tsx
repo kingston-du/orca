@@ -11,7 +11,10 @@ import {
   type ComposerFriend,
   type ComposerState,
 } from "@/features/moments/composer/composer-reducer";
-import { ComposerScreen } from "@/features/moments/composer/composer-screen";
+import {
+  ComposerScreen,
+  createInitialScrollPositioner,
+} from "@/features/moments/composer/composer-screen";
 import type { MomentDraft } from "@/features/moments/composer/moment-draft";
 import {
   initialPublishState,
@@ -141,6 +144,42 @@ describe("ComposerScreen", () => {
     );
   });
 
+  test("disables sharing All Friends when there are no friends", async () => {
+    const state = stateWith([
+      { type: "friends_loaded", friends: [] },
+      {
+        type: "draft_prepared",
+        draft: {
+          ...draft,
+          audience: "all_friends",
+          audienceChosenByAuthor: true,
+        },
+        kind: "recent",
+        origin: "captured",
+      },
+    ]);
+    const { screen } = await renderComposer(state);
+
+    expect(screen.getByTestId("composer-publish")).toHaveProp(
+      "accessibilityState",
+      expect.objectContaining({ disabled: true }),
+    );
+  });
+
+  test("starts the composer at the controls after initial layout", () => {
+    const positioner = createInitialScrollPositioner();
+
+    expect(positioner.contentReady()).toBe(false);
+    expect(positioner.viewportReady()).toBe(true);
+
+    expect(positioner.contentReady()).toBe(false);
+    expect(positioner.viewportReady()).toBe(false);
+
+    const reverseOrder = createInitialScrollPositioner();
+    expect(reverseOrder.viewportReady()).toBe(false);
+    expect(reverseOrder.contentReady()).toBe(true);
+  });
+
   test("reports upload progress and offers cancellation", async () => {
     const user = userEvent.setup();
     const { screen, publish } = await renderComposer(
@@ -263,7 +302,6 @@ describe("ComposerScreen", () => {
         { type: "friends_loaded", friends },
         { type: "draft_prepared", draft, kind: "recent", origin: "captured" },
         { type: "audience_chosen", audience: "only_me" },
-        { type: "transition_confirmed" },
       ]),
     );
 
@@ -273,23 +311,19 @@ describe("ComposerScreen", () => {
     expect(screen.queryByRole("checkbox", { name: "Tag Ada" })).toBeNull();
   });
 
-  test("asks before an Only Me transition clears the audience", async () => {
-    const user = userEvent.setup();
-    const { screen, dispatch } = await renderComposer(
+  test("shows no clarification after Only Me clears the audience", async () => {
+    const { screen } = await renderComposer(
       stateWith([
         { type: "friends_loaded", friends },
         { type: "draft_prepared", draft, kind: "recent", origin: "captured" },
+        { type: "audience_chosen", audience: "selected_friends" },
+        { type: "tag_toggled", friendId: "friend-a" },
         { type: "audience_chosen", audience: "only_me" },
       ]),
     );
 
-    expect(screen.getByTestId("composer-transition")).toHaveTextContent(
-      /clears the friends and tags you chose/,
-    );
-    expect(screen.getByRole("alert")).toBeOnTheScreen();
-    // "Go back", not "Cancel": the header owns the only Cancel on this screen.
-    await user.press(screen.getByRole("button", { name: "Go back" }));
-    expect(dispatch).toHaveBeenCalledWith({ type: "transition_canceled" });
+    expect(screen.queryByTestId("composer-transition")).toBeNull();
+    expect(screen.queryByTestId("composer-notice")).toBeNull();
   });
 
   test("shows the review state after a draft ages out of Recent", async () => {

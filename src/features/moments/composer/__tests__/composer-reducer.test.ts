@@ -168,8 +168,8 @@ describe("switching audience", () => {
     expect(state.draft?.tagIds).toEqual(["friend-001"]);
   });
 
-  test("Only Me confirms first, then clears recipients and tags", () => {
-    const chosen = run(
+  test("Only Me immediately clears recipients and tags", () => {
+    const state = run(
       [
         { type: "audience_chosen", audience: "selected_friends" },
         { type: "tag_toggled", friendId: "friend-001" },
@@ -178,21 +178,17 @@ describe("switching audience", () => {
       ready(5),
     );
 
-    expect(chosen.pendingTransition).toEqual({ kind: "confirm_only_me" });
-    expect(chosen.draft?.tagIds).toEqual(["friend-001"]);
-
-    const confirmed = composerReducer(chosen, { type: "transition_confirmed" });
-    expect(confirmed.draft?.audience).toBe("only_me");
-    expect(confirmed.draft?.recipientIds).toEqual([]);
-    expect(confirmed.draft?.tagIds).toEqual([]);
-    expect(confirmed.notice).toEqual({ kind: "only_me_cleared_audience" });
+    expect(state.draft?.audience).toBe("only_me");
+    expect(state.draft?.recipientIds).toEqual([]);
+    expect(state.draft?.tagIds).toEqual([]);
+    expect(state.pendingTransition).toBeNull();
+    expect(state.notice).toBeNull();
   });
 
   test("Only Me cannot tag", () => {
     const state = run(
       [
         { type: "audience_chosen", audience: "only_me" },
-        { type: "transition_confirmed" },
         { type: "tag_toggled", friendId: "friend-001" },
       ],
       ready(5),
@@ -457,6 +453,30 @@ describe("ageing out of Recent", () => {
 });
 
 describe("validateComposer", () => {
+  test("All Friends cannot publish before at least one friend is loaded", () => {
+    const unresolved = run([
+      {
+        type: "draft_prepared",
+        draft,
+        kind: "recent",
+        origin: "captured",
+      },
+    ]);
+    const empty = ready(0, {
+      audience: "all_friends",
+      audienceChosenByAuthor: true,
+    });
+
+    expect(validateComposer(unresolved)).toEqual({
+      ok: false,
+      reason: "no_recipients",
+    });
+    expect(validateComposer(empty)).toEqual({
+      ok: false,
+      reason: "no_recipients",
+    });
+  });
+
   test("an empty Selected audience cannot publish", () => {
     const state = run(
       [
