@@ -1,5 +1,13 @@
 import { useIsFocused } from "expo-router";
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -42,11 +50,48 @@ import { useRecentFeed } from "@/features/moments/feed/use-recent-feed";
 import { useAuth } from "@/features/auth/auth-provider";
 import { useQuery } from "@tanstack/react-query";
 
+/**
+ * The Moment this device is in the middle of sharing.
+ *
+ * Home draws it as the newest card from local bytes, so an author who has just
+ * pressed send sees their photo where it is going to live rather than a
+ * confirmation screen with a Done button. Everything here is already on the
+ * device; nothing is read back from the server to build it.
+ */
+export type PendingMoment = {
+  momentId: string;
+  photoUri: string;
+  caption: string;
+  capturedAt: string | null;
+  capturedUtcOffsetMinutes: number | null;
+  authorAvatarPath: string | null;
+  authorDisplayName: string;
+  /** True once the server has accepted it and only the feed has to catch up. */
+  settled: boolean;
+};
+
 type HomeScreenProps = {
+  /**
+   * Rendered directly under the mode switch, above the deck.
+   *
+   * Home is where an author lands the instant they press send, so the publish
+   * attempt's own progress, its cancel control, and its "nothing was shared"
+   * outcomes have to be reachable here. The route owns that content because the
+   * route is what can navigate back to the composer; Home only owns the slot.
+   */
+  banner?: ReactNode;
   onAddFriend: () => void;
   onOpenCamera: () => void;
   onOpenMoment: (momentId: string) => void;
   onOpenReactions: (momentId: string) => void;
+  /** Null whenever nothing is being shared from this device. */
+  pendingMoment?: PendingMoment | null;
+  /**
+   * Called once the server's own row for `pendingMoment` has arrived in the
+   * feed, so the publish attempt can be reset. Home is the surface that takes
+   * delivery, so Home is what says the attempt is finished with.
+   */
+  onPendingMomentLanded?: () => void;
 };
 
 /** The two things Home can be. Both are the same deck over a different set. */
@@ -77,20 +122,25 @@ type HomeMode = "recent" | "highlights";
  * viewer was already reading.
  */
 export function HomeScreen({
+  banner = null,
   onAddFriend,
   onOpenCamera,
   onOpenMoment,
   onOpenReactions,
+  onPendingMomentLanded,
+  pendingMoment = null,
 }: HomeScreenProps) {
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const [mode, setMode] = useState<HomeMode>("recent");
   const [deck, dispatch] = useReducer(deckReducer, emptyDeck);
 
-  const feed = useRecentFeed(user?.id);
-  const highlights = useHighlights(user?.id, mode === "highlights");
   const isFocused = useIsFocused();
   const appIsActive = useAppIsActive();
+  const watching = isFocused && appIsActive;
+
+  const feed = useRecentFeed(user?.id, watching);
+  const highlights = useHighlights(user?.id, mode === "highlights");
 
   const showingRecent = mode === "recent";
 
@@ -110,13 +160,20 @@ export function HomeScreen({
    * about what you did, Highlights so you can see where yours landed among your
    * friends' — and the server will not accept a reaction on either.
    */
+  const unseenMarks = useUnseenMarks(deck.currentId);
+
   const recentCards = useMemo<DeckMoment[]>(
     () =>
       feed.moments.map((moment) => ({
         ...moment,
         canReact: !moment.viewer_is_author,
+        // The server froze the unseen partition at the session boundary; this
+        // only decides whether the marker has been earned back yet.
+        unseen:
+          !moment.seen_at_session_start &&
+          !unseenMarks.cleared(moment.moment_id),
       })),
-    [feed.moments],
+    [feed.moments, unseenMarks],
   );
 
   const highlightCards = useMemo<DeckMoment[]>(
@@ -128,11 +185,50 @@ export function HomeScreen({
     [highlights.moments],
   );
 
+  /** True once the server's own row for the pending Moment is in the feed. */
+  const landed =
+    pendingMoment !== null &&
+    feed.moments.some((moment) => moment.moment_id === pendingMoment.momentId);
+
+  /**
+   * The Moment being shared, as a card, from bytes this device already has.
+   *
+   * `object_path` is empty and `localPhotoUri` is set, so nothing asks the
+   * server to sign a path it may not have finished storing. Everything else is
+   * the truth about a Moment one second old: no reactions, authored by the
+   * viewer, and unseen by nobody.
+   */
+  const pendingCard = useMemo<DeckMoment | null>(() => {
+    if (pendingMoment === null || landed) return null;
+    const caption = pendingMoment.caption.trim();
+    return {
+      author_avatar_path: pendingMoment.authorAvatarPath,
+      author_display_name: pendingMoment.authorDisplayName,
+      author_username: "",
+      canReact: false,
+      caption: caption === "" ? null : caption,
+      captured_at: pendingMoment.capturedAt,
+      captured_utc_offset_minutes: pendingMoment.capturedUtcOffsetMinutes,
+      heart_count: 0,
+      localPhotoUri: pendingMoment.photoUri,
+      moment_id: pendingMoment.momentId,
+      object_path: "",
+      superheart_count: 0,
+      viewer_is_author: true,
+      viewer_reaction: null,
+    };
+  }, [landed, pendingMoment]);
+
+  const recentDeckCards = useMemo(
+    () => (pendingCard === null ? recentCards : [pendingCard, ...recentCards]),
+    [pendingCard, recentCards],
+  );
+
   // Two memos rather than one branching memo, because a single memo would
   // depend on both sources and hand the deck a fresh array on every render of
   // whichever mode is not showing. The deck reducer keys off that array's
   // identity, so that is a render loop rather than a wasted allocation.
-  const cards = showingRecent ? recentCards : highlightCards;
+  const cards = showingRecent ? recentDeckCards : highlightCards;
 
   useEffect(() => {
     if (cards.length === 0) return;
@@ -161,10 +257,33 @@ export function HomeScreen({
   // usually contains exactly what it did before, so "keep my place" and "start
   // over from the newest card" would otherwise silently disagree.
   const { startNewSession } = feed;
+  const { reset: resetUnseenMarks } = unseenMarks;
   const startOver = useCallback(() => {
     dispatch({ type: "reset" });
+    resetUnseenMarks();
     startNewSession();
-  }, [startNewSession]);
+  }, [resetUnseenMarks, startNewSession]);
+
+  /**
+   * A Moment shared from this device arrives *after* this session's ceiling was
+   * frozen, so the only way it can reach the deck at all is a new session.
+   *
+   * Doing it here rather than leaving it to the pill is the whole difference
+   * the author feels: they press send, land on Home, and their photo is the
+   * card in front of them — instead of a feed that has visibly forgotten what
+   * it was showing and a pill offering to start over.
+   */
+  const settledMomentId = pendingMoment?.settled
+    ? pendingMoment.momentId
+    : null;
+  useEffect(() => {
+    if (settledMomentId === null) return;
+    startNewSession();
+  }, [settledMomentId, startNewSession]);
+
+  useEffect(() => {
+    if (landed) onPendingMomentLanded?.();
+  }, [landed, onPendingMomentLanded]);
 
   const { takeNewSnapshot } = highlights;
   const switchTo = useCallback(
@@ -181,9 +300,24 @@ export function HomeScreen({
     [takeNewSnapshot],
   );
 
-  const switcher = <ModeSwitch mode={mode} onChange={switchTo} />;
+  const switcher = (
+    <>
+      <ModeSwitch mode={mode} onChange={switchTo} />
+      {/* The publish attempt's own state, when there is one. It sits with the
+       * switcher rather than on the card so that progress, cancelling, and
+       * "nothing was shared" keep the first-class placement Section 9 gives
+       * them even though the author has left the composer. */}
+      {banner}
+    </>
+  );
 
-  if (showingRecent ? feed.isPending : highlights.isPending) {
+  // A skeleton is for a screen with nothing on it. Once the deck holds cards —
+  // including the one being shared right now — a new session loading
+  // underneath must not replace them with placeholders.
+  if (
+    (showingRecent ? feed.isPending : highlights.isPending) &&
+    deck.moments.length === 0
+  ) {
     return <HomeSkeleton switcher={switcher} width={width} />;
   }
 
@@ -353,6 +487,48 @@ function EmptyHome({
       body="Splotty shows your own Moments and your friends’, so start by adding one."
       title="No Moments yet"
     />
+  );
+}
+
+const NO_MARKS: ReadonlySet<string> = new Set();
+
+/**
+ * Which unseen markers the viewer has already earned back.
+ *
+ * The server decides what was unseen when the session began and freezes it, so
+ * the partition cannot reorder under a finger. The *marker*, though, is about
+ * this viewer in this minute: it belongs on a card until they have looked at
+ * it, and "looked at it" is the swipe that takes them off it — not the dwell
+ * timer, which is a slower, server-recorded fact, and not arrival on the card,
+ * which would clear the dot before it had been read.
+ *
+ * Cleared IDs are held for the life of the session and dropped when a new one
+ * starts, which is also when the server's own answer is recomputed.
+ */
+function useUnseenMarks(currentId: string | null) {
+  const [cleared, setCleared] = useState<ReadonlySet<string>>(NO_MARKS);
+  const previousId = useRef<string | null>(null);
+
+  useEffect(() => {
+    const left = previousId.current;
+    previousId.current = currentId;
+    if (left === null || left === currentId) return;
+    setCleared((marks) => {
+      if (marks.has(left)) return marks;
+      const next = new Set(marks);
+      next.add(left);
+      return next;
+    });
+  }, [currentId]);
+
+  const reset = useCallback(() => setCleared(NO_MARKS), []);
+
+  // Memoized on the set itself: the cards memo above depends on this value's
+  // identity, and a fresh object per render would hand the deck a fresh array
+  // per render, which is a render loop rather than a wasted allocation.
+  return useMemo(
+    () => ({ cleared: (momentId: string) => cleared.has(momentId), reset }),
+    [cleared, reset],
   );
 }
 

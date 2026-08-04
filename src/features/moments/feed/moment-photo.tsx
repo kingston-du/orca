@@ -127,6 +127,16 @@ type MomentPhotoProps = {
   flushBottom?: boolean;
   /** Identity, drawn on a scrim over the foot of the photo. */
   footer?: ReactNode;
+  /**
+   * A `file://` photo this device already holds, used instead of asking the
+   * server to sign a path it may not have finished storing yet.
+   *
+   * Set only for the author's own Moment while it is being shared. It is not a
+   * cache and never becomes one: nothing writes here, nothing reads a *third
+   * party's* bytes through it, and it is dropped the moment the server's own
+   * row arrives.
+   */
+  localUri?: string | null;
 };
 
 /**
@@ -145,6 +155,7 @@ export function MomentPhoto({
   enabled,
   flushBottom = false,
   footer,
+  localUri = null,
 }: MomentPhotoProps) {
   const { user } = useAuth();
   const [decoded, setDecoded] = useState(false);
@@ -152,7 +163,16 @@ export function MomentPhoto({
   // The controlled cache owns the TTL, the renewal margin, the per-tick
   // batching, and the purge. All this component knows is a path and whether it
   // is near enough to the viewport to be worth signing.
-  const signed = useMomentMediaUrl(user?.id, objectPath, enabled);
+  const signed = useMomentMediaUrl(
+    user?.id,
+    objectPath,
+    enabled && localUri === null,
+  );
+
+  const uri = localUri ?? signed.data;
+  // A local photo cannot fail to arrive, so the unavailable state belongs to
+  // the signed path alone.
+  const failed = localUri === null && signed.isError;
 
   useEffect(() => {
     if (enabled) markDeckStage("photo_requested");
@@ -164,7 +184,7 @@ export function MomentPhoto({
       flushBottom={flushBottom}
       footer={footer}
     >
-      {signed.data ? (
+      {uri ? (
         <Image
           accessibilityIgnoresInvertColors
           // No invented image description: Splotty does not know what is in the
@@ -179,19 +199,19 @@ export function MomentPhoto({
           // is preferable here to permanent side rails; detail shows the same
           // file at its full natural aspect ratio.
           resizeMode="cover"
-          source={{ uri: signed.data }}
+          source={{ uri }}
           style={styles.image}
           testID="moment-photo"
         />
       ) : null}
 
-      {signed.isError ? (
+      {failed ? (
         <View style={styles.overlay}>
           <Text style={styles.overlayText}>Photo unavailable</Text>
         </View>
       ) : null}
 
-      {enabled && !signed.isError && !decoded ? (
+      {enabled && !failed && !decoded ? (
         <View style={styles.overlay}>
           <ActivityIndicator
             accessibilityLabel="Loading photo"

@@ -4,11 +4,31 @@ import {
   isPublishInFlight,
   publishReducer,
   reviewMessage,
+  type PendingPhoto,
   type PublishAction,
   type PublishState,
 } from "@/features/moments/publish/publish-machine";
 
 const MOMENT_ID = "11111111-1111-4111-8111-111111111111";
+
+/** The local copy Home draws while the attempt is in flight. Nothing in the
+ * reducer reads its fields; what matters is when it is present and when it is
+ * cleared. */
+const PHOTO: PendingPhoto = {
+  uri: "file:///moment.jpg",
+  width: 1536,
+  height: 2048,
+  caption: "",
+  capturedAt: "2026-08-03T10:00:00.000Z",
+  capturedUtcOffsetMinutes: -240,
+  kind: "recent",
+};
+
+const start: PublishAction = {
+  type: "publish_started",
+  momentId: MOMENT_ID,
+  photo: PHOTO,
+};
 
 function run(
   actions: PublishAction[],
@@ -17,14 +37,11 @@ function run(
   return actions.reduce(publishReducer, from);
 }
 
-const started: PublishAction[] = [
-  { type: "publish_started", momentId: MOMENT_ID },
-  { type: "reservation_confirmed" },
-];
+const started: PublishAction[] = [start, { type: "reservation_confirmed" }];
 
 describe("publishReducer", () => {
   test("walks reserve, upload, and finalize in order", () => {
-    const reserving = run([{ type: "publish_started", momentId: MOMENT_ID }]);
+    const reserving = run([start]);
     expect(reserving.status).toBe("reserving");
     expect(reserving.momentId).toBe(MOMENT_ID);
     expect(isPublishInFlight(reserving)).toBe(true);
@@ -76,12 +93,7 @@ describe("publishReducer", () => {
       publishReducer(uploading, { type: "upload_progressed", fraction: 4 })
         .progress,
     ).toBe(1);
-    expect(
-      publishReducer(initialPublishState, {
-        type: "publish_started",
-        momentId: MOMENT_ID,
-      }).progress,
-    ).toBe(0);
+    expect(publishReducer(initialPublishState, start).progress).toBe(0);
   });
 
   test("allows cancelling only before finalization has begun", () => {

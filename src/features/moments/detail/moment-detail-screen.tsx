@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -81,6 +81,17 @@ export function MomentDetailScreen({
   const { user } = useAuth();
   const client = useQueryClient();
   const { purge } = useMomentMediaPurge();
+  const scrollRef = useRef<ScrollView>(null);
+  /** Where the caption block starts, so opening the editor can put the field
+   * and both of its actions above the keyboard. */
+  const captionTop = useRef(0);
+
+  const revealCaptionEditor = useCallback(() => {
+    scrollRef.current?.scrollTo({
+      animated: true,
+      y: Math.max(0, captionTop.current - spacing.lg),
+    });
+  }, []);
 
   const detail = useQuery({
     queryKey: ["moment-detail", user?.id, momentId],
@@ -103,6 +114,12 @@ export function MomentDetailScreen({
     purge(detail.data?.object_path ?? "");
     await Promise.all([
       client.invalidateQueries({ queryKey: ["recent-moments"] }),
+      // Week is a frozen snapshot with no focus refetch, so nothing else would
+      // ever take a deleted Moment off it: the tile sat there loading a photo
+      // that no longer existed until the viewer left the screen and came back.
+      // An invalidation reaches the live observer directly, which is the one
+      // case a snapshot must not survive.
+      client.invalidateQueries({ queryKey: ["highlights"] }),
       client.invalidateQueries({ queryKey: ["diary-moments"] }),
       client.invalidateQueries({ queryKey: ["past-shares"] }),
       client.invalidateQueries({ queryKey: ["shared-moments"] }),
@@ -224,6 +241,7 @@ export function MomentDetailScreen({
         contentContainerStyle={styles.content}
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
+        ref={scrollRef}
         testID="moment-detail-scroll"
       >
         <Pressable
@@ -261,7 +279,17 @@ export function MomentDetailScreen({
           objectPath={moment.object_path}
         />
 
-        <MomentCaption moment={moment} onSaved={invalidateEverywhere} />
+        <View
+          onLayout={(event) => {
+            captionTop.current = event.nativeEvent.layout.y;
+          }}
+        >
+          <MomentCaption
+            moment={moment}
+            onEditingStarted={revealCaptionEditor}
+            onSaved={invalidateEverywhere}
+          />
+        </View>
 
         <ReactionBar
           canReact={moment.can_react}
@@ -465,9 +493,14 @@ function IconAction({
  */
 function MomentCaption({
   moment,
+  onEditingStarted,
   onSaved,
 }: {
   moment: MomentDetail;
+  /** Lets the screen scroll the field and its two actions clear of the
+   * keyboard. `automaticallyAdjustKeyboardInsets` makes the room; nothing but
+   * the owner of the scroll view can decide to move into it. */
+  onEditingStarted: () => void;
   onSaved: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
@@ -512,6 +545,7 @@ function MomentCaption({
           onPress={() => {
             setDraft(moment.caption ?? "");
             setEditing(true);
+            onEditingStarted();
           }}
           style={({ pressed }) => [styles.iconAction, pressed && styles.dim]}
           testID="edit-caption"
@@ -539,33 +573,48 @@ function MomentCaption({
         value={draft}
       />
 
+      {/* Two glyphs rather than two words. The field above already says what is
+       * being decided, so the pair only has to say "keep this" and "leave it
+       * alone" — and a compact row is what keeps both of them, and the field,
+       * above the keyboard. Each carries its full sentence as a label, because
+       * a checkmark has no name to a screen reader. */}
       <View style={styles.captionActions}>
         <Pressable
+          accessibilityLabel="Save caption"
           accessibilityRole="button"
           accessibilityState={{
             disabled: !changed || !validation.ok || save.isPending,
           }}
           disabled={!changed || !validation.ok || save.isPending}
+          hitSlop={spacing.xs}
           onPress={() => save.mutate()}
           style={({ pressed }) => [
-            styles.primaryAction,
-            pressed && styles.primaryActionPressed,
+            styles.captionAction,
+            styles.captionSave,
+            pressed && styles.captionSavePressed,
             (!changed || !validation.ok) && styles.actionDisabled,
           ]}
           testID="save-caption"
         >
-          <Text style={styles.primaryLabel}>Save</Text>
+          <Icon name="check" size={18} tint={color.textInverse} />
         </Pressable>
         <Pressable
+          accessibilityLabel="Discard caption changes"
           accessibilityRole="button"
           disabled={save.isPending}
+          hitSlop={spacing.xs}
           onPress={() => {
             setDraft(moment.caption ?? "");
             setEditing(false);
           }}
-          style={styles.secondaryAction}
+          style={({ pressed }) => [
+            styles.captionAction,
+            styles.captionCancel,
+            pressed && styles.captionCancelPressed,
+          ]}
+          testID="cancel-caption"
         >
-          <Text style={styles.secondaryLabel}>Cancel</Text>
+          <Icon name="close" size={18} tint={color.textPrimary} />
         </Pressable>
       </View>
 
@@ -633,7 +682,24 @@ const styles = StyleSheet.create({
   },
   body: { ...typeScale.caption, color: color.textSecondary },
   caption: { ...typeScale.body, color: color.textPrimary, flex: 1 },
-  captionActions: { flexDirection: "row", gap: spacing.sm },
+  captionAction: {
+    alignItems: "center",
+    borderRadius: radius.pill,
+    height: MINIMUM_TOUCH_TARGET,
+    justifyContent: "center",
+    width: MINIMUM_TOUCH_TARGET,
+  },
+  // Confirm sits before dismiss, and both sit at the trailing edge under the
+  // field they act on rather than stretched across it.
+  captionActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    justifyContent: "flex-end",
+  },
+  captionCancel: { backgroundColor: color.fillSubtle },
+  captionCancelPressed: { backgroundColor: color.fillSubtlePressed },
+  captionSave: { backgroundColor: color.brand },
+  captionSavePressed: { backgroundColor: color.brandPressed },
   captionPlaceholder: {
     ...typeScale.body,
     color: color.textSecondary,
@@ -690,16 +756,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  primaryAction: {
-    alignItems: "center",
-    backgroundColor: color.brand,
-    borderRadius: radius.pill,
-    justifyContent: "center",
-    minHeight: MINIMUM_TOUCH_TARGET,
-    paddingHorizontal: spacing.xl,
-  },
-  primaryActionPressed: { backgroundColor: color.brandPressed },
-  primaryLabel: { ...typeScale.label, color: color.textInverse },
   safeArea: { backgroundColor: color.canvas, flex: 1 },
   secondaryAction: {
     alignItems: "center",

@@ -26,6 +26,18 @@ import {
  */
 const MAX_RETAINED_PAGES = 5;
 
+/**
+ * How often the arrivals probe runs while Home is the screen somebody is
+ * looking at.
+ *
+ * The pill used to update only on focus and foreground, which meant a viewer
+ * who simply stayed on Home never learned that anything had arrived. This is
+ * the cheapest read in the app — one count, no rows, no media — and it stops
+ * the moment Home loses focus or the app leaves the foreground, so it is not a
+ * background poll.
+ */
+const ARRIVALS_POLL_MS = 45_000;
+
 type PageParam = { direction: RecentDirection; cursor: RecentCursor | null };
 
 const FIRST_PAGE: PageParam = { direction: "older", cursor: null };
@@ -50,7 +62,12 @@ const FIRST_PAGE: PageParam = { direction: "older", cursor: null };
  * both cases, and getting that wrong would silently recompute the anchor
  * mid-session — the exact failure the envelope exists to prevent.
  */
-export function useRecentFeed(userId: string | undefined) {
+export function useRecentFeed(
+  userId: string | undefined,
+  /** True while Home is the focused screen of a foregrounded app. Only the
+   * arrivals probe uses it; the pages themselves stay frozen either way. */
+  watching = false,
+) {
   const client = useQueryClient();
   const [sessionKey, setSessionKey] = useState(0);
 
@@ -100,12 +117,24 @@ export function useRecentFeed(userId: string | undefined) {
   );
 
   const arrivals = useQuery({
-    enabled: Boolean(userId) && pages.isSuccess,
+    // A null anchor makes `count_new_recent_moments` count *everything*
+    // authorized, which is exactly right for a viewer whose feed was empty when
+    // they opened it and exactly wrong for one whose deck has cards. The
+    // session only stays null when the first page came back empty, so pairing
+    // the two conditions is what stops the pill from offering to show the
+    // viewer Moments they are already looking at.
+    enabled:
+      Boolean(userId) &&
+      pages.isSuccess &&
+      (session !== null || moments.length === 0),
     queryKey: ["recent-arrivals", userId, session?.anchorAt ?? null],
     queryFn: () => countNewRecentMoments(session?.anchorAt ?? null),
-    // Refetched deliberately on focus and foreground rather than on a timer:
-    // a pill that appears while someone is mid-swipe is a distraction, and a
-    // background poll is battery spent on a number nobody is reading.
+    // A slow tick while Home is on screen, and nothing at all when it is not.
+    // The pill is non-disruptive by construction — it never inserts into or
+    // reorders the deck — so learning about an arrival while somebody is
+    // swiping costs them nothing, whereas not learning about it until they
+    // leave the tab and come back is the whole complaint.
+    refetchInterval: watching ? ARRIVALS_POLL_MS : false,
     staleTime: Infinity,
   });
 

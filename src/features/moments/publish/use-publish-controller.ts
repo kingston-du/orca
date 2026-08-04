@@ -106,7 +106,22 @@ export function usePublishController({
 
     const controller = new AbortController();
     abortRef.current = controller;
-    dispatch({ type: "publish_started", momentId: draft.draftId });
+    dispatch({
+      type: "publish_started",
+      momentId: draft.draftId,
+      // Copied now, while the draft is still on disk. From here the author is
+      // free to leave the composer, and Home draws this until the server's own
+      // row replaces it.
+      photo: {
+        uri: draft.photo.uri,
+        width: draft.photo.width,
+        height: draft.photo.height,
+        caption: draft.caption,
+        capturedAt: draft.photo.evidence.capturedAt,
+        capturedUtcOffsetMinutes: draft.photo.evidence.capturedUtcOffsetMinutes,
+        kind: composer.kind,
+      },
+    });
 
     void (async () => {
       try {

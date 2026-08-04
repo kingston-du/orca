@@ -1,21 +1,12 @@
 import { router } from "expo-router";
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { useEffect } from "react";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
-import {
-  color,
-  MINIMUM_TOUCH_TARGET,
-  radius,
-  spacing,
-  typeScale,
-} from "@/constants/design";
+import { AppButton } from "@/components/app-button";
+import { color, spacing, typeScale } from "@/constants/design";
 import { useMomentDraft } from "@/features/moments/composer/composer-provider";
 import { ComposerScreen } from "@/features/moments/composer/composer-screen";
+import { isPublishInFlight } from "@/features/moments/publish/publish-machine";
 
 /**
  * The real composer route.
@@ -24,43 +15,30 @@ import { ComposerScreen } from "@/features/moments/composer/composer-screen";
  * draft outlives both: an author may leave mid-composition, and the provider
  * above this route is what holds the single draft and the single publish
  * attempt. This file only decides which of three things the author should be
- * looking at.
+ * looking at — and, now, when the author should not be looking at it at all.
+ *
+ * Sharing hands the screen back the instant the first byte is on its way. The
+ * attempt lives in the provider above this route, so leaving does not pause,
+ * cancel, or forget it; Home shows the Moment from the local photo while it
+ * finishes. There is no confirmation screen: a "Shared with your friends" page
+ * with a Done button is a receipt for something the author can already see, and
+ * it put two taps between them and the feed their Moment just joined.
  */
 const CAMERA_ROUTE = "/(app)/(tabs)/camera" as const;
+const HOME_ROUTE = "/(app)/(tabs)" as const;
 
 export default function ComposeRoute() {
   const { state, dispatch, discardDraft, isRestoring, publish } =
     useMomentDraft();
 
-  // A published Moment's local draft is gone by design, so the confirmation
-  // has to come from the publish attempt rather than from the draft.
-  if (publish.state.status === "published") {
-    return (
-      <View style={styles.centered}>
-        <Text accessibilityRole="header" style={styles.title}>
-          {publish.state.publishedKind === "archive"
-            ? "Saved to your Archive"
-            : "Shared with your friends"}
-        </Text>
-        <Text style={styles.body}>
-          {publish.state.publishedKind === "archive"
-            ? "Only you and anyone you tagged can see this Moment."
-            : "It will appear on their Home."}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            publish.dismiss();
-            router.replace(CAMERA_ROUTE);
-          }}
-          style={styles.primaryButton}
-          testID="compose-done"
-        >
-          <Text style={styles.primaryLabel}>Done</Text>
-        </Pressable>
-      </View>
-    );
-  }
+  const inFlight = isPublishInFlight(publish.state);
+
+  // Leaving is a side effect of sharing, so it belongs in an effect rather than
+  // in the publish button's handler: an attempt that is already running when
+  // this route mounts — a return from a deep link, say — has to leave too.
+  useEffect(() => {
+    if (inFlight) router.replace(HOME_ROUTE);
+  }, [inFlight]);
 
   if (isRestoring) {
     return (
@@ -82,13 +60,10 @@ export default function ComposeRoute() {
         <Text accessibilityRole="header" style={styles.title}>
           No Moment in progress
         </Text>
-        <Pressable
-          accessibilityRole="button"
+        <AppButton
+          label="Back to camera"
           onPress={() => router.replace(CAMERA_ROUTE)}
-          style={styles.primaryButton}
-        >
-          <Text style={styles.primaryLabel}>Back to camera</Text>
-        </Pressable>
+        />
       </View>
     );
   }
@@ -116,14 +91,4 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
   },
   title: { ...typeScale.title, color: color.textPrimary, textAlign: "center" },
-  body: { ...typeScale.body, color: color.textSecondary, textAlign: "center" },
-  primaryButton: {
-    alignItems: "center",
-    backgroundColor: color.brand,
-    borderRadius: radius.md,
-    justifyContent: "center",
-    minHeight: MINIMUM_TOUCH_TARGET,
-    paddingHorizontal: spacing.xl,
-  },
-  primaryLabel: { ...typeScale.label, color: color.textInverse },
 });

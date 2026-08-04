@@ -23,7 +23,21 @@ import type { CardMoment } from "@/features/moments/feed/moment-card";
  * because the two sources answer it differently: a Recent page may contain the
  * viewer's own Moment and Highlights never can.
  */
-export type DeckMoment = CardMoment & { canReact: boolean };
+export type DeckMoment = CardMoment & {
+  canReact: boolean;
+  /**
+   * Local bytes for the author's own Moment while it is still being shared
+   * from this device, so Home can show it the instant the composer hands the
+   * screen back rather than after a round trip.
+   */
+  localPhotoUri?: string | null;
+  /**
+   * Drawn with an unseen marker. Resolved above the deck because it is a fact
+   * about this *session* — a Moment the viewer had not seen when it began, and
+   * has not yet swiped away from — rather than a column on the row.
+   */
+  unseen?: boolean;
+};
 
 export type DeckState = {
   /** The canonical order the server returned — newest first in Recent, ranked in Highlights. */

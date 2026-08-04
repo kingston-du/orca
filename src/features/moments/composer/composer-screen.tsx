@@ -476,15 +476,19 @@ export function ComposerScreen({
        *
        * It is a send arrow rather than the word "Publish". The screen has
        * exactly one forward action and the arrow is unambiguous about which
-       * direction it goes; the word survives as the accessibility label, and
-       * publishing in progress falls back to words because a spinner beside a
-       * glyph says nothing about what is being spun over. */}
+       * direction it goes; the word survives as the accessibility label.
+       *
+       * In flight it is a spinner and nothing else. The word "Publishing…"
+       * used to sit beside it, which put a piece of prose in the one control
+       * on the screen and then had to explain itself for the half-second
+       * before the composer hands back to Home; `accessibilityState.busy` and
+       * the banner that travels with the author say the same thing better. */}
       <View style={styles.footer}>
         <AppButton
           accessibilityLabel="Share this Moment"
           busy={publishing}
           disabled={!canPublish}
-          label={publishing ? "Publishing…" : ""}
+          label=""
           onPress={publish.publish}
           style={styles.publishButton}
           testID="composer-publish"

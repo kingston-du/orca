@@ -79,17 +79,25 @@ type MomentCardProps = {
   canReact: boolean;
   /** Only the current card and its neighbours load media. */
   mediaEnabled: boolean;
+  /** Set only while the author's own Moment is still being shared from this
+   * device: the photo comes from the local file rather than a signed URL, and
+   * there is nothing to react to yet. */
+  localPhotoUri?: string | null;
   now?: Date;
   onOpenReactions: (momentId: string) => void;
+  /** Marked as not yet looked at. See `MomentAuthor`. */
+  unseen?: boolean;
 };
 
 export function MomentCard({
   moment,
   availableWidth,
   canReact,
+  localPhotoUri = null,
   mediaEnabled,
   now = new Date(),
   onOpenReactions,
+  unseen = false,
 }: MomentCardProps) {
   const overlaid = useOverlayFitsOnPhoto();
 
@@ -99,7 +107,7 @@ export function MomentCard({
        * photo, where a wrapped name has the full card width. */}
       {overlaid ? null : (
         <View style={styles.stackedIdentity}>
-          <MomentAuthor moment={moment} />
+          <MomentAuthor moment={moment} unseen={unseen} />
           <MomentCaptureTime moment={moment} now={now} />
         </View>
       )}
@@ -111,28 +119,34 @@ export function MomentCard({
         footer={
           overlaid ? (
             <View style={styles.scrimRow}>
-              <MomentAuthor moment={moment} onScrim />
+              <MomentAuthor moment={moment} onScrim unseen={unseen} />
               <View style={styles.pushRight}>
                 <MomentCaptureTime moment={moment} now={now} onScrim />
               </View>
             </View>
           ) : undefined
         }
+        localUri={localPhotoUri}
         objectPath={moment.object_path}
       />
       <View style={styles.body}>
         <MomentCaption caption={moment.caption} />
-        <ReactionBar
-          canReact={canReact}
-          compact
-          momentId={moment.moment_id}
-          onOpenPeople={() => onOpenReactions(moment.moment_id)}
-          summary={{
-            heartCount: moment.heart_count,
-            superheartCount: moment.superheart_count,
-            viewerReaction: moment.viewer_reaction,
-          }}
-        />
+        {/* A Moment that is still going up has no reaction summary to show and
+         * no ID anybody else could react to yet. Drawing an empty one would be
+         * a control that means nothing for the two seconds it exists. */}
+        {localPhotoUri === null ? (
+          <ReactionBar
+            canReact={canReact}
+            compact
+            momentId={moment.moment_id}
+            onOpenPeople={() => onOpenReactions(moment.moment_id)}
+            summary={{
+              heartCount: moment.heart_count,
+              superheartCount: moment.superheart_count,
+              viewerReaction: moment.viewer_reaction,
+            }}
+          />
+        ) : null}
       </View>
     </View>
   );
@@ -155,6 +169,7 @@ export function authorLabel(
 export function MomentAuthor({
   moment,
   onScrim = false,
+  unseen = false,
 }: {
   moment: Pick<
     RecentMoment,
@@ -165,25 +180,45 @@ export function MomentAuthor({
   >;
   /** Drawn over the photo, so it needs the inverse text roles. */
   onScrim?: boolean;
+  /**
+   * A Moment the viewer had not seen when this session began and has not yet
+   * swiped away from.
+   *
+   * It is one dot on the author's avatar rather than a badge, a border, or a
+   * word: the card is a photograph, and anything larger would be a label
+   * competing with the picture. Colour is never the only carrier — the dot is
+   * announced in this row's accessible name, so a screen reader and a viewer
+   * who cannot distinguish it learn the same fact.
+   */
+  unseen?: boolean;
 }) {
   const name = authorLabel(moment);
+  const identity = moment.viewer_is_author
+    ? "You"
+    : `${name}, @${moment.author_username}`;
 
   return (
     // One accessible element: VoiceOver announces the person, not three
     // fragments of a person.
     <View
       accessible
-      accessibilityLabel={
-        moment.viewer_is_author ? "You" : `${name}, @${moment.author_username}`
-      }
+      accessibilityLabel={unseen ? `${identity}, not seen yet` : identity}
       accessibilityRole="header"
       style={styles.authorRow}
     >
-      <ProfileAvatar
-        avatarPath={moment.author_avatar_path}
-        displayName={moment.author_display_name}
-        size={onScrim ? SCRIM_AVATAR_SIZE : AVATAR_SIZE}
-      />
+      <View>
+        <ProfileAvatar
+          avatarPath={moment.author_avatar_path}
+          displayName={moment.author_display_name}
+          size={onScrim ? SCRIM_AVATAR_SIZE : AVATAR_SIZE}
+        />
+        {unseen ? (
+          <View
+            style={[styles.unseenDot, onScrim ? styles.unseenDotOnScrim : null]}
+            testID="moment-unseen"
+          />
+        ) : null}
+      </View>
       <View style={styles.authorNames}>
         <Text
           numberOfLines={1}
@@ -283,5 +318,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
   },
+  /** A ringed dot on the avatar's shoulder. The ring is what keeps it legible
+   * against a photograph as well as against the card. */
+  unseenDot: {
+    backgroundColor: color.brand,
+    borderColor: color.surface,
+    borderRadius: radius.pill,
+    borderWidth: 2,
+    height: 12,
+    position: "absolute",
+    right: -2,
+    top: -2,
+    width: 12,
+  },
+  unseenDotOnScrim: { borderColor: color.photoScrimText },
   username: { ...typeScale.caption, color: color.textSecondary },
 });

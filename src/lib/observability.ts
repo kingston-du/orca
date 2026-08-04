@@ -108,8 +108,51 @@ export function reportUnexpectedError(domain: string, error: unknown): void {
   if (!dsn) return;
 
   const Sentry = getSentryModule();
-  Sentry.captureException(error, (scope) => {
+  const code = readErrorCode(error);
+  Sentry.captureException(asException(error, code), (scope) => {
     scope.setTag("domain", domain);
+    if (code) scope.setTag("error_code", code);
+    // Grouped by what failed and why rather than by Sentry's synthesized
+    // title, which was identical for every rejected Supabase call in the app
+    // and therefore collapsed unrelated failures into one unreadable issue.
+    scope.setFingerprint(["{{ default }}", domain, code ?? "unknown"]);
     return scope;
   });
+}
+
+/**
+ * The PostgREST/Supabase error code, when there is one.
+ *
+ * A `PostgrestError` is a plain object of `{ message, details, hint, code }`.
+ * Only `code` travels: it is a SQLSTATE or a `PGRST…` identifier, which names a
+ * failure without quoting anything. The other three are PostgREST's own prose
+ * and can echo a column value back — a caption, a username, a path.
+ */
+function readErrorCode(error: unknown): string | null {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return null;
+  }
+  const code = (error as { code: unknown }).code;
+  // Shape-checked rather than trusted, so a field that happens to be called
+  // `code` on some future error object cannot smuggle content into a tag.
+  return typeof code === "string" && /^[A-Za-z0-9_]{1,32}$/.test(code)
+    ? code
+    : null;
+}
+
+/**
+ * Supabase rejects with a plain object, and Sentry captures a plain object as
+ * "Object captured as exception with keys: code, details, hint, message" — an
+ * unactionable title, no stack of its own, and the same one for every failing
+ * call in the app. Wrapping it in a real `Error` named by its code is what
+ * makes the issue say which failure it is.
+ */
+function asException(error: unknown, code: string | null): unknown {
+  if (error instanceof Error) return error;
+
+  const wrapped = new Error(
+    code ? `Supabase request failed (${code})` : "Non-Error value was thrown",
+  );
+  wrapped.name = "SupabaseError";
+  return wrapped;
 }

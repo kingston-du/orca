@@ -74,6 +74,51 @@ it("loads and initializes the scrubbed integration in a configured build", () =>
   expect(captureException).toHaveBeenCalledWith(error, expect.any(Function));
 });
 
+it("names a rejected Supabase call by its code instead of by its keys", () => {
+  process.env.EXPO_PUBLIC_SENTRY_DSN = "https://public@example.test/1";
+  const captureException = jest.fn();
+  jest.doMock("@sentry/react-native", () => ({
+    captureException,
+    init: jest.fn(),
+  }));
+
+  const observability = loadObservability();
+  // Exactly what `supabase-js` rejects with: a plain object, not an Error.
+  observability.reportUnexpectedError("query:recent-moments", {
+    code: "42501",
+    details: "Key (id)=(some-private-uuid) is not present",
+    hint: null,
+    message: "Not allowed",
+  });
+
+  const [captured] = captureException.mock.calls[0] as [Error];
+  expect(captured).toBeInstanceOf(Error);
+  expect(captured.name).toBe("SupabaseError");
+  expect(captured.message).toBe("Supabase request failed (42501)");
+
+  const scope = {
+    setFingerprint: jest.fn(),
+    setTag: jest.fn(),
+  };
+  const configure = captureException.mock.calls[0][1] as (
+    target: unknown,
+  ) => unknown;
+  configure(scope);
+
+  expect(scope.setTag).toHaveBeenCalledWith("domain", "query:recent-moments");
+  expect(scope.setTag).toHaveBeenCalledWith("error_code", "42501");
+  // The three prose fields are PostgREST's own and can quote a row, so none of
+  // them may reach the report.
+  const reported = JSON.stringify([
+    captured.message,
+    captured.name,
+    scope.setTag.mock.calls,
+    scope.setFingerprint.mock.calls,
+  ]);
+  expect(reported).not.toContain("some-private-uuid");
+  expect(reported).not.toContain("Not allowed");
+});
+
 it("does not let an invalid label masquerade as production", () => {
   process.env.EXPO_PUBLIC_SENTRY_DSN = "https://public@example.test/1";
   process.env.EXPO_PUBLIC_ORCA_ENVIRONMENT = "prod-ish";

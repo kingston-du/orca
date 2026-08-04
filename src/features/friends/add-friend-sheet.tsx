@@ -24,6 +24,9 @@ import {
 const USERNAME_PATTERN = /^[a-z][a-z0-9_]{2,19}$/;
 
 type AddFriendSheetProps = {
+  /** Set after the last accept/reject/cancel/send attempt failed. Cleared by
+   * the next attempt, so it never outlives the thing it was about. */
+  commandError: string | null;
   commandPending: boolean;
   onAcceptRequest: (request: FriendRequestSummary) => void;
   onCancelRequest: (request: FriendRequestSummary) => void;
@@ -53,6 +56,7 @@ type AddFriendSheetProps = {
  * never existed return the same answer, deliberately.
  */
 export function AddFriendSheet({
+  commandError,
   commandPending,
   onAcceptRequest,
   onCancelRequest,
@@ -112,6 +116,20 @@ export function AddFriendSheet({
         keyboardShouldPersistTaps="handled"
         testID="add-friend-scroll"
       >
+        {/* Belongs to the whole sheet rather than to one row: the action that
+         * failed may have been a request below or the lookup result further
+         * down, and by the time this renders the row it was about may already
+         * have refreshed out from under it. */}
+        {commandError ? (
+          <Text
+            accessibilityLiveRegion="polite"
+            style={styles.commandError}
+            testID="add-friend-command-error"
+          >
+            {commandError}
+          </Text>
+        ) : null}
+
         <View style={styles.section}>
           <Text accessibilityRole="header" style={styles.sectionTitle}>
             Requests
@@ -220,6 +238,7 @@ export function lookupAction(state: string) {
 
 const styles = StyleSheet.create({
   body: { ...typeScale.cardBody, color: color.textSecondary },
+  commandError: { ...typeScale.cardBody, color: color.criticalText },
   content: { gap: spacing.xl, paddingBottom: spacing.lg },
   hint: { ...typeScale.caption, color: color.textSecondary },
   retryRow: {

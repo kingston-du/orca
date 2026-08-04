@@ -25,6 +25,10 @@ jest.mock("@/features/notifications/notification-prompt", () => ({
   markNotificationPromptEarned: jest.fn(async () => {}),
 }));
 
+// People polls for inbound requests while it is the focused tab. There is no
+// navigator in a screen test, so focus is simply asserted.
+jest.mock("expo-router", () => ({ useIsFocused: () => true }));
+
 jest.mock("@/features/friends/friends-api", () => ({
   listFriendRequests: jest.fn(),
   listFriends: jest.fn(),
@@ -143,5 +147,60 @@ describe("PeopleScreen", () => {
         undefined,
       ),
     );
+  });
+
+  // The failure mode a real device hit: accepting a request that had already
+  // been answered elsewhere. The server refuses with SQLSTATE 55000 — Postgres's
+  // own name for "this changed under you" — and the screen used to swallow that
+  // silently, leaving a stale row on screen with no feedback at all.
+  test("explains a stale request rather than swallowing the refusal", async () => {
+    jest.mocked(listFriendRequests).mockResolvedValue([
+      {
+        direction: "incoming",
+        display_name: "Bob",
+        id: "22222222-2222-4222-8222-222222222222",
+        request_id: "33333333-3333-4333-8333-333333333333",
+        requested_at: "2026-08-01T00:00:00.000Z",
+        username: "bob",
+      },
+    ]);
+    jest
+      .mocked(runFriendOperation)
+      .mockRejectedValue({ code: "55000", message: "Request changed" });
+
+    const user = userEvent.setup();
+    const screen = await renderPeople();
+    await openAddFriend(screen, user);
+    await user.press(await screen.findByText("Accept"));
+
+    expect(
+      await screen.findByTestId("add-friend-command-error"),
+    ).toHaveTextContent("That already changed. The list has been refreshed.");
+    // The refusal proved this device's copy of the requests list wrong, so it
+    // is reloaded exactly as a success would have reloaded it.
+    await waitFor(() => expect(listFriendRequests).toHaveBeenCalledTimes(2));
+  });
+
+  test("gives an ordinary failure a generic message, not the stale-request one", async () => {
+    jest.mocked(listFriendRequests).mockResolvedValue([
+      {
+        direction: "incoming",
+        display_name: "Bob",
+        id: "22222222-2222-4222-8222-222222222222",
+        request_id: "33333333-3333-4333-8333-333333333333",
+        requested_at: "2026-08-01T00:00:00.000Z",
+        username: "bob",
+      },
+    ]);
+    jest.mocked(runFriendOperation).mockRejectedValue(new Error("offline"));
+
+    const user = userEvent.setup();
+    const screen = await renderPeople();
+    await openAddFriend(screen, user);
+    await user.press(await screen.findByText("Accept"));
+
+    expect(
+      await screen.findByTestId("add-friend-command-error"),
+    ).toHaveTextContent("That didn’t work. Try again.");
   });
 });

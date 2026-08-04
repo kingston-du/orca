@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import {
   Modal,
@@ -56,6 +56,18 @@ const DISMISS_TRAVEL = 96;
 const DECIDING_VELOCITY = 500;
 
 /**
+ * How long the modal's own dismissal takes, plus a margin.
+ *
+ * `Modal` slides itself off screen when `visible` goes false, but it can only
+ * slide something that is still there — and the body used to be unmounted on
+ * the same render, so closing looked like the sheet blinking out of existence
+ * rather than leaving. Keeping the body mounted for the length of that
+ * dismissal is the whole fix; nothing here drives the animation, UIKit does.
+ * Over-waiting costs nothing, because what is being held is already invisible.
+ */
+const DISMISSAL_MS = 400;
+
+/**
  * A bottom sheet built on the React Native `Modal` already in the app.
  *
  * A sheet library would be a native dependency and a rebuild gate for one
@@ -77,6 +89,30 @@ const DECIDING_VELOCITY = 500;
  * loses nothing but a few centimetres of list.
  */
 export function Sheet({ children, onClose, title, visible }: SheetProps) {
+  /**
+   * The body outlives `visible` by exactly one dismissal.
+   *
+   * Adjusted during render rather than in an effect, which is React's
+   * documented pattern for state derived from a prop: the update re-renders
+   * this component before any child renders, so the body is present on the
+   * same commit that tells the modal to start leaving.
+   */
+  const [dismissing, setDismissing] = useState(false);
+  const [wasVisible, setWasVisible] = useState(visible);
+
+  if (wasVisible !== visible) {
+    setWasVisible(visible);
+    setDismissing(!visible);
+  }
+
+  useEffect(() => {
+    if (!dismissing) return;
+    // Asynchronous on purpose. The body has to survive the modal's slide, and
+    // the only thing that knows when that is over is the clock.
+    const timer = setTimeout(() => setDismissing(false), DISMISSAL_MS);
+    return () => clearTimeout(timer);
+  }, [dismissing]);
+
   return (
     <Modal
       animationType="slide"
@@ -90,8 +126,12 @@ export function Sheet({ children, onClose, title, visible }: SheetProps) {
        * That is what makes every opening start from the resting position: the
        * drag offset is born there, instead of being reset by an effect that
        * would let a sheet the viewer had expanded come back expanded — the app
-       * appearing to remember something it did not. */}
-      {visible ? (
+       * appearing to remember something it did not.
+       *
+       * `dismissing` is what makes closing an animation instead of a
+       * disappearance: the modal slides a body that is still on screen, and
+       * only then is it taken down. */}
+      {visible || dismissing ? (
         <SheetBody onClose={onClose} title={title}>
           {children}
         </SheetBody>

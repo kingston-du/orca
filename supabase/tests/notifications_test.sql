@@ -2,7 +2,7 @@ begin;
 set local search_path = public, extensions;
 set local role postgres;
 create extension if not exists pgtap with schema extensions;
-select plan(163);
+select plan(171);
 
 -- ---------------------------------------------------------------------------
 -- Shape and privileges
@@ -800,17 +800,24 @@ select lives_ok(
 set local role postgres;
 select is(
   (select count(*) from private.notification_jobs
-   where type = 'reaction_heart_group'
+   where type = 'reaction_heart'
      and recipient_id = '11111111-1111-4111-8111-111111111111'),
   1::bigint,
-  'a Heart opens one group for the author'
+  'a Heart produces one job for the author'
+);
+-- Grouping is gone. A Heart in a private feed of a few friends is a small
+-- immediate thing somebody did, and it is announced when it happens.
+select is(
+  (select not_before <= statement_timestamp() and state = 'ready'
+   from private.notification_jobs where type = 'reaction_heart'),
+  true,
+  'and it waits for nothing'
 );
 select is(
-  (select not_before > statement_timestamp() + interval '10 minutes'
-      and not_before < statement_timestamp() + interval '15 minutes'
-   from private.notification_jobs where type = 'reaction_heart_group'),
-  true,
-  'the group waits inside the ten to fifteen minute window'
+  (select count(*) from private.notification_jobs
+   where group_key is not null),
+  0::bigint,
+  'no reaction job carries a group key any more'
 );
 
 set local role authenticated;
@@ -824,10 +831,17 @@ select lives_ok(
 set local role postgres;
 select is(
   (select count(*) from private.notification_jobs
-   where type = 'reaction_heart_group'
+   where type = 'reaction_heart'
      and recipient_id = '11111111-1111-4111-8111-111111111111'),
-  1::bigint,
-  'a second Heart on the same Moment coalesces into the open group'
+  2::bigint,
+  'a second person Hearting the same Moment is its own event, not a summary'
+);
+select is(
+  (select count(distinct actor_id) from private.notification_jobs
+   where type = 'reaction_heart'
+     and recipient_id = '11111111-1111-4111-8111-111111111111'),
+  2::bigint,
+  'and each names the person who did it'
 );
 
 set local role authenticated;
@@ -889,7 +903,7 @@ select lives_ok(
 set local role postgres;
 select is(
   (select count(*) from private.notification_jobs
-   where type = 'reaction_heart_group'
+   where type = 'reaction_heart'
      and moment_id = 'aa000000-0000-4000-8000-000000000003'),
   0::bigint,
   'a muted category produces no job at all'
@@ -1434,6 +1448,86 @@ select is(
    where day = (statement_timestamp() - interval '89 days')::date),
   9,
   'and the day inside the window is kept'
+);
+
+-- ---------------------------------------------------------------------------
+-- One device row per phone
+-- ---------------------------------------------------------------------------
+-- A reinstall mints a new installation ID *and* a new provider token, so
+-- neither the unique token index nor the account-switch cleanup has anything to
+-- match the abandoned row on. Two live rows for one phone is two notifications
+-- for one event. Age is the only thing left that can tell them apart, and a
+-- granted install re-registers on every return to the foreground.
+set local role postgres;
+delete from private.push_devices;
+insert into private.push_devices (
+  user_id, installation_id, environment, platform, push_token, token_digest,
+  last_registered_at)
+values
+  ('11111111-1111-4111-8111-111111111111', 'install-alice-old', 'development',
+   'ios', 'ExponentPushToken[alice-old-0000000001]',
+   encode(extensions.digest(
+     'ExponentPushToken[alice-old-0000000001]', 'sha256'), 'hex'),
+   statement_timestamp() - interval '90 days'),
+  ('11111111-1111-4111-8111-111111111111', 'install-alice-2nd', 'development',
+   'ios', 'ExponentPushToken[alice-2nd-0000000001]',
+   encode(extensions.digest(
+     'ExponentPushToken[alice-2nd-0000000001]', 'sha256'), 'hex'),
+   statement_timestamp() - interval '2 days');
+
+set local role authenticated;
+select pg_temp.act_as('11111111-1111-4111-8111-111111111111');
+select lives_ok(
+  $$select public.register_push_device(
+      'install-alice-new', 'development', 'ios',
+      'ExponentPushToken[alice-new-0000000001]')$$,
+  'alice reinstalls and registers the new installation'
+);
+set local role postgres;
+select is(
+  (select disabled_reason from private.push_devices
+   where installation_id = 'install-alice-old'),
+  'stale',
+  'the row the reinstall left behind is retired'
+);
+select is(
+  (select push_token from private.push_devices
+   where installation_id = 'install-alice-old'),
+  null,
+  'and loses its token, so nothing can reach it again'
+);
+select is(
+  (select status from private.push_devices
+   where installation_id = 'install-alice-2nd'),
+  'active',
+  'a second phone that is still in use is left alone'
+);
+select is(
+  (select count(*) from private.push_devices
+   where user_id = '11111111-1111-4111-8111-111111111111'
+     and status = 'active' and push_token is not null),
+  2::bigint,
+  'so one event reaches each real device exactly once'
+);
+
+-- ---------------------------------------------------------------------------
+-- A Heart routes to the Moment it is about
+-- ---------------------------------------------------------------------------
+set local role postgres;
+delete from private.notification_jobs;
+update public.notification_preferences set hearts_enabled = true
+where user_id = '11111111-1111-4111-8111-111111111111';
+insert into private.notification_jobs (
+  recipient_id, actor_id, type, moment_id, idempotency_key)
+values ('11111111-1111-4111-8111-111111111111',
+        '55555555-5555-4555-8555-555555555555',
+        'reaction_heart', 'aa000000-0000-4000-8000-000000000001',
+        'heart:route-check:00000001');
+set local role service_role;
+select is(
+  (select route from public.claim_notification_batch(25, 90) limit 1),
+  'moment',
+  'a Heart routes to the Moment it is about, like every other reaction event'
 );
 
 -- ---------------------------------------------------------------------------

@@ -1,5 +1,10 @@
-import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
+import {
+  QueryClientProvider,
+  focusManager,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { useEffect, useRef, useState, type PropsWithChildren } from "react";
+import { AppState } from "react-native";
 
 import { createQueryClient } from "@/lib/query-client";
 import { purgeUserScopedFiles } from "@/lib/user-scoped-state";
@@ -48,6 +53,27 @@ export function AppQueryProvider({
     }
     purgedFor.current = userId;
   }, [userId]);
+
+  /**
+   * Teaches TanStack what "focused" means on a phone.
+   *
+   * Its default focus signal is a browser `visibilitychange`, which never fires
+   * here — so `refetchOnWindowFocus`, on by default and relied on by every
+   * query in the app, has silently never run. That is why a friend request or a
+   * new Moment only appeared after leaving a screen and coming back: the only
+   * refetch left was the one a remount happened to trigger.
+   *
+   * This is an observer of the app lifecycle, not an owner of it. `PrivacyShield`
+   * still owns identity revalidation on foreground; this only tells the cache
+   * that its data may have moved on while the phone was in a pocket.
+   */
+  useEffect(() => {
+    focusManager.setFocused(AppState.currentState === "active");
+    const subscription = AppState.addEventListener("change", (status) =>
+      focusManager.setFocused(status === "active"),
+    );
+    return () => subscription?.remove();
+  }, []);
 
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }

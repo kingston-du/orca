@@ -2,7 +2,7 @@ begin;
 set local search_path = public, extensions;
 set local role postgres;
 create extension if not exists pgtap with schema extensions;
-select plan(98);
+select plan(99);
 
 -- ---------------------------------------------------------------------------
 -- Shape, privileges, and the corrected path constraint
@@ -811,6 +811,25 @@ select is(
   (select count(*) from pg_extension where extname = 'pg_cron'),
   0::bigint,
   'the migration alone installs no scheduler'
+);
+
+-- `20260811130000` found that `cron.schedule()` accepts a standard six-field
+-- cron expression with a trailing seconds field — `'*/15 * * * * *'` — without
+-- error, but pg_cron 1.6.4 never runs it: its actual sub-minute mechanism is
+-- the distinct literal form `'<1-59> seconds'`. A successful `cron.schedule()`
+-- call proves the string parsed, not that anything will ever fire, so the only
+-- reliable guard is asserting the default matches the syntax pg_cron's
+-- scheduler actually recognizes — a bare wait-and-poll is what caught the bug
+-- and is not repeatable here without a live scheduler and real wall-clock
+-- time. A five-field cron expression, for the once-daily maintenance default,
+-- remains accepted alongside it.
+select matches(
+  (select (regexp_matches(
+      pg_get_function_arguments('private.ensure_reconcile_schedule(text, text)'::regprocedure),
+      'p_reconcile_schedule text DEFAULT ''([^'']+)''::text'
+  ))[1]),
+  '^([1-9]|[1-5][0-9]) seconds$|^(\S+\s+){4}\S+$',
+  'the reconcile default is pg_cron''s literal seconds form or a five-field cron expression, never six fields'
 );
 
 -- Promoting 2C found the dispatcher calling `net.http_post` without anything

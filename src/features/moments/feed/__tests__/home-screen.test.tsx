@@ -129,7 +129,9 @@ function moment(overrides: Partial<RecentMoment> = {}): RecentMoment {
     media_width: 1600,
     media_height: 2000,
     viewer_is_author: false,
-    seen_at_session_start: false,
+    // Already seen when this session began, so the unseen marker is off and the
+    // author row reads as its plain identity. The marker has its own tests.
+    seen_at_session_start: true,
     heart_count: 0,
     superheart_count: 0,
     viewer_reaction: null,

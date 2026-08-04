@@ -61,6 +61,7 @@ export function FriendProfileScreen({
   const isFriend = summary.data?.access_tier === "friend";
 
   const command = useMutation({
+    mutationKey: ["friend-profile-command"],
     mutationFn: (input: { block?: boolean; otherId: string }) =>
       input.block
         ? blockUser(input.otherId)

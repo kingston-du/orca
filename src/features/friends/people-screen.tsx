@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useIsFocused } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -39,6 +41,18 @@ import {
 const friendsKey = ["friends"] as const;
 const requestsKey = ["friend-requests"] as const;
 
+/**
+ * How often People re-asks while somebody is looking at it.
+ *
+ * An inbound friend request is the one thing on this screen that arrives from
+ * outside, and it used to need the viewer to leave the tab and come back before
+ * the badge appeared. Focus and foreground refetches cover the common case; this
+ * covers the person who is already here when it happens. Thirty seconds is
+ * deliberately unhurried — two small reads a minute, and only while the tab is
+ * on screen.
+ */
+const PEOPLE_POLL_MS = 30_000;
+
 /** Three across, as the design draws it. */
 const GRID_COLUMNS = 3;
 const GRID_AVATAR = 82;
@@ -73,13 +87,41 @@ export function PeopleScreen({
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [addOpen, setAddOpen] = useState(false);
-  const friends = useQuery({ queryKey: friendsKey, queryFn: listFriends });
+  const isFocused = useIsFocused();
+  const friends = useQuery({
+    queryKey: friendsKey,
+    queryFn: listFriends,
+    refetchInterval: isFocused ? PEOPLE_POLL_MS : false,
+  });
   const requests = useQuery({
     queryKey: requestsKey,
     queryFn: listFriendRequests,
+    refetchInterval: isFocused ? PEOPLE_POLL_MS : false,
   });
 
+  // Pull to refresh. Both queries answer at once, because the grid and the
+  // badge above it are one screenful to the person tugging on it.
+  const [refreshing, setRefreshing] = useState(false);
+  // `refetch` is stable per observer in TanStack v5, so naming the two
+  // functions rather than the two query objects keeps this callback stable.
+  const refetchFriends = friends.refetch;
+  const refetchRequests = requests.refetch;
+  const refreshAll = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([refetchFriends(), refetchRequests()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchFriends, refetchRequests]);
+
+  const [commandError, setCommandError] = useState<string | null>(null);
+
   const command = useMutation({
+    // Named so a failure groups in crash reporting by what it was rather than
+    // falling into one shared "unkeyed" bucket with every other mutation in
+    // the app.
+    mutationKey: ["friend-command"],
     mutationFn: async ({
       operation,
       otherId,
@@ -89,6 +131,9 @@ export function PeopleScreen({
       otherId: string;
       expectedId?: string;
     }) => runFriendOperation(operation, otherId, expectedId),
+    // Clears whatever the last attempt said before this one lands, so a retry
+    // is not judged by yesterday's failure.
+    onMutate: () => setCommandError(null),
     onSuccess: async (_result, variables) => {
       // One of the two moments that earn the notification pre-prompt. Having a
       // friend is what makes "tell me when they share" a question somebody can
@@ -96,6 +141,25 @@ export function PeopleScreen({
       if (variables.operation === "accept_friend_request" && user?.id) {
         void markNotificationPromptEarned(user.id);
       }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: friendsKey }),
+        queryClient.invalidateQueries({ queryKey: requestsKey }),
+      ]);
+    },
+    onError: async (error) => {
+      // `55000` is the server's own name for "this changed under you" — an
+      // accept, reject, or cancel whose request already isn't what this
+      // device last saw, because it was answered or withdrawn somewhere else.
+      // It is an expected outcome of two people (or two taps) racing the same
+      // request, not a bug, so it gets a plain explanation rather than the
+      // generic failure text.
+      setCommandError(
+        isStaleRelationshipError(error)
+          ? "That already changed. The list has been refreshed."
+          : "That didn’t work. Try again.",
+      );
+      // Either way, the server just proved this device's view of the pair
+      // wrong, so the repair is the same reload a success would have done.
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: friendsKey }),
         queryClient.invalidateQueries({ queryKey: requestsKey }),
@@ -159,37 +223,57 @@ export function PeopleScreen({
         }
       />
 
-      {friends.isPending ? (
-        <View style={styles.centered}>
-          <ActivityIndicator accessibilityLabel="Loading friends" />
-        </View>
-      ) : friends.isError ? (
-        <EmptyState
-          action={
-            <AppButton
-              label="Try again"
-              onPress={() => void friends.refetch()}
-              variant="secondary"
-            />
-          }
-          body="Your friends could not be loaded right now."
-          title="Something went wrong"
-        />
-      ) : friends.data.length === 0 ? (
-        <EmptyState
-          action={
-            <AppButton
-              label="Add a friend"
-              onPress={() => setAddOpen(true)}
-              variant="secondary"
-            />
-          }
-          body="Add a friend to begin sharing Moments."
-          title="No friends yet"
-        />
-      ) : (
-        <ScrollView contentContainerStyle={styles.grid}>
-          {friends.data.map((friend) => (
+      {/* One scroll view over every state, not just the populated grid.
+       * Two friends is a screenful of nothing to drag on otherwise, and the
+       * gesture that refreshes this tab has to exist before the tab has
+       * anything in it — a viewer waiting on a request they know was sent is
+       * exactly the person with an empty list and a reason to pull. */}
+      <ScrollView
+        alwaysBounceVertical
+        contentContainerStyle={
+          friends.isSuccess && friends.data.length > 0
+            ? styles.grid
+            : styles.fill
+        }
+        refreshControl={
+          <RefreshControl
+            onRefresh={() => void refreshAll()}
+            refreshing={refreshing}
+            tintColor={color.textSecondary}
+          />
+        }
+        testID="people-scroll"
+      >
+        {friends.isPending ? (
+          <View style={styles.centered}>
+            <ActivityIndicator accessibilityLabel="Loading friends" />
+          </View>
+        ) : friends.isError ? (
+          <EmptyState
+            action={
+              <AppButton
+                label="Try again"
+                onPress={() => void refetchFriends()}
+                variant="secondary"
+              />
+            }
+            body="Your friends could not be loaded right now."
+            title="Something went wrong"
+          />
+        ) : friends.data.length === 0 ? (
+          <EmptyState
+            action={
+              <AppButton
+                label="Add a friend"
+                onPress={() => setAddOpen(true)}
+                variant="secondary"
+              />
+            }
+            body="Add a friend to begin sharing Moments."
+            title="No friends yet"
+          />
+        ) : (
+          friends.data.map((friend) => (
             <Pressable
               accessibilityHint="Opens this profile"
               accessibilityLabel={`${friend.display_name}, @${friend.username}`}
@@ -215,11 +299,12 @@ export function PeopleScreen({
                 </Text>
               </View>
             </Pressable>
-          ))}
-        </ScrollView>
-      )}
+          ))
+        )}
+      </ScrollView>
 
       <AddFriendSheet
+        commandError={commandError}
         commandPending={command.isPending}
         onAcceptRequest={(request) =>
           command.mutate({
@@ -260,6 +345,24 @@ export function PeopleScreen({
         visible={addOpen}
       />
     </SafeAreaView>
+  );
+}
+
+/**
+ * Whether a friend-command failure is the server refusing a stale expectation
+ * rather than an ordinary error.
+ *
+ * `55000` is deliberately narrower than "any error": a network failure or an
+ * unrelated server error is still the generic message, because only this code
+ * means the specific thing changed under the viewer rather than that the
+ * request simply failed.
+ */
+function isStaleRelationshipError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code: unknown }).code === "55000"
   );
 }
 
@@ -325,6 +428,9 @@ const styles = StyleSheet.create({
   cellText: { alignItems: "center", gap: 2 },
   centered: { alignItems: "center", flex: 1, justifyContent: "center" },
   dim: { opacity: 0.6 },
+  /** Lets a loading spinner or an empty state occupy the scroll view it now
+   * lives inside, instead of collapsing to the top of it. */
+  fill: { flexGrow: 1, justifyContent: "center" },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",

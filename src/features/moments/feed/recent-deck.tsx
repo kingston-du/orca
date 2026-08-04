@@ -407,9 +407,11 @@ function DeckCard({
           <MomentCard
             availableWidth={cardWidth}
             canReact={moment.canReact}
+            localPhotoUri={moment.localPhotoUri}
             mediaEnabled={mediaEnabled}
             moment={moment}
             onOpenReactions={onOpenReactions}
+            unseen={moment.unseen}
           />
         </Pressable>
       </ScrollView>

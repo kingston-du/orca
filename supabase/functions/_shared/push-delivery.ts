@@ -87,8 +87,17 @@ const COPY: Record<string, string> = {
   friend_request: "You have a new friend request",
   friend_request_accepted: "You have a new friend",
   moment_new: "You have a new Moment",
-  moment_tag: "You were added to a Moment",
-  reaction_superheart: "Someone Superhearted your Moment",
+  // Being tagged is being *in* the photograph, not merely being sent it, and
+  // the sentence should say which of those happened.
+  moment_tag: "You're in a new Moment",
+  // One reaction, one sentence. These were grouped and delayed; a Heart is a
+  // small, immediate thing somebody did, and a buzz twelve minutes later saying
+  // a Moment "has new Hearts" is a summary of something the author already
+  // stopped wondering about.
+  reaction_superheart: "Your Moment got a Superheart",
+  reaction_heart: "Your Moment got a Heart",
+  // Retained for jobs enqueued before per-reaction notifications shipped. No
+  // producer writes this type any more.
   reaction_heart_group: "Your Moment has new Hearts",
 };
 

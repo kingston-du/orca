@@ -33,6 +33,27 @@ export type PublishStatus =
   | "canceled"
   | "failed";
 
+/**
+ * Enough of the attempt's local photo for Home to draw it as a card.
+ *
+ * It is copied onto the machine rather than read from the draft, because the
+ * draft is deleted the instant the server accepts the Moment and Home still has
+ * to show something in the seconds before the server's own row comes back. The
+ * copy is bytes-free: a `file://` URI, its geometry, and the caption the author
+ * wrote — nothing that is not already on this device.
+ */
+export type PendingPhoto = {
+  uri: string;
+  width: number;
+  height: number;
+  caption: string;
+  capturedAt: string | null;
+  capturedUtcOffsetMinutes: number | null;
+  /** Archive never reaches Home, so the surface that lands a Moment has to know
+   * which kind is on its way before the server has answered. */
+  kind: MomentKind;
+};
+
 export type PublishState = {
   status: PublishStatus;
   /** The Moment UUID this attempt owns. It is the draft's own ID, so it
@@ -40,6 +61,9 @@ export type PublishState = {
   momentId: string | null;
   /** Native bytes-sent fraction, 0–1. Only meaningful while uploading. */
   progress: number;
+  /** Present from the first byte until the attempt is dismissed, so the author
+   * can leave the composer immediately and watch the Moment land on Home. */
+  pendingPhoto: PendingPhoto | null;
   publishedKind: MomentKind | null;
   reviewReason: MomentReviewReason | null;
   /** True once cancellation has been asked for but the attempt has not yet
@@ -53,6 +77,7 @@ export const initialPublishState: PublishState = {
   status: "idle",
   momentId: null,
   progress: 0,
+  pendingPhoto: null,
   publishedKind: null,
   reviewReason: null,
   cancelRequested: false,
@@ -60,7 +85,7 @@ export const initialPublishState: PublishState = {
 };
 
 export type PublishAction =
-  | { type: "publish_started"; momentId: string }
+  | { type: "publish_started"; momentId: string; photo: PendingPhoto }
   | { type: "reservation_confirmed" }
   | { type: "upload_progressed"; fraction: number }
   | { type: "upload_finished" }
@@ -97,6 +122,7 @@ export function publishReducer(
         ...initialPublishState,
         status: "reserving",
         momentId: action.momentId,
+        pendingPhoto: action.photo,
       };
 
     case "reservation_confirmed":
@@ -135,6 +161,10 @@ export function publishReducer(
         ...state,
         status: action.recoverable ? "retryable_unknown" : "failed",
         cancelRequested: false,
+        // The composer owns the author's next move from here, and it has the
+        // real draft. A pending Home card for an attempt that is being edited
+        // would be a Moment nobody shared.
+        pendingPhoto: null,
         message: action.message,
       };
 
@@ -151,6 +181,9 @@ function applyOutcome(
 
   switch (outcome.kind) {
     case "published":
+      // `pendingPhoto` deliberately survives: an Archive Moment never reaches
+      // Home and a Recent one does, and in both cases the card is retired by
+      // whoever took delivery of it rather than by this transition.
       return {
         ...settled,
         status: "published",
@@ -162,6 +195,7 @@ function applyOutcome(
       return {
         ...settled,
         status: "needs_review",
+        pendingPhoto: null,
         reviewReason: outcome.reason,
         message: reviewMessage(outcome.reason),
       };
@@ -170,16 +204,23 @@ function applyOutcome(
       return {
         ...settled,
         status: "rejected",
+        pendingPhoto: null,
         message: "That photo could not be shared. Try a different one.",
       };
 
     case "canceled":
-      return { ...settled, status: "canceled", progress: 0 };
+      return {
+        ...settled,
+        status: "canceled",
+        pendingPhoto: null,
+        progress: 0,
+      };
 
     case "unresolved":
       return {
         ...settled,
         status: "retryable_unknown",
+        pendingPhoto: null,
         message:
           "Splotty could not confirm whether this Moment shared. Check again before trying once more.",
       };
