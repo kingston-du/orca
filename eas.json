@@ -47,7 +47,15 @@
     }
   },
   "submit": {
-    "testflight": {},
-    "production": {}
+    "testflight": {
+      "ios": {
+        "bundleIdentifier": "com.kingstondu.orca"
+      }
+    },
+    "production": {
+      "ios": {
+        "bundleIdentifier": "com.kingstondu.orca"
+      }
+    }
   }
 }
