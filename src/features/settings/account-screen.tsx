@@ -21,6 +21,7 @@ type AccountScreenProps = {
   username: string;
   onEditProfile: () => void;
   onOpenBlockedUsers: () => void;
+  onOpenLegal: () => void;
   onOpenDeleteAccount: () => void;
   onOpenNotifications: () => void;
   onOpenSupport: () => void;
@@ -33,6 +34,7 @@ export function AccountScreen({
   onBack,
   onEditProfile,
   onOpenBlockedUsers,
+  onOpenLegal,
   onOpenDeleteAccount,
   onOpenNotifications,
   onOpenSupport,
@@ -121,6 +123,13 @@ export function AccountScreen({
             accessibilityLabel="Support & Safety"
             onPress={onOpenSupport}
             title="Support & Safety"
+          />
+          {/* The agreement a person accepted at onboarding has to stay
+           * readable afterwards, not just at the moment they agreed. */}
+          <ListRow
+            accessibilityLabel="Terms & Privacy"
+            onPress={onOpenLegal}
+            title="Terms & Privacy"
           />
         </View>
 

@@ -30,6 +30,7 @@ export default function SettingsRoute() {
       onEditProfile={() => router.push("/settings/profile")}
       onOpenBlockedUsers={() => router.push("/settings/blocked")}
       onOpenDeleteAccount={() => router.push("/delete-account")}
+      onOpenLegal={() => router.push("/legal")}
       onOpenNotifications={() => router.push("/settings/notifications")}
       onOpenSupport={() => router.push("/support")}
       onSignOut={signOut}

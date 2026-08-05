@@ -19,8 +19,8 @@ select ok(not has_schema_privilege('authenticated', 'private', 'usage'), 'authen
 select ok(not has_table_privilege('anon', 'public.profiles', 'select,insert,update,delete'), 'anon has no profile access');
 select ok(has_table_privilege('authenticated', 'public.profiles', 'select') and not has_table_privilege('authenticated', 'public.profiles', 'insert,update,delete'), 'authenticated receives profile read only');
 select ok(has_table_privilege('authenticated', 'public.legal_acceptances', 'select') and not has_table_privilege('authenticated', 'public.legal_acceptances', 'insert,update,delete'), 'legal evidence is self-read and server-write');
-select ok(has_function_privilege('authenticated', 'public.complete_onboarding(text,text,boolean,text,text,text,text,text,text,text,text)', 'execute') and not has_function_privilege('anon', 'public.complete_onboarding(text,text,boolean,text,text,text,text,text,text,text,text)', 'execute'), 'onboarding RPC is authenticated-only');
-select ok((select prosecdef from pg_proc where oid = 'public.complete_onboarding(text,text,boolean,text,text,text,text,text,text,text,text)'::regprocedure), 'onboarding RPC is security definer');
+select ok(has_function_privilege('authenticated', 'public.complete_onboarding(text,text,boolean,text,text)', 'execute') and not has_function_privilege('anon', 'public.complete_onboarding(text,text,boolean,text,text)', 'execute'), 'onboarding RPC is authenticated-only');
+select ok((select prosecdef from pg_proc where oid = 'public.complete_onboarding(text,text,boolean,text,text)'::regprocedure), 'onboarding RPC is security definer');
 select ok((select rolcanlogin is false from pg_roles where rolname = 'orca_api_owner'), 'RPC owner cannot log in');
 
 insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data, created_at, updated_at)
@@ -40,35 +40,26 @@ set local "request.jwt.claim.sub" = '11111111-1111-4111-8111-111111111111';
 select throws_ok($$
   select public.complete_onboarding(
     '1bad', 'Alice', true,
-    'development-2026-08-03-splotty', '0df777ca323f0882d8af688b90a73d344adf0f63f63a82bfe9b2bf03462b27a6',
-    'development-2026-08-03-splotty', '752f5022c91834910b30be03811bddd2fa7c92b712346700de02bec2ae20e850',
-    'development-2026-08-03-splotty', '0a4e968e422ba2b674761f3f60f2dbd8be96dd36aa9974ee22fd9ed4b67a88de',
-    'development-2026-08-03-splotty', '2efc0713487fab63efbf728b266d2e3a56261828ec2f22e2a80e460a39067c8b'
+    'beta-2026-08-04', '84ccfe72a5936eda768cb467ca05472ed6dfe434a7e8c5829b6892c204d20fd1'
   )
 $$, '22023', 'Invalid username', 'invalid username is rejected');
 
 select throws_ok($$
   select public.complete_onboarding(
     'alice', E'Alice\nAdmin', true,
-    'development-2026-08-03-splotty', '0df777ca323f0882d8af688b90a73d344adf0f63f63a82bfe9b2bf03462b27a6',
-    'development-2026-08-03-splotty', '752f5022c91834910b30be03811bddd2fa7c92b712346700de02bec2ae20e850',
-    'development-2026-08-03-splotty', '0a4e968e422ba2b674761f3f60f2dbd8be96dd36aa9974ee22fd9ed4b67a88de',
-    'development-2026-08-03-splotty', '2efc0713487fab63efbf728b266d2e3a56261828ec2f22e2a80e460a39067c8b'
+    'beta-2026-08-04', '84ccfe72a5936eda768cb467ca05472ed6dfe434a7e8c5829b6892c204d20fd1'
   )
 $$, '22023', 'Invalid display name', 'display-name controls are rejected');
 
 select lives_ok($$
   select public.complete_onboarding(
     'Alice_1', E'\u00a0Alice 👩‍👩‍👧‍👦\u00a0', true,
-    'development-2026-08-03-splotty', '0df777ca323f0882d8af688b90a73d344adf0f63f63a82bfe9b2bf03462b27a6',
-    'development-2026-08-03-splotty', '752f5022c91834910b30be03811bddd2fa7c92b712346700de02bec2ae20e850',
-    'development-2026-08-03-splotty', '0a4e968e422ba2b674761f3f60f2dbd8be96dd36aa9974ee22fd9ed4b67a88de',
-    'development-2026-08-03-splotty', '2efc0713487fab63efbf728b266d2e3a56261828ec2f22e2a80e460a39067c8b'
+    'beta-2026-08-04', '84ccfe72a5936eda768cb467ca05472ed6dfe434a7e8c5829b6892c204d20fd1'
   )
 $$, 'valid onboarding succeeds');
 
 select results_eq($$ select username, display_name from public.profiles $$, $$ values ('alice_1'::text, 'Alice 👩‍👩‍👧‍👦'::text) $$, 'username and Unicode display name normalize');
-select is((select count(*) from public.legal_acceptances), 4::bigint, 'all current legal evidence is recorded');
+select is((select count(*) from public.legal_acceptances), 1::bigint, 'the single current legal acceptance is recorded');
 select ok(public.is_app_eligible(), 'verified onboarded caller becomes eligible');
 select results_eq($$ select account_state, email_verified, username, is_eligible from public.get_account_control_state() $$, $$ values ('active'::text, true, 'alice_1'::text, true) $$, 'control-plane projection returns safe self state');
 
@@ -76,10 +67,7 @@ set local "request.jwt.claim.sub" = '22222222-2222-4222-8222-222222222222';
 select throws_ok($$
   select public.complete_onboarding(
     'alice_1', 'Other', true,
-    'development-2026-08-03-splotty', '0df777ca323f0882d8af688b90a73d344adf0f63f63a82bfe9b2bf03462b27a6',
-    'development-2026-08-03-splotty', '752f5022c91834910b30be03811bddd2fa7c92b712346700de02bec2ae20e850',
-    'development-2026-08-03-splotty', '0a4e968e422ba2b674761f3f60f2dbd8be96dd36aa9974ee22fd9ed4b67a88de',
-    'development-2026-08-03-splotty', '2efc0713487fab63efbf728b266d2e3a56261828ec2f22e2a80e460a39067c8b'
+    'beta-2026-08-04', '84ccfe72a5936eda768cb467ca05472ed6dfe434a7e8c5829b6892c204d20fd1'
   )
 $$, '23505', 'Username unavailable', 'username uniqueness is nonrevealing');
 

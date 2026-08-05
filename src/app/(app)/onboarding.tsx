@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { router } from "expo-router";
 
 import { useAuth } from "@/features/auth/auth-provider";
 import { completeOnboarding } from "@/features/onboarding/onboarding-api";
@@ -37,6 +38,7 @@ export default function OnboardingRoute() {
       initialDisplayName={onboardingState.data?.display_name ?? ""}
       initialUsername={onboardingState.data?.username ?? ""}
       onComplete={handleComplete}
+      onOpenLegal={() => router.push("/legal")}
       onSignOut={handleSignOut}
     />
   );

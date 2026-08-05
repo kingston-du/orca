@@ -105,6 +105,10 @@ export default function AppLayout() {
             <Stack.Screen name="moments/compose" />
             <Stack.Screen name="report" />
           </Stack.Protected>
+          {/* Unguarded with Support: the agreement has to be readable before
+           * it is accepted, which is precisely when the account is not yet
+           * eligible, and it must stay readable to a restricted one. */}
+          <Stack.Screen name="legal" />
           <Stack.Screen name="support" />
           <Stack.Screen name="delete-account" />
         </Stack>

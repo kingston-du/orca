@@ -961,14 +961,7 @@ set local role authenticated;
 select pg_temp.act_as('66666666-6666-4666-8666-666666666666');
 select throws_ok(
   $$ select public.complete_onboarding('alice', 'Impostor', true,
-       'development-2026-08-03-splotty',
-       '0df777ca323f0882d8af688b90a73d344adf0f63f63a82bfe9b2bf03462b27a6',
-       'development-2026-08-03-splotty',
-       '752f5022c91834910b30be03811bddd2fa7c92b712346700de02bec2ae20e850',
-       'development-2026-08-03-splotty',
-       '0a4e968e422ba2b674761f3f60f2dbd8be96dd36aa9974ee22fd9ed4b67a88de',
-       'development-2026-08-03-splotty',
-       '2efc0713487fab63efbf728b266d2e3a56261828ec2f22e2a80e460a39067c8b') $$,
+       'beta-2026-08-04', '84ccfe72a5936eda768cb467ca05472ed6dfe434a7e8c5829b6892c204d20fd1') $$,
   '23505', 'Username unavailable',
   'a quarantined username cannot be claimed, with the same denial a taken one gives'
 );
@@ -983,14 +976,7 @@ set local role authenticated;
 select pg_temp.act_as('66666666-6666-4666-8666-666666666666');
 select is(
   (select username from public.complete_onboarding('alice', 'New Alice', true,
-     'development-2026-08-03-splotty',
-     '0df777ca323f0882d8af688b90a73d344adf0f63f63a82bfe9b2bf03462b27a6',
-     'development-2026-08-03-splotty',
-     '752f5022c91834910b30be03811bddd2fa7c92b712346700de02bec2ae20e850',
-     'development-2026-08-03-splotty',
-     '0a4e968e422ba2b674761f3f60f2dbd8be96dd36aa9974ee22fd9ed4b67a88de',
-     'development-2026-08-03-splotty',
-     '2efc0713487fab63efbf728b266d2e3a56261828ec2f22e2a80e460a39067c8b')),
+     'beta-2026-08-04', '84ccfe72a5936eda768cb467ca05472ed6dfe434a7e8c5829b6892c204d20fd1')),
   'alice',
   'and becomes claimable once the window closes'
 );

@@ -55,16 +55,14 @@ The operator may suspend or end access for a violation of these Terms, for a leg
 
 **What is collected, and why.**
 
-| Data                                                                                        | Why                                               |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Email address and verification state                                                        | Sign-in, account recovery, service email          |
-| Username, display name, avatar                                                              | Identity your accepted friends see                |
-| Photos, captions, capture time, chosen audience, tags                                       | The core product                                  |
-| Friendships, friend requests, blocks, invite tokens (stored hashed)                         | Deciding who may see what                         |
-| Hearts and Superhearts                                                                      | Reactions and Highlights                          |
-| Device push token and notification preferences                                              | Sending the notifications you enabled             |
-| Reports you file, and a frozen copy of the reported photo, caption, and username            | Investigating safety reports                      |
-| Crash and error diagnostics                                                                 | Fixing faults                                     |
+- Email address and verification state — sign-in, account recovery, service email.
+- Username, display name, avatar — the identity your accepted friends see.
+- Photos, captions, capture time, chosen audience, and tags — the core product.
+- Friendships, friend requests, blocks, and invite tokens stored as hashes — deciding who may see what.
+- Hearts and Superhearts — reactions and Highlights.
+- Device push token and notification preferences — sending the notifications you enabled.
+- Reports you file, and a frozen copy of the reported photo, caption, and username — investigating safety reports.
+- Crash and error diagnostics — fixing faults.
 
 Splotty asks for the camera and shows a single-photo system picker; it does not request access to your whole photo library. Capture time is read from the photo and the rest of the image metadata, including any location, is stripped before the photo is stored. Splotty collects no location, no contacts, and no advertising identifier.
 

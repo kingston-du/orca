@@ -1,6 +1,9 @@
 import type { Database, Tables } from "@/types/database";
 
-import { LEGAL_DOCUMENTS, LEGAL_DOCUMENT_VERSION } from "./legal-documents";
+import {
+  LEGAL_DOCUMENT,
+  LEGAL_DOCUMENT_VERSION,
+} from "@/features/legal/legal-documents";
 
 type CompleteOnboardingArgs =
   Database["public"]["Functions"]["complete_onboarding"]["Args"];
@@ -22,17 +25,13 @@ export function createOnboardingActions(client: OnboardingRpcClient) {
     displayName: string,
   ): Promise<OnboardingResult> {
     const { data, error } = await client.completeOnboarding({
+      // The single control asserts both facts, so both travel together: the
+      // explicit 18+ answer and the exact document the build displayed.
       p_adult_eligible: true,
-      p_adult_sha256: LEGAL_DOCUMENTS.adultEligibility.sha256,
-      p_adult_version: LEGAL_DOCUMENT_VERSION,
       p_display_name: displayName.trim(),
-      p_username: username.trim().toLowerCase(),
-      p_guidelines_sha256: LEGAL_DOCUMENTS.communityGuidelines.sha256,
-      p_guidelines_version: LEGAL_DOCUMENT_VERSION,
-      p_privacy_sha256: LEGAL_DOCUMENTS.privacy.sha256,
-      p_privacy_version: LEGAL_DOCUMENT_VERSION,
-      p_terms_sha256: LEGAL_DOCUMENTS.terms.sha256,
+      p_terms_sha256: LEGAL_DOCUMENT.sha256,
       p_terms_version: LEGAL_DOCUMENT_VERSION,
+      p_username: username.trim().toLowerCase(),
     });
 
     if (error) {

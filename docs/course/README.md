@@ -31,6 +31,7 @@ Only the retained foundations below are current course material. Obsolete and su
 - Lesson 30 — [Restoring multi-system privacy](./30-restoring-multi-system-privacy.md)
 - Lesson 31 — [A design system and its contradictions](./31-a-design-system-and-its-contradictions.md) (Part 7 follows founder review through scrim, photo geometry, timestamp, and keyboard-ownership refinements)
 - Lesson 32 — [Renaming a product without breaking its addresses](./32-renaming-a-product-without-breaking-its-addresses.md)
+- Lesson 33 — [One agreement, one acceptance](./33-one-agreement-one-acceptance.md) (collapsing four legal documents into one, and why an acceptance bound to a hash makes that a schema change)
 
 Lesson 23's claim that the viewer's own Moments fail the Recent read rule described Checkpoint 5A only. Checkpoint 5B made own Recent Moments visible on Home by founder direction; Lesson 24 Part 3 explains what changed and why the old behaviour was an accident of the join rather than a decision. Lessons 23 and 24 also state that no reaction control, count, or people list exists anywhere; that described Phases 5A and 5B only. Phase 6 adds all three, and Lesson 25 covers them.
 

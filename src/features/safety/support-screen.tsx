@@ -112,9 +112,10 @@ export function SupportScreen({
           <Text style={styles.body}>
             If a Moment was removed or your account was restricted, you can
             appeal within 30 days using the contact above. Appeals are reviewed
-            against Splotty&apos;s community guidelines by the safety operator,
-            who aims to reply within five working days. If a restriction is
-            lifted you will need to sign in again.
+            against Splotty&apos;s Terms of Use by the safety operator, who aims
+            to reply within five working days. Because this beta has one
+            operator, that is the same person who made the original decision. If
+            a restriction is lifted you will need to sign in again.
           </Text>
         </Section>
 

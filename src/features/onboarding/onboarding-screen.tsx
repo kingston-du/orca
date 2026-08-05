@@ -23,11 +23,8 @@ import {
   typeScale,
 } from "@/constants/design";
 
-import {
-  documentBody,
-  LEGAL_DOCUMENT_ENTRIES,
-  type LegalDocumentKey,
-} from "./legal-documents";
+import { LEGAL_DOCUMENT } from "@/features/legal/legal-documents";
+
 import type { OnboardingResult } from "./onboarding-actions";
 
 type OnboardingScreenProps = {
@@ -37,26 +34,20 @@ type OnboardingScreenProps = {
     username: string,
     displayName: string,
   ) => Promise<OnboardingResult>;
+  onOpenLegal: () => void;
   onSignOut: () => Promise<void>;
-};
-
-const INITIAL_ACCEPTANCES: Record<LegalDocumentKey, boolean> = {
-  adultEligibility: false,
-  communityGuidelines: false,
-  privacy: false,
-  terms: false,
 };
 
 export function OnboardingScreen({
   initialDisplayName = "",
   initialUsername = "",
   onComplete,
+  onOpenLegal,
   onSignOut,
 }: OnboardingScreenProps) {
   const [displayName, setDisplayName] = useState(initialDisplayName);
   const [username, setUsername] = useState(initialUsername);
-  const [acceptances, setAcceptances] =
-    useState<Record<LegalDocumentKey, boolean>>(INITIAL_ACCEPTANCES);
+  const [hasAccepted, setHasAccepted] = useState(false);
   const [displayNameError, setDisplayNameError] = useState<string | null>(null);
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [acceptanceError, setAcceptanceError] = useState<string | null>(null);
@@ -67,8 +58,8 @@ export function OnboardingScreen({
 
   const isBusy = isSubmitting || isSigningOut;
 
-  function toggleAcceptance(key: LegalDocumentKey, value: boolean) {
-    setAcceptances((current) => ({ ...current, [key]: value }));
+  function toggleAcceptance(value: boolean) {
+    setHasAccepted(value);
     setAcceptanceError(null);
     setFormError(null);
   }
@@ -89,18 +80,17 @@ export function OnboardingScreen({
         : trimmedDisplayName.length > 50
           ? "Use 50 characters or fewer."
           : null;
-    const hasEveryAcceptance = Object.values(acceptances).every(Boolean);
 
     setUsernameError(nextUsernameError);
     setDisplayNameError(nextDisplayNameError);
     setAcceptanceError(
-      hasEveryAcceptance
+      hasAccepted
         ? null
-        : "Review and accept all four requirements to continue.",
+        : "Confirm you are 18 or older and accept the Terms to continue.",
     );
     setFormError(null);
 
-    if (nextUsernameError || nextDisplayNameError || !hasEveryAcceptance) {
+    if (nextUsernameError || nextDisplayNameError || !hasAccepted) {
       return;
     }
 
@@ -155,16 +145,9 @@ export function OnboardingScreen({
           <Text style={styles.brand}>splotty</Text>
           <Text style={styles.title}>Set up your profile</Text>
           <Text style={styles.subtitle}>
-            Choose the name your friends will see, then review the requirements
-            for this private development build.
+            Choose the name your friends will see, then accept the agreement to
+            continue.
           </Text>
-
-          <View style={styles.developmentNotice}>
-            <Text style={styles.developmentNoticeText}>
-              Founder testing only. These documents must be replaced before
-              external testing.
-            </Text>
-          </View>
 
           {/* Hand-styled rather than <Field>: the always-visible helper caption
            * sits between the input and the conditional error, an order Field's
@@ -224,23 +207,33 @@ export function OnboardingScreen({
             value={displayName}
           />
 
-          <View style={styles.documents}>
-            {LEGAL_DOCUMENT_ENTRIES.map(([key, document]) => (
-              <View key={document.kind} style={styles.documentCard}>
-                <View style={styles.documentHeader}>
-                  <Text style={styles.documentTitle}>{document.title}</Text>
-                  <Switch
-                    accessibilityLabel={`Accept ${document.title}`}
-                    disabled={isBusy}
-                    onValueChange={(value) => toggleAcceptance(key, value)}
-                    value={acceptances[key]}
-                  />
-                </View>
-                <Text style={styles.documentBody}>
-                  {documentBody(document.content)}
-                </Text>
-              </View>
-            ))}
+          {/* One agreement, one control. The 18+ rule, the acceptable-use
+           * rules, and the privacy notice are sections of the same document, so
+           * asking four times only taught people to flip four switches without
+           * reading any of them. */}
+          <View style={styles.documentCard}>
+            <View style={styles.documentHeader}>
+              <Text style={styles.documentTitle}>
+                I am 18 or older and I accept the {LEGAL_DOCUMENT.title}
+              </Text>
+              <Switch
+                accessibilityLabel={`I am 18 or older and I accept the ${LEGAL_DOCUMENT.title}`}
+                disabled={isBusy}
+                onValueChange={toggleAcceptance}
+                value={hasAccepted}
+              />
+            </View>
+            <Text style={styles.documentBody}>{LEGAL_DOCUMENT.summary}</Text>
+            <Pressable
+              accessibilityHint="Opens the full agreement"
+              accessibilityRole="link"
+              onPress={onOpenLegal}
+              style={styles.readMore}
+            >
+              <Text style={styles.readMoreLabel}>
+                Read the full {LEGAL_DOCUMENT.title}
+              </Text>
+            </Pressable>
           </View>
 
           {acceptanceError ? (
@@ -291,13 +284,6 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
     marginBottom: spacing.xxl,
   },
-  developmentNotice: {
-    backgroundColor: color.fillSubtle,
-    borderRadius: radius.md,
-    marginVertical: spacing.xxl,
-    padding: spacing.lg,
-  },
-  developmentNoticeText: { ...typeScale.cardBody, color: color.textPrimary },
   documentBody: { ...typeScale.cardBody, color: color.textSecondary },
   documentCard: {
     backgroundColor: color.surface,
@@ -305,6 +291,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     gap: spacing.md,
+    marginVertical: spacing.xxl,
     padding: spacing.lg,
   },
   documentHeader: {
@@ -312,10 +299,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.md,
     justifyContent: "space-between",
-  },
-  documents: {
-    gap: spacing.lg,
-    marginVertical: spacing.xxl,
   },
   documentTitle: { ...typeScale.label, color: color.textPrimary, flex: 1 },
   errorText: {
@@ -347,6 +330,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: { ...typeScale.sectionLabel, color: color.textSecondary },
+  readMore: { justifyContent: "center", minHeight: MINIMUM_TOUCH_TARGET },
+  readMoreLabel: { ...typeScale.label, color: color.brand },
   safeArea: {
     backgroundColor: color.canvas,
     flex: 1,

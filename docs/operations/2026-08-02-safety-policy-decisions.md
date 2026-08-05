@@ -10,9 +10,9 @@ Status: **approved by the founder, 2026-08-03.** Sections 1–5 are the approved
 policy; the code behaves as written below. Phase 7 is promoted, hosted TOTP is
 enabled, the disposable AAL2 acceptance drill passed, and the permanent
 founder-controlled operator account and its TOTP device are provisioned and
-proven (section 7, item 4). Still outstanding: the support mailbox and
-`EXPO_PUBLIC_SUPPORT_EMAIL`, the Sentry project/native release proof, and the
-legal text at Checkpoint 9D.
+proven (section 7, item 4). The Checkpoint 9D legal text is written and is now
+one document rather than four (section 7, item 5). Still outstanding: the Sentry
+project/native release proof, and a legal review of the published text.
 
 ---
 
@@ -94,9 +94,14 @@ Splotty is not sitting on a private photo indefinitely.
   published address is configured yet. An invented address would be worse than
   an honest gap, and committing a personal one would publish it.
 
-**Outstanding founder action:** create the mailbox, set
-`EXPO_PUBLIC_SUPPORT_EMAIL` in `.env` and in the EAS build environment, and
-confirm the same address in the legal text at Checkpoint 9D.
+**Settled 2026-08-04, against this section's own preference.** The founder chose
+`kingstonduprojects@gmail.com` — the existing personal address — as the beta
+support contact rather than creating a dedicated mailbox. It is set in `.env`
+and in the EAS development/preview environments, and it is the address published
+in the legal text. This is a deliberate, recorded trade: it unblocks the appeal
+route and Apple's contact requirement immediately, at the cost of publishing a
+personal address and of having no auto-reply repeating the review targets.
+Revisit before the beta grows beyond the invited cohort.
 
 ## 5. Review targets
 
@@ -169,9 +174,21 @@ owns.
    operator `safety-1` holds no Splotty profile, has a verified TOTP factor on
    the operator's own device, and signed in through `npm run moderate` reaching
    real `aal2`.
-5. Legal text at Checkpoint 9D: the privacy notice, terms, and community
+5. ~~Legal text at Checkpoint 9D: the privacy notice, terms, and community
    guidelines must state the retention, the appeal route, and the support
-   contact recorded here. The development legal set deliberately says it is not
-   approved for external testers, so nothing published today contradicts this.
+   contact recorded here.~~ **Written 2026-08-04.** The four development
+   documents are retired and replaced by one agreement,
+   [`legal/beta-2026-08-04/terms.md`](../../legal/beta-2026-08-04/terms.md),
+   accepted through a single onboarding control. Section 5 of that document
+   states the 24-hour and 72-hour review targets, section 6 the 30-day appeal
+   window and the honest single-operator limit, and section 8 the 90-day,
+   12-month, and 24-month retention clocks and the 35-day backup maximum — the
+   same numbers this document records and the code enforces. A Jest test
+   asserts each of them is present in the text, so the two cannot drift apart
+   silently. The operator is named as Kingston Du, an individual, California,
+   and the published contact is `kingstonduprojects@gmail.com`.
+   **Still founder-owned:** this text has not been reviewed by a lawyer, and
+   section 4's preference for a non-personal support mailbox is knowingly
+   unmet — the founder chose the existing personal address for the beta.
 6. Create/configure the Sentry project, DSN, Expo source-map integration, and a
    symbolicated native release-build crash check.

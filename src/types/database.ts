@@ -649,13 +649,7 @@ export type Database = {
       complete_onboarding: {
         Args: {
           p_adult_eligible: boolean
-          p_adult_sha256: string
-          p_adult_version: string
           p_display_name: string
-          p_guidelines_sha256: string
-          p_guidelines_version: string
-          p_privacy_sha256: string
-          p_privacy_version: string
           p_terms_sha256: string
           p_terms_version: string
           p_username: string
