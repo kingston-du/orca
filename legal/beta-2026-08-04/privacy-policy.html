@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Splotty Privacy Notice" />
+    <title>Splotty Privacy Notice</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1e1b18;
+        --muted: #625c56;
+        --surface: #fffaf4;
+        --accent: #a74f35;
+        --rule: #ded5cd;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--surface);
+        color: var(--ink);
+        font: 18px/1.6 ui-rounded, "Avenir Next", Avenir, system-ui, sans-serif;
+      }
+      main { max-width: 48rem; margin: 0 auto; padding: 3rem 1.5rem 4rem; }
+      header { border-bottom: 1px solid var(--rule); margin-bottom: 2rem; }
+      h1, h2 { line-height: 1.2; }
+      h1 { font-size: clamp(2.25rem, 7vw, 4rem); margin: 0 0 .5rem; letter-spacing: -.045em; }
+      h2 { font-size: 1.35rem; margin: 2.25rem 0 .5rem; }
+      p, li { max-width: 44rem; }
+      .meta { color: var(--muted); margin: 0 0 2rem; }
+      a { color: var(--accent); text-underline-offset: .16em; }
+      strong { font-weight: 700; }
+      ul { padding-left: 1.3rem; }
+      li + li { margin-top: .6rem; }
+      footer { border-top: 1px solid var(--rule); color: var(--muted); font-size: .9rem; margin-top: 3rem; padding-top: 1.5rem; }
+      @media (prefers-color-scheme: dark) {
+        :root { color-scheme: dark; --ink: #f8eee5; --muted: #c9beb5; --surface: #1d1916; --accent: #ffaf91; --rule: #4e443d; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Splotty Privacy Notice</h1>
+        <p class="meta">Version beta-2026-08-04 &middot; Effective August 4, 2026</p>
+      </header>
+
+      <p>Splotty is a private, invite-only photo app for sharing one Moment at a time with accepted friends. This notice explains how Splotty handles personal information.</p>
+
+      <h2>Who is responsible</h2>
+      <p>Kingston Du, an individual in California, USA, operates Splotty. For privacy questions, contact <a href="mailto:kingstonduprojects@gmail.com">kingstonduprojects@gmail.com</a>.</p>
+
+      <h2>What Splotty collects and why</h2>
+      <ul>
+        <li><strong>Email address and verification state</strong> — sign-in, account recovery, and service email.</li>
+        <li><strong>Username, display name, and avatar</strong> — the identity accepted friends see.</li>
+        <li><strong>Photos, captions, capture time, chosen audience, and tags</strong> — the core product.</li>
+        <li><strong>Friendships, friend requests, blocks, and hashed invite tokens</strong> — deciding who may see what.</li>
+        <li><strong>Hearts and Superhearts</strong> — reactions and Highlights.</li>
+        <li><strong>Device push token and notification preferences</strong> — sending notifications you enable.</li>
+        <li><strong>Reports and a frozen copy of reported content</strong> — investigating safety reports.</li>
+        <li><strong>Crash and error diagnostics</strong> — fixing faults.</li>
+      </ul>
+
+      <p>Splotty asks for camera access and presents a single-photo system picker; it does not request access to your whole photo library. It reads capture time from a photo and strips the remaining image metadata, including location, before storage. Splotty does not collect location, contacts, or an advertising identifier.</p>
+
+      <h2>What Splotty does not do</h2>
+      <p>Splotty does not sell your data or share it for advertising. It has no advertising, behavioural tracking, or third-party analytics SDK. Crash diagnostics are scrubbed of email, username, captions, photos, tokens, and friend lists before they leave the device.</p>
+
+      <h2>Service providers and international transfers</h2>
+      <p>Splotty uses Supabase for its database, sign-in, and photo storage; Resend for service email; Expo for push notification delivery; and Sentry for crash diagnostics. Each processes information only on the operator&rsquo;s instructions. Storage is in Canada and the operator is in California, so information crosses a border.</p>
+
+      <h2>How long information is kept</h2>
+      <p>Account content is kept until you delete it or the account is removed. After deletion, photos age out of backups within 35 days. Safety records use fixed retention periods: reported-content evidence and report details are destroyed 90 days after a case closes; a contentless case record is retained for 12 months after closure; and the operator&rsquo;s audit trail is retained for 24 months. A legal hold may pause these periods.</p>
+
+      <h2>Your choices and rights</h2>
+      <p>You can view and change your profile in the app, turn notifications off in Settings or iOS, block accounts, and delete your account and its content from Settings. To request access to or correction of information, or to raise a privacy concern, email <a href="mailto:kingstonduprojects@gmail.com">kingstonduprojects@gmail.com</a>.</p>
+      <p>California residents may exercise rights available under California privacy law at that address. Splotty does not sell or share personal information as those terms are defined there, and does not treat people differently for making a request.</p>
+
+      <h2>A limit worth stating plainly</h2>
+      <p>Once someone has seen, downloaded, copied, or screenshotted a photo, those bytes cannot be recalled. Deleting a Moment stops future access; it does not undo what has already been seen.</p>
+
+      <footer>
+        <p>This notice is the standalone privacy section of the <a href="terms.md">Splotty Terms of Use and Privacy Notice</a>.</p>
+      </footer>
+    </main>
+  </body>
+</html>
