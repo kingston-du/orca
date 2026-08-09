@@ -117,7 +117,7 @@ function moment(overrides: Partial<RecentMoment> = {}): RecentMoment {
     author_username: "ada",
     author_display_name: "Ada",
     author_avatar_path: null,
-    captured_at: "2026-01-14T21:07:00.000Z",
+    captured_at: "2026-08-01T09:00:00.000Z",
     captured_utc_offset_minutes: 540,
     capture_evidence: "camera_clock",
     caption: "Cold morning",
@@ -293,7 +293,7 @@ describe("the card", () => {
     expect(await screen.findByLabelText("Ada, @ada")).toBeOnTheScreen();
     // Once a Moment is older than 24 hours, the card and VoiceOver both receive
     // only the date in the photo's capture calendar — no receipt-like clock.
-    expect(screen.getByLabelText("Jan 15, 2026")).toBeOnTheScreen();
+    expect(screen.getByLabelText("Aug 1, 2026")).toBeOnTheScreen();
     expect(
       await screen.findByLabelText("Moment photo by Ada"),
     ).toBeOnTheScreen();
@@ -348,10 +348,10 @@ describe("the card", () => {
     // not an accessibility element, so it cannot collapse the card into one
     // button. VoiceOver reaches detail through the deck's "Open Moment" action.
     const order = screen
-      .getAllByLabelText(/Ada, @ada|Jan 15, 2026|Moment photo by Ada/)
+      .getAllByLabelText(/Ada, @ada|Aug 1, 2026|Moment photo by Ada/)
       .map((node) => node.props.accessibilityLabel);
 
-    expect(order).toEqual(["Ada, @ada", "Jan 15, 2026", "Moment photo by Ada"]);
+    expect(order).toEqual(["Ada, @ada", "Aug 1, 2026", "Moment photo by Ada"]);
   });
 });
 
@@ -665,6 +665,90 @@ describe("the session", () => {
       ).toBeNull();
     });
     expect(await askCurrentMoment()).toBe("moment-b");
+  });
+
+  it("waits for an in-flight swipe before opening the expiry session", async () => {
+    jest.useFakeTimers();
+    try {
+      const expiring = moment({
+        captured_at: "2026-07-31T12:00:10.000Z",
+        session_started_at: "2026-08-01T12:00:00.000Z",
+      });
+      jest
+        .mocked(listRecentMoments)
+        .mockResolvedValueOnce(page([expiring]))
+        .mockResolvedValue(page([]));
+
+      await renderHome();
+      await screen.findByLabelText("Ada, @ada");
+      const before = jest.mocked(listRecentMoments).mock.calls.length;
+
+      await act(async () => {
+        screen.getByTestId("recent-deck").props.onScrollBeginDrag();
+        jest.advanceTimersByTime(10_001);
+      });
+
+      expect(jest.mocked(listRecentMoments)).toHaveBeenCalledTimes(before);
+
+      await act(async () => {
+        screen.getByTestId("recent-deck").props.onMomentumScrollEnd({
+          nativeEvent: { contentOffset: { x: 0 } },
+        });
+      });
+
+      await waitFor(() => {
+        expect(
+          jest.mocked(listRecentMoments).mock.calls.length,
+        ).toBeGreaterThan(before);
+        expect(
+          jest.mocked(listRecentMoments).mock.calls.at(-1)?.[0].session,
+        ).toBe(null);
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("catches an expiry after Home slept through its timer", async () => {
+    jest.useFakeTimers();
+    try {
+      const expiring = moment({
+        captured_at: "2026-07-31T12:00:10.000Z",
+        session_started_at: "2026-08-01T12:00:00.000Z",
+      });
+      const survivor = moment({
+        moment_id: "moment-b",
+        captured_at: "2026-08-01T11:00:00.000Z",
+      });
+      jest
+        .mocked(listRecentMoments)
+        .mockResolvedValueOnce(page([expiring, survivor]))
+        .mockResolvedValue(page([survivor]));
+
+      const view = await renderHome();
+      await screen.findByLabelText("Ada, @ada");
+      const before = jest.mocked(listRecentMoments).mock.calls.length;
+
+      await view.refocus(false);
+      await act(async () => {
+        jest.advanceTimersByTime(20_000);
+      });
+      expect(jest.mocked(listRecentMoments)).toHaveBeenCalledTimes(before);
+
+      await view.refocus(true);
+      await waitFor(() => {
+        expect(
+          jest.mocked(listRecentMoments).mock.calls.length,
+        ).toBeGreaterThan(before);
+        expect(screen.getByTestId("recent-deck").props.data).not.toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ moment_id: "moment-a" }),
+          ]),
+        );
+      });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it("does not offer a pill for the Moment this device is sharing", async () => {

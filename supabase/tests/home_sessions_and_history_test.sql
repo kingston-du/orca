@@ -2,7 +2,7 @@ begin;
 set local search_path = public, extensions;
 set local role postgres;
 create extension if not exists pgtap with schema extensions;
-select plan(65);
+select plan(67);
 
 -- ---------------------------------------------------------------------------
 -- Shape and privileges
@@ -626,6 +626,25 @@ select is(
      and tagged_user_id = '11111111-1111-4111-8111-111111111111'),
   1::bigint,
   'self-removal removes exactly one person: the caller'
+);
+
+set local role postgres;
+update public.moments
+set captured_at = statement_timestamp() - interval '24 hours 1 millisecond'
+where id = 'bb000000-0000-4000-8000-000000000004';
+set local role authenticated;
+select pg_temp.act_as('22222222-2222-4222-8222-222222222222');
+select is(
+  (select count(*) from public.list_recent_moments(20)
+   where moment_id = 'bb000000-0000-4000-8000-000000000004'),
+  0::bigint,
+  'the author''s own Moment leaves Home at the live capture-time boundary'
+);
+select is(
+  (select count(*) from public.list_diary_moments(30)
+   where moment_id = 'bb000000-0000-4000-8000-000000000004'),
+  1::bigint,
+  'Home expiry leaves the same authored Moment in Diary history'
 );
 
 set local role postgres;

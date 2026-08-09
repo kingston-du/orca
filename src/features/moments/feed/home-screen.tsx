@@ -393,6 +393,47 @@ export function HomeScreen({
 
   const hasSession = feed.session !== null;
   const sharing = pendingMoment !== null;
+
+  /**
+   * The frozen session protects a deck under a finger; it does not turn live
+   * Home membership into a snapshot. The server tells every row its own query
+   * instant, so the client can schedule the nearest captured_at + 24h boundary
+   * without trusting the phone clock.
+   *
+   * Crossing the boundary only marks a refresh due. A moving deck owns its
+   * current layout until momentum settles, then a new frozen session is opened.
+   * `page_loaded` preserves the current Moment by ID and otherwise chooses the
+   * nearest surviving neighbour, just as it does for block or deletion.
+   */
+  const expiryRefreshDue = useRef(false);
+  const [expirySignal, setExpirySignal] = useState(0);
+  useEffect(() => {
+    if (
+      !watching ||
+      !hasSession ||
+      sharing ||
+      feed.nextExpiryDelayMs === null
+    ) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      expiryRefreshDue.current = true;
+      setExpirySignal((signal) => signal + 1);
+    }, feed.nextExpiryDelayMs);
+    return () => clearTimeout(timer);
+  }, [feed.nextExpiryDelayMs, hasSession, sharing, watching]);
+
+  useEffect(() => {
+    if (!watching) {
+      expiryRefreshDue.current = false;
+      return;
+    }
+    if (!expiryRefreshDue.current || deckBusy || sharing) return;
+    expiryRefreshDue.current = false;
+    startNewSession();
+  }, [deckBusy, expirySignal, sharing, startNewSession, watching]);
+
   const wasWatching = useRef(false);
   useEffect(() => {
     const previously = wasWatching.current;

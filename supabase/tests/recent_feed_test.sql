@@ -2,7 +2,7 @@ begin;
 set local search_path = public, extensions;
 set local role postgres;
 create extension if not exists pgtap with schema extensions;
-select plan(46);
+select plan(54);
 
 -- ---------------------------------------------------------------------------
 -- Shape and privileges
@@ -43,6 +43,16 @@ select ok(
   has_function_privilege('authenticated', 'public.count_new_recent_moments(timestamptz)', 'execute')
   and not has_function_privilege('anon', 'public.count_new_recent_moments(timestamptz)', 'execute'),
   'only a signed-in client may count new arrivals'
+);
+select has_function('private', 'is_active_recent_moment', array['uuid', 'uuid'],
+  'active relationship authorization is separated from Home age');
+select ok(
+  not has_function_privilege(
+    'authenticated', 'private.is_active_recent_moment(uuid,uuid)', 'execute')
+  and not has_function_privilege(
+    'authenticated',
+    'private.is_inside_live_recent_window(timestamptz,timestamptz)', 'execute'),
+  'the active and live-window helpers have no client reachability'
 );
 
 select has_index('public', 'moments', 'moments_recent_feed_idx',
@@ -215,6 +225,18 @@ select pg_temp.publish('aa000000-0000-4000-8000-00000000000b',
   '22222222-2222-4222-8222-222222222222', 'archive', 'archive_participants',
   now() - interval '20 minutes');
 
+-- A successfully published Recent Moment whose credible capture instant has
+-- now crossed Home's live 24-hour boundary. Its immutable kind and historical
+-- recipient grant remain; only live Home membership expires.
+select pg_temp.publish('aa000000-0000-4000-8000-00000000000c',
+  '11111111-1111-4111-8111-111111111111', 'recent', 'all_friends', now());
+update public.moments
+set captured_at = statement_timestamp() - interval '24 hours 1 millisecond'
+where id = 'aa000000-0000-4000-8000-00000000000c';
+select pg_temp.grant_to('aa000000-0000-4000-8000-00000000000c',
+  '11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222',
+  '0a000000-0000-4000-8000-000000000001');
+
 -- bob looked at alice's older Moment ten minutes ago.
 insert into public.moment_seen (viewer_id, moment_id, first_seen_at)
 values ('22222222-2222-4222-8222-222222222222',
@@ -237,6 +259,42 @@ grant execute on function pg_temp.act_as(uuid) to authenticated;
 -- ---------------------------------------------------------------------------
 set local role authenticated;
 select pg_temp.act_as('22222222-2222-4222-8222-222222222222');
+
+set local role postgres;
+select ok(
+  private.is_inside_live_recent_window(
+    '2026-08-08T12:00:00.001Z', '2026-08-09T12:00:00Z'),
+  '23:59:59.999 remains inside the live Recent window'
+);
+select ok(
+  not private.is_inside_live_recent_window(
+    '2026-08-08T12:00:00Z', '2026-08-09T12:00:00Z'),
+  'the exact 24-hour boundary is outside the live Recent window'
+);
+select ok(
+  private.is_inside_live_recent_window(
+    '2026-08-09T12:05:00Z', '2026-08-09T12:00:00Z'),
+  'a credible capture instant inside the admitted future tolerance stays live'
+);
+set local role authenticated;
+select pg_temp.act_as('22222222-2222-4222-8222-222222222222');
+
+select is(
+  (select count(*) from public.list_recent_moments(20, now())
+   where moment_id = 'aa000000-0000-4000-8000-00000000000c'),
+  0::bigint,
+  'a credible Recent Moment leaves Home once capture time is beyond 24 hours'
+);
+select ok(
+  public.can_view_moment('aa000000-0000-4000-8000-00000000000c'),
+  'Home expiry preserves the recipient snapshot and historical row access'
+);
+select is(
+  (select kind from public.moments
+   where id = 'aa000000-0000-4000-8000-00000000000c'),
+  'recent',
+  'Home expiry never mutates immutable publication classification'
+);
 
 -- A session that opened just now: alice's older Moment was already seen ten
 -- minutes ago, so it falls into the seen partition behind everything else.

@@ -2,7 +2,7 @@ begin;
 set local search_path = public, extensions;
 set local role postgres;
 create extension if not exists pgtap with schema extensions;
-select plan(73);
+select plan(77);
 
 -- ---------------------------------------------------------------------------
 -- Shape and privileges
@@ -299,6 +299,43 @@ select is(
   'an author sees where their own Moment landed, and is told it is theirs so no control is offered'
 );
 
+-- M8: published and captured two days ago. It has left Home, but the current
+-- relationship, reaction authorization, and Highlights' independent seven-day
+-- window are all still live.
+set local role postgres;
+select pg_temp.publish('aa000000-0000-4000-8000-000000000008',
+  '11111111-1111-4111-8111-111111111111', 'recent', 'all_friends',
+  now() - interval '2 days');
+select pg_temp.grant_to('aa000000-0000-4000-8000-000000000008',
+  '11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222',
+  '0a000000-0000-4000-8000-000000000001');
+set local role authenticated;
+select pg_temp.act_as('22222222-2222-4222-8222-222222222222');
+select lives_ok(
+  $$ select * from public.set_moment_reaction(
+       'aa000000-0000-4000-8000-000000000008',
+       'c0000000-0000-4000-8000-000000000030', 'heart') $$,
+  'Home age does not revoke reaction authorization on an active relationship'
+);
+select is(
+  (select count(*)::integer from public.list_recent_moments(20)
+   where moment_id = 'aa000000-0000-4000-8000-000000000008'),
+  0,
+  'the two-day-old capture is absent from Home'
+);
+select is(
+  (select can_react from public.get_moment_detail(
+     'aa000000-0000-4000-8000-000000000008')),
+  true,
+  'detail exposes the same age-independent active reaction rule'
+);
+select is(
+  (select count(*)::integer from public.list_highlight_moments()
+   where moment_id = 'aa000000-0000-4000-8000-000000000008'),
+  1,
+  'a scored day-two Moment remains in Highlights after leaving Home'
+);
+
 -- ---------------------------------------------------------------------------
 -- The transition matrix
 -- ---------------------------------------------------------------------------
@@ -569,7 +606,8 @@ select is(
 select results_eq(
   $$ select moment_id from public.list_highlight_moments() $$,
   $$ values ('aa000000-0000-4000-8000-000000000006'::uuid),
-            ('aa000000-0000-4000-8000-000000000001'::uuid) $$,
+            ('aa000000-0000-4000-8000-000000000001'::uuid),
+            ('aa000000-0000-4000-8000-000000000008'::uuid) $$,
   'one Superheart outranks two Hearts, so score decides order and recency only breaks ties'
 );
 select is(

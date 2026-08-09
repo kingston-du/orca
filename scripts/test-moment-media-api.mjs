@@ -27,13 +27,14 @@ const target = process.env.ORCA_TEST_API_URL
       );
       return {
         apiUrl: status.API_URL,
+        dbUrl: status.DB_URL,
         publishableKey: status.PUBLISHABLE_KEY,
         serviceKey: status.SERVICE_ROLE_KEY,
         label: "local",
       };
     })();
 
-const { apiUrl, publishableKey, serviceKey, label } = target;
+const { apiUrl, dbUrl, publishableKey, serviceKey, label } = target;
 assert.ok(
   apiUrl && publishableKey && serviceKey,
   `${label} Supabase API URL, publishable key, and service role key must all be available`,
@@ -106,6 +107,46 @@ function momentJpeg(width = 1200, height = 1600) {
 
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+/**
+ * A local-only clock fixture for the one rule that cannot be observed by
+ * waiting in an integration suite. Production exposes no mutation for trusted
+ * capture time, and the service role intentionally has no direct table UPDATE.
+ */
+function setLocalMomentCapturedAt(momentId, capturedAt) {
+  if (!dbUrl) return false;
+  assert.match(momentId, /^[0-9a-f-]{36}$/);
+  assert.match(
+    capturedAt,
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}(?:Z|[+-]\d{2}:\d{2})$/,
+  );
+  const database = new URL(dbUrl);
+  execFileSync(
+    "psql",
+    [
+      "--host",
+      database.hostname,
+      "--port",
+      database.port,
+      "--username",
+      decodeURIComponent(database.username),
+      "--dbname",
+      database.pathname.slice(1),
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-c",
+      `update public.moments set captured_at = '${capturedAt}'::timestamptz where id = '${momentId}'::uuid`,
+    ],
+    {
+      env: {
+        ...process.env,
+        PGPASSWORD: decodeURIComponent(database.password),
+      },
+      stdio: "pipe",
+    },
+  );
+  return true;
 }
 
 /** Storage answers both a duplicate and an RLS denial with HTTP 400 and puts
@@ -722,6 +763,59 @@ try {
     true,
     "and is told it is theirs, so no control is offered for a reaction the server would refuse",
   );
+
+  // V1.1A: classification and durable authorization survive, while Home's
+  // server-clock capture window expires independently. The service client is
+  // used only to move the fixture's clock; every assertion crosses PostgREST
+  // with the same real member JWTs as the app. A direct local database
+  // connection owns only the otherwise-unreachable fixture clock change.
+  if (
+    setLocalMomentCapturedAt(
+      momentId,
+      new Date(Date.now() - 24 * 60 * 60 * 1000 - 1_000).toISOString(),
+    )
+  ) {
+    try {
+      const agedHome = await bob.client.rpc("list_recent_moments", {
+        p_limit: 20,
+      });
+      assert.ifError(agedHome.error);
+      assert.equal(
+        agedHome.data.some((row) => row.moment_id === momentId),
+        false,
+        "a capture beyond 24 hours leaves Home over the real Data API",
+      );
+
+      const agedDetail = await bob.client.rpc("get_moment_detail", {
+        p_moment_id: momentId,
+      });
+      assert.ifError(agedDetail.error);
+      assert.equal(
+        agedDetail.data[0].can_react,
+        true,
+        "Home expiry preserves active-friend detail and reaction authorization",
+      );
+
+      const agedHighlights = await bob.client.rpc("list_highlight_moments", {});
+      assert.ifError(agedHighlights.error);
+      assert.ok(
+        agedHighlights.data.some((row) => row.moment_id === momentId),
+        "Highlights keeps its independent seven-day rule after Home expiry",
+      );
+
+      const expiredSeen = await carol.client.rpc("mark_moments_seen", {
+        p_moment_ids: [momentId],
+      });
+      assert.ifError(expiredSeen.error);
+      assert.equal(
+        expiredSeen.data,
+        0,
+        "an expired Home row cannot gain a new first-seen record",
+      );
+    } finally {
+      setLocalMomentCapturedAt(momentId, bobRow.captured_at);
+    }
+  }
 
   const quota = await carol.client.rpc("get_reaction_quota");
   assert.ifError(quota.error);

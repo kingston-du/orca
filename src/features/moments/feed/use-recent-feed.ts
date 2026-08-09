@@ -17,6 +17,7 @@ import {
   type RecentMoment,
   type RecentPage,
 } from "@/features/moments/feed/recent-api";
+import { nextRecentExpiryDelayMs } from "@/features/moments/feed/recent-expiry";
 
 /**
  * Section 21 keeps at most five pages of metadata around the current card. Past
@@ -180,6 +181,11 @@ export function useRecentFeed(
     [pages.data],
   );
 
+  const nextExpiryDelayMs = useMemo(
+    () => nextRecentExpiryDelayMs(moments),
+    [moments],
+  );
+
   /**
    * How many Moments have arrived since this session's ceiling.
    *
@@ -270,6 +276,7 @@ export function useRecentFeed(
   return {
     moments,
     session,
+    nextExpiryDelayMs,
     // Zero until *this* session has an answer of its own. A session with no
     // ceiling has nothing to count against, and saying "0 new" while that is
     // true is honest — the alternative is showing a number that belongs to a

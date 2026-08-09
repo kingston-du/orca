@@ -4,7 +4,7 @@ These lessons explain verified Splotty implementation checkpoints through their 
 
 ## Redesign status
 
-Splotty's friend-first foundation, Phases 1–8, and Checkpoints 9A–9C are implemented on `codex/friend-first-rebaseline`; hosted and local development share all twenty migrations, verified identical against hosted on 2026-08-04. Checkpoint 9D's client rename and internal-preview foundation are implemented, and its legal/Auth rename is promoted. The first internal candidate deliberately reuses hosted development; EAS development/preview client values are configured. Signing, push credentials, the permanent operator identity and its TOTP, and physical-device acceptance are all closed as of 2026-08-04; source-map verification with a symbolicated release crash, the universal invite domain, and external legal text remain gates.
+Splotty's V1 engineering is complete. Hosted development has twenty promoted migrations; the beta-legal migration remains deliberately local because promotion makes every hosted account reaccept. V1.1A's live 24-hour Home correction is implemented and green locally as the twenty-second migration, with hosted promotion and its physical clock-boundary pass still deferred. V1 release gates remain source-map verification with a symbolicated crash, the universal invite domain, public legal/privacy review, App Store metadata, and separately approved distribution.
 
 Only the retained foundations below are current course material. Obsolete and superseded work is separated in the [historical archive](./archive/README.md).
 
@@ -32,6 +32,7 @@ Only the retained foundations below are current course material. Obsolete and su
 - Lesson 31 — [A design system and its contradictions](./31-a-design-system-and-its-contradictions.md) (Part 7 follows founder review through scrim, photo geometry, timestamp, and keyboard-ownership refinements)
 - Lesson 32 — [Renaming a product without breaking its addresses](./32-renaming-a-product-without-breaking-its-addresses.md)
 - Lesson 33 — [One agreement, one acceptance](./33-one-agreement-one-acceptance.md) (collapsing four legal documents into one, and why an acceptance bound to a hash makes that a schema change)
+- Lesson 34 — [A classification is not a clock](./34-a-classification-is-not-a-clock.md) (separating permanent Recent classification from Home's live 24-hour membership without shortening history, Highlights, or reactions)
 
 Lesson 23's claim that the viewer's own Moments fail the Recent read rule described Checkpoint 5A only. Checkpoint 5B made own Recent Moments visible on Home by founder direction; Lesson 24 Part 3 explains what changed and why the old behaviour was an accident of the join rather than a decision. Lessons 23 and 24 also state that no reaction control, count, or people list exists anywhere; that described Phases 5A and 5B only. Phase 6 adds all three, and Lesson 25 covers them.
 
@@ -41,7 +42,7 @@ Lessons 20 and 22 describe the media worker as the only outbox and say that publ
 
 ## Next lesson
 
-The next lesson is created only after the next coherent Checkpoint 9D release boundary is implemented and verified. Course notes never describe speculative code as though it exists.
+The next lesson is created only after V1.1B's concise copy, metadata, shared-count, and People-drag checkpoint is implemented and verified. Course notes never describe speculative code as though it exists.
 
 ## Course progression and checkpoint contract
 

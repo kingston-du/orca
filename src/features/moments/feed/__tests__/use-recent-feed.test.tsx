@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react-native";
 import type { PropsWithChildren } from "react";
 
 import { RECENT_PAGE_SIZE } from "@/features/moments/feed/recent-api";
+import { nextRecentExpiryDelayMs } from "@/features/moments/feed/recent-expiry";
 import { useRecentFeed } from "@/features/moments/feed/use-recent-feed";
 
 const mockRpc = jest.fn();
@@ -61,6 +62,36 @@ beforeEach(() => {
   mockRpc.mockImplementation(async (name: string) => {
     if (name === "count_new_recent_moments") return { data: 0, error: null };
     return { data: [], error: null };
+  });
+});
+
+describe("the live capture-time boundary", () => {
+  it("derives the next expiry from server time rather than the device clock", () => {
+    expect(
+      nextRecentExpiryDelayMs([
+        row(0, {
+          captured_at: "2026-07-31T12:00:00.001Z",
+          session_started_at: "2026-08-01T12:00:00.000Z",
+        }),
+      ]),
+    ).toBe(1);
+    expect(
+      nextRecentExpiryDelayMs([
+        row(0, {
+          captured_at: "2026-07-31T12:00:00.000Z",
+          session_started_at: "2026-08-01T12:00:00.000Z",
+        }),
+      ]),
+    ).toBe(0);
+  });
+
+  it("ignores a missing or malformed capture instant instead of inventing one", () => {
+    expect(
+      nextRecentExpiryDelayMs([
+        row(0, { captured_at: null }),
+        row(1, { captured_at: "not-a-date" }),
+      ]),
+    ).toBeNull();
   });
 });
 
