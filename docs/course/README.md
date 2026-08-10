@@ -4,7 +4,7 @@ These lessons explain verified Splotty implementation checkpoints through their 
 
 ## Redesign status
 
-Splotty's V1 engineering is complete. Hosted development has twenty promoted migrations; the beta-legal migration remains deliberately local because promotion makes every hosted account reaccept. V1.1A's live 24-hour Home correction is implemented and green locally as the twenty-second migration, with hosted promotion and its physical clock-boundary pass still deferred. V1 release gates remain source-map verification with a symbolicated crash, the universal invite domain, public legal/privacy review, App Store metadata, and separately approved distribution.
+Splotty's V1 engineering is complete. Hosted development has twenty-three promoted migrations through V1.1A's live 24-hour Home correction. An exact-hash carry-forward preserved the seven hosted test profiles' previous acceptance and all fourteen hosted profiles are current on the beta agreement. The physical clock-boundary/background-resume pass was explicitly waived for this server promotion and remains deferred evidence; the exact in-session timer still requires a later V1.1 binary. V1 release gates remain source-map verification with a symbolicated crash, the universal invite domain, public legal/privacy review, App Store metadata, and separately approved distribution.
 
 Only the retained foundations below are current course material. Obsolete and superseded work is separated in the [historical archive](./archive/README.md).
 
@@ -33,6 +33,7 @@ Only the retained foundations below are current course material. Obsolete and su
 - Lesson 32 — [Renaming a product without breaking its addresses](./32-renaming-a-product-without-breaking-its-addresses.md)
 - Lesson 33 — [One agreement, one acceptance](./33-one-agreement-one-acceptance.md) (collapsing four legal documents into one, and why an acceptance bound to a hash makes that a schema change)
 - Lesson 34 — [A classification is not a clock](./34-a-classification-is-not-a-clock.md) (separating permanent Recent classification from Home's live 24-hour membership without shortening history, Highlights, or reactions)
+- Lesson 35 — [Carry acceptance by proof, and deploy behavior by layer](./35-carry-acceptance-by-proof.md) (preserving an explicitly approved test cohort's exact prior acceptance while promoting a server correction compatible with the current TestFlight build)
 
 Lesson 23's claim that the viewer's own Moments fail the Recent read rule described Checkpoint 5A only. Checkpoint 5B made own Recent Moments visible on Home by founder direction; Lesson 24 Part 3 explains what changed and why the old behaviour was an accident of the join rather than a decision. Lessons 23 and 24 also state that no reaction control, count, or people list exists anywhere; that described Phases 5A and 5B only. Phase 6 adds all three, and Lesson 25 covers them.
 

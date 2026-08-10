@@ -197,7 +197,8 @@ authorized through real JWTs.
 
 ## Verification evidence
 
-From a clean local replay of all twenty-two migrations:
+From a clean local replay of all twenty-three migrations, including the later
+test-cohort carry-forward documented in Lesson 35:
 
 ```text
 db:reset, db:lint, db:test       1,029 pgTAP assertions / 15 files
@@ -211,9 +212,10 @@ Expo compatibility/Doctor       pre-existing SDK patch/RNGH pin drift; unchanged
 ```
 
 No public function signature, generated client type, dependency, native
-capability, legal text, Storage policy, or hosted resource changed. Hosted
-promotion and the physical-iPhone 23:59/24:01 plus background-resume pass remain
-deferred gates.
+capability, legal text, or Storage policy changed. Hosted promotion followed on
+2026-08-09 and is documented in Lesson 35. The physical-iPhone 23:59/24:01 plus
+background-resume pass was explicitly waived for that server promotion and
+remains deferred evidence rather than a passed gate.
 
 ## Exercise
 

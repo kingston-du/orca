@@ -1,10 +1,10 @@
 # Splotty — product source of truth
 
-Status date: 2026-08-08
+Status date: 2026-08-09
 
-Product state: V1 feature engineering is complete and frozen while the beta/release package waits for external review and approval-gated release operations. V1.1A's live 24-hour Home correction is implemented and green locally on `codex/v1-1a-live-recent-window`; V1.1B is next. Hosted development remains at the twenty promoted migrations through `20260811130000_reconcile_schedule_seconds_syntax.sql`. Local source adds the deliberately unpromoted beta-legal migration and `20260813120000_live_recent_window.sql`; promoting either later migration necessarily applies beta legal first and makes every hosted account reaccept the agreement.
+Product state: V1 feature engineering is complete and frozen while the beta/release package waits for external review and approval-gated release operations. V1.1A's live 24-hour Home correction is implemented, green, and promoted to hosted development on `codex/v1-1a-live-recent-window`; V1.1B is next. Hosted development has twenty-three migrations through `20260813120000_live_recent_window.sql`. The exact-hash carry-forward in `20260812130000_carry_forward_beta_test_acceptances.sql` preserved the seven hosted test profiles' complete previous acceptance history, leaving all fourteen hosted profiles current on the beta agreement.
 
-Release state: the signed V1 development build and all physical-device gates are accepted. Remaining V1 release work is operational rather than new product scope: promote the beta-legal migration with explicit approval; finish Sentry source-map credentials and a symbolicated release crash; publish and review the privacy notice; complete the universal-link domain/AASA; prepare App Store metadata/privacy answers; and obtain separate approval for EAS store build, TestFlight upload, distribution, or production-resource changes. The first internal candidate may use hosted development by prior founder decision; a separate production project remains deferred.
+Release state: the signed V1 development build and its completed physical-device gates remain accepted. Remaining V1 release work is operational rather than new product scope: finish Sentry source maps and a symbolicated release crash; publish and review the privacy notice; complete the universal-link domain/AASA; prepare App Store metadata/privacy answers; and obtain separate approval for EAS store build, TestFlight upload, distribution, or production-resource changes. The first internal candidate uses hosted development by prior founder decision; a separate production project remains deferred. V1.1A's pre-promotion physical 24-hour/background-resume pass was explicitly waived on 2026-08-09 and remains deferred evidence, not a passed device gate.
 
 Product target: a production-quality private, friend-first iOS beta for approximately 100 users.
 
@@ -26,7 +26,6 @@ The last recorded full V1 evidence is the locally green twenty-one-migration leg
 
 ### Open release gates
 
-- Explicitly approve and promote `20260812120000_beta_legal_single_acceptance.sql`; it intentionally makes existing hosted users stale-legal.
 - Supply Sentry organization/project slugs and auth token, upload source maps, and prove one symbolicated release crash.
 - Serve the privacy notice at a public URL, obtain legal review, and complete App Store metadata/privacy answers from the reviewed text.
 - Complete the HTTPS universal-link domain and AASA path used by invite links.
@@ -40,7 +39,7 @@ The last recorded full V1 evidence is the locally green twenty-one-migration leg
 
 ## 2. Active direction
 
-V1.1 is the active product checkpoint series. V1.1A is locally implemented; the remaining checkpoints are ordered plans. No local checkpoint completion authorizes hosted migration promotion, Auth-provider configuration, function deployment, native distribution, or release.
+V1.1 is the active product checkpoint series. V1.1A is implemented and its server migration is hosted; the remaining checkpoints are ordered plans. No local checkpoint completion authorizes another hosted migration promotion, Auth-provider configuration, function deployment, native distribution, or release.
 
 The ordered V1.1 work is:
 
@@ -916,8 +915,8 @@ The friend-first rebaseline is finished historical work. Its destructive reset, 
 
 Current migration boundary:
 
-- Hosted development has twenty promoted migrations through `20260811130000_reconcile_schedule_seconds_syntax.sql`.
-- Local source adds the green, unpromoted `20260812120000_beta_legal_single_acceptance.sql`.
+- Hosted development and local source align at twenty-three migrations through `20260813120000_live_recent_window.sql`.
+- `20260812130000_carry_forward_beta_test_acceptances.sql` is a hosted-development historical bridge for the founder-approved test cohort, not a reusable rule for future legal versions or real users.
 - Never amend a promoted migration. Every V1.1 schema/RPC change is a new handwritten imperative migration with constraints, indexes, explicit grants, RLS/policies, cleanup behavior, pgTAP, real API coverage, and generated-type agreement.
 - Local replay/lint/pgTAP/types and relevant real API/Storage/Function tests must be green before requesting hosted promotion.
 - Hosted migration promotion, Auth-provider configuration, Vault/Cron change, Edge Function deployment, destructive remote action, endpoint cutover, production resource, or release action each requires its own explicit approval.
@@ -1011,7 +1010,7 @@ Every checkpoint is independently reviewable and green. “Planned” means no i
 - **Evidence:** cross-read `CLAUDE.md`, current `AGENTS.md`, repository status/HEAD, current source/tests/migrations, installed Expo Camera types, and current primary Expo/Supabase/Apple references. No app, schema, hosted, dependency, native, or release mutation.
 - **Next:** V1.1A was approved and implemented locally; V1.1B is the next checkpoint.
 
-### V1.1A — Live 24-hour Recent window (**implemented locally 2026-08-08; unpromoted**)
+### V1.1A — Live 24-hour Recent window (**implemented 2026-08-08; hosted 2026-08-09**)
 
 - **Outcome/why first:** fix the reported server-owned behavior before restyling it. A Moment whose credible capture instant is 24 hours old no longer appears in Home → Recent, while its immutable kind, row/media, Diary/history entitlement, and seven-day Highlights behavior remain intact.
 - **Database design:** add a new migration rather than editing promoted functions. Extract the current status/account/block/live-generation/kind predicate into a private active-Moment helper. Recreate `private.is_recent_feed_moment` and `private.authorized_recent_moments` so Home additionally requires `captured_at > statement_timestamp() - interval '24 hours'`. Keep Highlights and reaction authorization on the active helper and their existing rules; new-Moment push reauthorization uses the 24-hour helper. Recreate dependent public RPCs only where PostgreSQL dependency/signature rules require it, preserving grants/owners/comments and banning class-40 SQLSTATEs.
@@ -1020,7 +1019,8 @@ Every checkpoint is independently reviewable and green. “Planned” means no i
 - **Proof:** exact server-boundary cases at 23:59:59.999, 24:00:00, future tolerance, own/Only Me, received, Archive, block, unfriend/refriend, arrivals count, seen writes, keyset paging, share delivery, Highlights day 2–7, and reaction authorization. Client fake-timer tests prove expiry does not reorder during a swipe and focus catches a slept timer. Run clean replay/lint/pgTAP/types, real Data API coverage, app tests/type/lint/format, then a physical clock-boundary/background-resume pass.
 - **Gates:** local implementation is one checkpoint; hosted promotion requires explicit approval and a preflight showing the V1 review build is not relying on the old behavior.
 - **Implemented evidence:** migration `20260813120000_live_recent_window.sql` separates active relationship authorization from strict capture-time Home membership without changing public RPC signatures or generated public types. The client derives the nearest retained expiry from each row's server query instant, defers session replacement while the deck is moving, preserves position through the existing ID reducer, and revalidates on focus/foreground. Clean replay/lint/types and all 1,029 pgTAP assertions pass; all 529 Jest assertions, 78 Function assertions, five real Data API/Storage suites, and type/lint/format/native/legal/contrast gates pass. The local real-API harness ages its fixture through a direct database connection because neither clients nor `service_role` receive a trusted-capture update grant. Expo compatibility/Doctor still report the pre-existing SDK 57 patch drift and the repository's `react-native-gesture-handler` 3.1 pin; this checkpoint changes no dependency or native capability, so resolving that rebuild-bound gate remains separate work.
-- **Deferred evidence:** hosted promotion and the physical-iPhone 23:59/24:01/background-resume clock-boundary pass remain approval/device gates. No hosted, Function, provider, native-build, or release state changed.
+- **Hosted evidence:** after an exact dry run, hosted applied only `20260812130000_carry_forward_beta_test_acceptances.sql` and `20260813120000_live_recent_window.sql`. Migration history aligns at twenty-three; linked schema lint is clean; the advisor warning baseline is unchanged; the live helper returns true at 23:59:59.999 and false at exactly 24:00:00; all fourteen hosted profiles have the exact beta acceptance and zero are stale; the V1 review build's list/count/seen RPC signatures and authenticated-only reachability are unchanged; and all five real hosted Auth/Data API/Storage suites pass. Their run-owned fixtures were removed through Storage absence proof, relational cleanup, and Auth-last deletion, and a final dry run reports no pending migration.
+- **Deferred evidence:** the founder explicitly waived the pre-promotion physical-iPhone 23:59/24:01/background-resume pass on 2026-08-09. The hosted server now filters the current TestFlight build on Home refetch without a binary update; that build does not contain the exact in-session client timer. No Function, provider, native-build, TestFlight, or release state changed.
 
 ### V1.1B — Concise copy, metadata, shared counts, and whole-screen People drag (**planned**)
 
@@ -1146,7 +1146,7 @@ Installed source/types and pinned CLI `--help` take precedence over generic exam
 
 V1 feature engineering remains frozen for review. Preserve `main` and the user-owned untracked `legal/beta-2026-08-04/support.html`; do not mix release-review corrections with V1.1 implementation.
 
-V1.1A is implemented and green locally. Before any promotion, run its deferred physical-iPhone clock-boundary/background-resume pass and confirm the V1 review build is not relying on permanent Recent membership. Promoting `20260813120000_live_recent_window.sql` is not authorized: hosted development would first apply `20260812120000_beta_legal_single_acceptance.sql`, making every hosted account stale-legal, and then change Home behavior. A promotion request must name and approve both effects explicitly.
+V1.1A is implemented, green, and promoted to hosted development. The founder explicitly waived the pre-promotion physical-iPhone clock-boundary/background-resume pass on 2026-08-09; keep it named as deferred evidence until it is actually run. The current TestFlight review build receives the server-owned 24-hour filter whenever Home fetches a new session, but exact expiry while Home remains continuously open requires V1.1A's client timer in a later approved binary.
 
 After V1.1A review, the next local implementation checkpoint is **V1.1B — Concise copy, metadata, shared counts, and whole-screen People drag**:
 
@@ -1156,4 +1156,4 @@ After V1.1A review, the next local implementation checkpoint is **V1.1B — Conc
 4. Give the entire People body one vertical scroll/pull-to-refresh owner, including short-grid whitespace and empty/loading/error states.
 5. Run the focused RNTL, Dynamic Type, VoiceOver, contrast, type/lint/format gates, update the course/status documents, and create one coherent checkpoint commit. No database, dependency, native rebuild, hosted mutation, or release action belongs to V1.1B.
 
-V1 release operations may proceed independently under their existing approvals: beta-legal/public privacy review, Sentry source maps and symbolicated crash, universal-link domain/AASA, App Store metadata/privacy answers, and separately approved TestFlight/App Store actions. Provider credentials/configuration, native social-auth capabilities, hosted V1.1 migrations/functions, production resources, and distribution are not authorized by this planning document.
+V1 release operations may proceed independently under their existing approvals: public privacy/legal review, Sentry source maps and symbolicated crash, universal-link domain/AASA, App Store metadata/privacy answers, and separately approved TestFlight/App Store actions. Provider credentials/configuration, native social-auth capabilities, later hosted V1.1 migrations/functions, production resources, and distribution are not authorized by this planning document.
