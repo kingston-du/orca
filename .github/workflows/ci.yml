@@ -38,6 +38,9 @@ jobs:
       - name: Check immutable legal document hashes
         run: npm run legal:check
 
+      - name: Check store listing metadata against the accepted agreement
+        run: npm run store:check
+
       - name: Lint with zero warnings
         run: npm run lint
 

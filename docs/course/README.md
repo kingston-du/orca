@@ -32,6 +32,7 @@ Only the retained foundations below are current course material. Obsolete and su
 - Lesson 31 — [A design system and its contradictions](./31-a-design-system-and-its-contradictions.md) (Part 7 follows founder review through scrim, photo geometry, timestamp, and keyboard-ownership refinements)
 - Lesson 32 — [Renaming a product without breaking its addresses](./32-renaming-a-product-without-breaking-its-addresses.md)
 - Lesson 33 — [One agreement, one acceptance](./33-one-agreement-one-acceptance.md) (collapsing four legal documents into one, and why an acceptance bound to a hash makes that a schema change)
+- Lesson 34 — [A store listing derived from its contract](./34-a-store-listing-derived-from-its-contract.md) (the App Privacy label as a derived artifact, and gating a prose document on the hash of the text it was derived from)
 
 Lesson 23's claim that the viewer's own Moments fail the Recent read rule described Checkpoint 5A only. Checkpoint 5B made own Recent Moments visible on Home by founder direction; Lesson 24 Part 3 explains what changed and why the old behaviour was an accident of the join rather than a decision. Lessons 23 and 24 also state that no reaction control, count, or people list exists anywhere; that described Phases 5A and 5B only. Phase 6 adds all three, and Lesson 25 covers them.
 
@@ -41,7 +42,7 @@ Lessons 20 and 22 describe the media worker as the only outbox and say that publ
 
 ## Next lesson
 
-The next lesson is created only after the next coherent Checkpoint 9D release boundary is implemented and verified. Course notes never describe speculative code as though it exists.
+The next lesson is created only after the next coherent Checkpoint 9D release boundary is implemented and verified — the remaining ones are the universal-link domain and its AASA, and Sentry source maps with a symbolicated release crash. Course notes never describe speculative code as though it exists.
 
 ## Course progression and checkpoint contract
 
