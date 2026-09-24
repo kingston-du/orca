@@ -1,55 +1,39 @@
 # Splotty
 
-> Live your life, and remember it too.
+A private photo journal for iOS that you share only with close friends. You post one photo at a time, and over time it becomes a record of your life and your friends' lives.
 
-Splotty is a private, friend-first iOS photo app. Capture or choose one photo, share the Moment with friends, swipe through their Moments, react, and quietly build personal and shared history.
+## Why I made it
 
-The repository is under founder-only development. The complete private V1 product loop, safety/deletion backend, push outbox, and release-polished client are implemented; the first internal build deliberately uses hosted development. The Splotty legal migration and Auth templates are promoted. Physical-device matrices, push/source-map credentials, universal links, permanent moderator identity, external legal/store text, and TestFlight upload remain gated.
+Most photo apps are built around an audience: followers, likes, a public feed. I wanted the opposite, something closer to a shared diary. There are no followers, no public profiles, and no feed of strangers. It's just you and the friends you've added back.
 
-## Product boundaries
+## What it does
 
-- Private mutual friendships; no public profiles, feed, followers, contacts, or fuzzy directory.
-- One photo per Moment; camera first and narrow system picker.
-- Home, Camera, and People tabs; Settings lives under My Profile.
-- No comments, messages, saved Groups, video, multiple photos, payments, or Android release work in V1.
+- Take or choose one photo, and share it as a "Moment" with your friends
+- Swipe through your friends' Moments from the last 24 hours, and react to them
+- Your own posts build into a diary, and the posts you share with each friend build a shared history
+- Mutual friendships only, added by exact username or a personal invite link
+- Reporting, blocking, account deletion, and a moderation console with two-factor sign-in
 
-See [PROJECT.md](PROJECT.md) for the product and architecture contract and [AGENTS.md](AGENTS.md) for execution rules.
+## Stack
 
-## Local setup
+Expo and React Native with TypeScript, Expo Router, TanStack Query, and Supabase (Postgres, Auth, Storage, and Edge Functions).
 
-Prerequisites:
+Access control lives in the database. Row-level security decides what each person can see, and 1,014 pgTAP assertions test it. The app side has 525 Jest tests.
 
-- Node.js `24.14.1`
-- npm `11.11.0`
-- Docker Desktop
-- Xcode and an iOS Simulator
+## Running the tests
 
-Install and verify:
+Needs Node 24 and Docker.
 
 ```bash
 npm ci
+npm test
+npm run typecheck
 npm run db:start
 npm run db:reset
 npm run db:test
-npm test
-npm run typecheck
 ```
 
-Copy `.env.example` to `.env` and supply only the local or approved environment's publishable Supabase values. Never place a secret or service-role key in the app.
+## What's next
 
-Run `npm start` for the development client. Native dependency/config changes
-require `npm run ios -- --device`; Expo Go is not an acceptance environment for
-camera, push, encrypted restore, uploads, haptics, or app lifecycle.
-
-## Safety and moderation
-
-Reporting, blocking, and evidence handling are implemented and documented:
-
-- [Safety policy decisions](docs/operations/2026-08-02-safety-policy-decisions.md) — operator identity, retention, appeals, support contact, and the hosted Auth settings they need.
-- [Moderation runbook](docs/operations/moderation-runbook.md) — on-call ownership, provisioning, working a case, evidence handling, appeals, and emergency revocation.
-
-The operator console is `npm run moderate`. It is the only moderation surface: an interactive, TOTP-protected sign-in that calls one Edge Function and never holds a service key.
-
-## Learning notes
-
-The numbered [course lessons](docs/course/README.md) explain completed checkpoints. Historical Circle-era lessons are preserved under `docs/course/archive/` and are not current implementation guidance.
+- Sign in with Apple and Google, plus prefix search for usernames.
+- Finish the release setup (crash reporting, the invite-link domain, and legal review) and get it on TestFlight.
